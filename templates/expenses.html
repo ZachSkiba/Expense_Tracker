@@ -7,23 +7,25 @@
     <h1>All Expenses</h1>
     <table border="1">
         <tr>
-            <th>ID</th>
             <th>Amount</th>
             <th>Category</th>
+            <th>Description</th>
             <th>Paid By</th>
             <th>Date</th>
         </tr>
         {% for expense in expenses %}
         <tr>
-            <td>{{ expense.id }}</td>
-            <td>{{ expense.amount }}</td>
-            <td>{{ expense.category }}</td>
-            <td>{{ expense.paid_by }}</td>
-            <td>{{ expense.date }}</td>
+            <td>${{ "%.2f"|format(expense.amount) }}</td>
+            <td>{{ expense.category_obj.name }}</td>
+            <td>{{ expense.category_description or '' }}</td> 
+            <td>{{ expense.user.name }}</td>
+            <td>{{ expense.date.strftime('%Y-%m-%d') }}</td>
         </tr>
         {% endfor %}
     </table>
-    <a href="/add-expense">Add Another Expense</a>
+
+    <br>
+    <a href="{{ url_for('add_expense') }}">Add Another Expense</a>
     <br>
     <a href="{{ url_for('manage') }}">⬅ Back to Management</a>
 </body>
