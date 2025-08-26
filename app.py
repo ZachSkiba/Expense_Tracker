@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
 from models import db, Expense, User, Category   # import db + Expense
 
@@ -22,23 +22,47 @@ def home():
 @app.route('/expenses')
 def expenses():
     all_expenses = Expense.query.order_by(Expense.date.desc()).all()
-    return render_template('expenses.html', expenses=all_expenses)
+    categories = Category.query.all()
+    users = User.query.all()
+    
+    # Convert to safe JSON-serializable lists
+    categories_data = [{'id': c.id, 'name': c.name} for c in categories]
+    users_data = [{'id': u.id, 'name': u.name} for u in users]
+    
+    return render_template(
+        'expenses.html',
+        expenses=all_expenses,
+        categories=categories_data,
+        users=users_data
+    )
 
+# Example: Users
 @app.route("/users", methods=["GET", "POST"])
 def manage_users():
     error = None
+    next_url = request.form.get("next") or request.args.get("next") or url_for("add_expense")
+
     if request.method == "POST":
-        name = request.form.get("name")
+        name = request.form.get("name", "").strip()
         if name:
             if User.query.filter_by(name=name).first():
-                error = "User already exists"
+                error = f"User '{name}' already exists"
             else:
                 new_user = User(name=name)
                 db.session.add(new_user)
                 db.session.commit()
-        return redirect(url_for("manage_users"))
+                return redirect(next_url)
+        # If POST but empty name or error, re-render form
+        users = User.query.all()
+        return render_template("users.html", users=users, error=error, next_url=next_url)
+
+    # GET request
     users = User.query.all()
-    return render_template("users.html", users=users, error=error)
+    return render_template("users.html", users=users, error=error, next_url=next_url)
+
+
+
+
 
 @app.route("/delete_user/<int:user_id>")
 def delete_user(user_id):
@@ -55,19 +79,27 @@ def delete_user(user_id):
 @app.route("/categories", methods=["GET", "POST"])
 def manage_categories():
     error = None
+    next_url = request.form.get("next") or request.args.get("next") or url_for("add_expense")
+
     if request.method == "POST":
-        name = request.form.get("name")
+        name = request.form.get("name", "").strip()
         if name:
             if Category.query.filter_by(name=name).first():
-                error = "Category already exists"
+                error = f"Category '{name}' already exists"
             else:
                 new_cat = Category(name=name)
                 db.session.add(new_cat)
                 db.session.commit()
-        return redirect(url_for("manage_categories"))
-    categories = Category.query.all()
-    return render_template("categories.html", categories=categories, error=error)
+                return redirect(next_url)
+        # If POST but empty name or error, re-render form
+        categories = Category.query.all()
+        return render_template("categories.html", categories=categories, error=error, next_url=next_url)
 
+    # GET request
+    categories = Category.query.all()
+    return render_template("categories.html", categories=categories, error=error, next_url=next_url)
+
+    
 
 @app.route("/delete_category/<int:cat_id>")
 def delete_category(cat_id):
@@ -104,6 +136,10 @@ def add_expense():
     error = None
     users = User.query.all()
     categories = Category.query.all()
+    all_expenses = Expense.query.order_by(Expense.date.desc()).all()  # get table data
+
+    users_data = [{'id': u.id, 'name': u.name} for u in users]
+    categories_data = [{'id': c.id, 'name': c.name} for c in categories]
 
     if request.method == 'POST':
         try:
@@ -113,12 +149,11 @@ def add_expense():
             date_str = request.form['date'] or datetime.today().strftime('%Y-%m-%d')
             category_description = request.form.get('category_description', None)
 
-
             # Handle Add/Remove Users or Categories redirect
             if user_id == "manage":
-                return redirect(url_for("manage_users"))
+                return redirect(url_for("manage_users", next=url_for("add_expense")))
             if category_id == "manage":
-                return redirect(url_for("manage_categories"))
+                return redirect(url_for("manage_categories", next=url_for("add_expense")))
 
             # Validate amount
             try:
@@ -145,24 +180,58 @@ def add_expense():
                 error = "Invalid date format. Use YYYY-MM-DD"
 
             if error:
-                return render_template('add_expense.html',
-                                       error=error,
-                                       users=users,
-                                       categories=categories)
+                return render_template(
+                    'add_expense.html',
+                    error=error,
+                    users=users,
+                    categories=categories,
+                    expenses=all_expenses  # still pass table data
+                )
 
             # Add expense
-            expense = Expense(amount=amount, user_id=user.id, category_id=category.id, category_description=category_description if category_description else None, date=date)
+            expense = Expense(
+                amount=amount,
+                user_id=user.id,
+                category_id=category.id,
+                category_description=category_description if category_description else None,
+                date=date
+            )
             db.session.add(expense)
             db.session.commit()
 
-            return redirect(url_for('expenses'))
+            return redirect(url_for('add_expense'))  # redirect back to same page
 
         except Exception as e:
             error = "An unexpected error occurred: " + str(e)
-            return render_template('add_expense.html', error=error, users=users, categories=categories)
+            return render_template(
+                'add_expense.html',
+                error=error,
+                users=users_data,
+                categories=categories_data,
+                expenses=all_expenses
+            )
 
-    return render_template('add_expense.html', error=None, users=users, categories=categories)
+    return render_template(
+        'add_expense.html',
+        error=None,
+        users=users_data,
+        categories=categories_data,
+        expenses=all_expenses
+    )
 
+
+
+#Delete expenses in the table
+@app.route('/delete_expense/<int:expense_id>', methods=['POST'])
+def delete_expense(expense_id):
+    expense = Expense.query.get_or_404(expense_id)
+    try:
+        db.session.delete(expense)
+        db.session.commit()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(e)
+        return jsonify({'success': False, 'error': str(e)})
 
 
 if __name__ == "__main__":

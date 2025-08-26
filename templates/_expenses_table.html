@@ -1,47 +1,61 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>All Expenses</title>
-    <style>
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
-        th, td {
-            border: 1px solid #ccc;
-            padding: 8px;
-            text-align: left;
-            cursor: pointer;
-        }
-        td.editable input, td.editable select {
-            width: 100%;
-            box-sizing: border-box;
-        }
-        button {
-            cursor: pointer;
-            padding: 4px 8px;
-            margin-right: 2px;
-        }
-        #table-error {
-            color: red;
-            margin-bottom: 10px;
-        }
-        .suggestions {
-            position: absolute;
-            border: 1px solid #ccc;
-            background: white;
-            max-height: 150px;
-            overflow-y: auto;
-            z-index: 100;
-        }
-        .suggestions div:hover {
-            background-color: #f0f0f0;
-        }
-    </style>
-</head>
-<body>
+{# templates/_expenses_table.html #}
 <h1>All Expenses</h1>
 <div id="table-error"></div>
+
+<style>
+    table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 20px;
+        font-family: Arial, sans-serif;
+    }
+
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f4f4f4;
+        font-weight: bold;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+
+    tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+
+    td.editable input,
+    td.editable select {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    button {
+        cursor: pointer;
+        padding: 4px 8px;
+        margin-right: 2px;
+        border: none;
+        background-color: #e74c3c;
+        color: white;
+        border-radius: 4px;
+    }
+
+    button:hover {
+        background-color: #c0392b;
+    }
+
+    #table-error {
+        color: red;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }
+</style>
+
 
 <table>
     <thead>
@@ -79,10 +93,6 @@
         {% endfor %}
     </tbody>
 </table>
-
-<br>
-<a href="{{ url_for('add_expense') }}">➕ Add Another Expense</a><br>
-<a href="{{ url_for('manage') }}">⬅ Back to Management</a>
 
 <script type="text/javascript">
 const categories = {{ categories | tojson | safe }};
@@ -152,7 +162,7 @@ document.querySelectorAll('td.editable').forEach(cell => {
             // Handle redirect when "manage" is selected
             input.addEventListener('change', () => {
                 if (input.value === "manage") {
-                    const nextUrl = "{{ url_for('expenses') }}"; // back to table
+                    const nextUrl = "{{ url_for('add_expense') }}"; // back to table
                     if (type === 'category') {
                         window.location.href = "{{ url_for('manage_categories') }}?next=" + encodeURIComponent(nextUrl);
                     } else if (type === 'user') {
@@ -243,6 +253,3 @@ document.querySelectorAll('.delete-btn').forEach(btn => {
     });
 });
 </script>
-
-</body>
-</html>

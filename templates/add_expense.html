@@ -76,30 +76,31 @@
         // Category select logic
         const categorySelect = document.getElementById("category-select");
         const descContainer = document.getElementById("category-desc-container");
+        const userSelect = document.getElementById("user-select");
 
+
+        // Category select logic
         categorySelect.addEventListener("change", function() {
-            if (this.value && this.value !== "manage") {
+            if (this.value === "manage") {
+                const nextUrl = "{{ url_for('add_expense') }}";
+                window.location.href = "{{ url_for('manage_categories') }}?next=" + encodeURIComponent(nextUrl);
+            } else if (this.value) {
+                // Show description box if a valid category is chosen
                 descContainer.style.display = "block";
             } else {
+                // Hide if nothing selected
                 descContainer.style.display = "none";
             }
-
-            if (this.value === "manage") {
-                window.location.href = "{{ url_for('manage_categories') }}";
-            }
         });
 
-        if (!categorySelect.value || categorySelect.value === "") {
-            descContainer.style.display = "none";
-        }
-
-        // Paid By select logic
-        const userSelect = document.getElementById("user-select");
+        // User select logic
         userSelect.addEventListener("change", function() {
             if (this.value === "manage") {
-                window.location.href = "{{ url_for('manage_users') }}";
+                const nextUrl = "{{ url_for('add_expense') }}";
+                window.location.href = "{{ url_for('manage_users') }}?next=" + encodeURIComponent(nextUrl);
             }
         });
+
 
         // Description suggestions
         const input = document.getElementById("category-description");
@@ -143,5 +144,8 @@
         });
     });
     </script>
+
+    <hr>
+    {% include "_expenses_table.html" %}
 </body>
 </html>

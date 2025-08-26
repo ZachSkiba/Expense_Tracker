@@ -7,10 +7,13 @@
 <h1>Manage Categories</h1>
 
 <h2>Add Category</h2>
-<form method="POST" action="{{ url_for('manage_categories') }}">
-    <input type="text" name="name" placeholder="Enter category name" required>
-    <button type="submit">Add Category</button>
+<form method="POST">
+    <input type="text" name="name" placeholder="New Category" required>
+    <input type="hidden" name="next" value="{{ next_url }}">
+    <button type="submit">Add</button>
 </form>
+
+
 
 {% if error %}
     <p style="color:red;">{{ error }}</p>
