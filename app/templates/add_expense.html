@@ -11,14 +11,14 @@
         <p style="color:red;">{{ error }}</p>
     {% endif %}
 
-    <form method="POST">
+    <form method="POST" id="expense-form">
         <!-- Amount -->
         <label>Amount:</label>
         <input type="number" step="0.01" min="0.01" name="amount" value="{{ amount or '' }}" required><br><br>
 
         <!-- Category -->
         <label>Category:</label>
-        <select id="category-select" name="category_id" required>
+        <select id="category-select" name="category_id" required onchange="handleCategoryChange(this)">
             <option value="" disabled selected>Select category</option>
             {% for cat in categories %}
                 <option value="{{ cat.id }}" {% if selected_category_id == cat.id|string %}selected{% endif %}>
@@ -38,7 +38,7 @@
 
         <!-- Paid By -->
         <label>Paid By:</label>
-        <select id="user-select" name="user_id" required>
+        <select id="user-select" name="user_id" required onchange="handleUserChange(this)">
             <option value="" disabled selected>Select user</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if selected_user_id == user.id|string %}selected{% endif %}>
@@ -62,7 +62,6 @@
     <a href="{{ url_for('expenses.expenses') }}">View All Expenses</a><br>
     <a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
 
-
 <hr>
 {% include "_expenses_table.html" %}
 
@@ -72,12 +71,36 @@
     const urls = {
         addExpense: "{{ url_for('expenses.add_expense') }}",
         manageCategories: "{{ url_for('categories.manage_categories') }}",
-        manageUsers: "{{ url_for('manage.management') }}"
+        manageUsers: "{{ url_for('users.manage_users') }}"
     };
+
+    // Handle category change inline
+    function handleCategoryChange(select) {
+        if (select.value === "manage") {
+            const nextUrl = encodeURIComponent(window.location.href);
+            window.location.href = urls.manageCategories + "?next=" + nextUrl;
+            return;
+        }
+        
+        const descContainer = document.getElementById("category-desc-container");
+        if (select.value) {
+            descContainer.style.display = "block";
+        } else {
+            descContainer.style.display = "none";
+        }
+    }
+
+    // Handle user change inline
+    function handleUserChange(select) {
+        if (select.value === "manage") {
+            const nextUrl = encodeURIComponent(window.location.href);
+            window.location.href = urls.manageUsers + "?next=" + nextUrl;
+            return;
+        }
+    }
 </script>
 <script src="{{ url_for('static', filename='js/add_expense_form.js') }}"></script>
 <script src="{{ url_for('static', filename='js/expenses_table.js') }}"></script>
-
 
 </body>
 </html>

@@ -17,8 +17,15 @@ document.addEventListener("DOMContentLoaded", function() {
         // Handle category changes
         categorySelect.addEventListener("change", function() {
             if (this.value === "manage") {
-                const nextUrl = encodeURIComponent(urls.addExpense);
+                // Remove required attributes to prevent validation from blocking redirect
+                document.querySelectorAll('input[required], select[required]').forEach(el => {
+                    el.removeAttribute('required');
+                });
+                
+                // Redirect immediately
+                const nextUrl = encodeURIComponent(window.location.href);
                 window.location.href = `${urls.manageCategories}?next=${nextUrl}`;
+                return false; // Prevent any further processing
             } else if (this.value) {
                 descContainer.style.display = "block"; // Show description
             } else {
@@ -31,8 +38,26 @@ document.addEventListener("DOMContentLoaded", function() {
     if (userSelect) {
         userSelect.addEventListener("change", function() {
             if (this.value === "manage") {
-                const nextUrl = encodeURIComponent(urls.addExpense);
+                // Remove required attributes to prevent validation from blocking redirect
+                document.querySelectorAll('input[required], select[required]').forEach(el => {
+                    el.removeAttribute('required');
+                });
+                
+                // Redirect immediately
+                const nextUrl = encodeURIComponent(window.location.href);
                 window.location.href = `${urls.manageUsers}?next=${nextUrl}`;
+                return false; // Prevent any further processing
+            }
+        });
+    }
+
+    // Prevent form submission when manage options are selected
+    const form = document.querySelector('form');
+    if (form) {
+        form.addEventListener('submit', function(e) {
+            if (categorySelect.value === "manage" || userSelect.value === "manage") {
+                e.preventDefault();
+                return false;
             }
         });
     }
