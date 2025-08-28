@@ -1,8 +1,7 @@
 {# templates/_expenses_table.html #}
 <h1>All Expenses</h1>
 <div id="table-error"></div>
- <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-
+<link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 
 <table>
     <thead>
@@ -34,7 +33,7 @@
                 {{ expense.date.strftime('%Y-%m-%d') }}
             </td>
             <td>
-                <button class="delete-btn">❌ Delete</button>
+                <button class="delete-btn" data-expense-id="{{ expense.id }}">❌ Delete</button>
             </td>
         </tr>
         {% endfor %}

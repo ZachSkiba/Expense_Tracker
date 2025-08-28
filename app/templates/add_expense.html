@@ -65,8 +65,10 @@
 <hr>
 {% include "_expenses_table.html" %}
 
+<!-- Data for JavaScript (needed for both form and table functionality) -->
 <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
 <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
+
 <script>
     const urls = {
         addExpense: "{{ url_for('expenses.add_expense') }}",
@@ -99,6 +101,8 @@
         }
     }
 </script>
+
+<!-- Load scripts for form and table functionality -->
 <script src="{{ url_for('static', filename='js/add_expense_form.js') }}"></script>
 <script src="{{ url_for('static', filename='js/expenses_table.js') }}"></script>
 

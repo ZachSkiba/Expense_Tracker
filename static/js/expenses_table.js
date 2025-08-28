@@ -1,157 +1,217 @@
-const categories = {{ categories | tojson | safe }};
-const users = {{ users | tojson | safe }};
-const categoryNames = categories.map(c => c.name);
-const userNames = users.map(u => u.name);
+console.log("expenses_table.js loaded");
 
-const tableError = document.getElementById('table-error');
-
-function saveRow(row) {
-    const expenseId = row.getAttribute('data-expense-id');
-    const data = {};
-    row.querySelectorAll('td.editable').forEach(cell => {
-        let value = cell.getAttribute('data-value').trim();
-        if (cell.classList.contains('amount')) {
-            value = parseFloat(value);
-            if (isNaN(value) || value < 0) value = 0;
-            cell.innerText = `$${value.toFixed(2)}`;
-            cell.setAttribute('data-value', value);
-            data['amount'] = value;
-        } else {
-            data[cell.classList[1]] = value;
+// Wait for DOM to be ready
+document.addEventListener("DOMContentLoaded", function() {
+    console.log("DOM ready, initializing table functionality");
+    
+    const tableError = document.getElementById('table-error');
+    
+    function showMessage(message, color) {
+        console.log("Showing message:", message, color);
+        if (tableError) {
+            tableError.style.color = color || 'black';
+            tableError.innerHTML = message;
+            setTimeout(() => {
+                tableError.innerHTML = '';
+            }, 3000);
         }
-    });
+    }
 
-    fetch(`/edit_expense/${expenseId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        tableError.innerText = result.success ? '' : result.error;
-    });
-}
-
-document.querySelectorAll('td.editable').forEach(cell => {
-    cell.addEventListener('click', () => {
-        if (cell.querySelector('input, select')) return;
-
-        const type = cell.classList[1];
-        const value = cell.getAttribute('data-value');
-        let input;
-
-        if (type === 'amount' || type === 'description' || type === 'date') {
-            input = document.createElement('input');
-            input.type = type === 'date' ? 'date' : 'text';
-            input.value = type === 'amount' ? parseFloat(value).toFixed(2) : value;
-            input.style.width = '100%';
-        } else { // category or user
-            input = document.createElement('select');
-            const options = type === 'category' ? categoryNames : userNames;
-            options.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt;
-                option.text = opt;
-                if (opt === value) option.selected = true;
-                input.appendChild(option);
+    // DELETE FUNCTIONALITY - Simple approach
+    console.log("Setting up delete buttons");
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+    console.log("Found", deleteButtons.length, "delete buttons");
+    
+    deleteButtons.forEach((btn, index) => {
+        console.log(`Setting up delete button ${index}`);
+        
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log("Delete button clicked!");
+            
+            const row = this.closest('tr');
+            const expenseId = row.getAttribute('data-expense-id') || this.getAttribute('data-expense-id');
+            
+            console.log("Expense ID to delete:", expenseId);
+            
+            if (!expenseId) {
+                console.error("No expense ID found");
+                showMessage('Error: No expense ID found', 'red');
+                return;
+            }
+            
+            if (!confirm("Are you sure you want to delete this expense?")) {
+                return;
+            }
+            
+            console.log("Attempting to delete expense", expenseId);
+            
+            fetch(`/delete_expense/${expenseId}`, { 
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => {
+                console.log("Delete response status:", response.status);
+                return response.json();
+            })
+            .then(result => {
+                console.log("Delete result:", result);
+                if (result.success) {
+                    row.remove();
+                    showMessage('Expense deleted successfully!', 'green');
+                } else {
+                    showMessage(result.error || 'Error deleting expense', 'red');
+                }
+            })
+            .catch(error => {
+                console.error('Delete fetch error:', error);
+                showMessage('Network error deleting expense', 'red');
             });
+        });
+    });
 
-            // Add the manage option
-            const manageOption = document.createElement('option');
-            manageOption.value = "manage";
-            manageOption.text = "➕ Add / Manage";
-            input.appendChild(manageOption);
-
-            // Handle redirect when "manage" is selected
-            input.addEventListener('change', () => {
-                if (input.value === "manage") {
-                    const nextUrl = "{{ url_for('add_expense') }}"; // back to table
-                    if (type === 'category') {
-                        window.location.href = "{{ url_for('manage_categories') }}?next=" + encodeURIComponent(nextUrl);
-                    } else if (type === 'user') {
-                        window.location.href = "{{ url_for('manage_users') }}?next=" + encodeURIComponent(nextUrl);
+    // EDIT FUNCTIONALITY - Simple approach
+    console.log("Setting up editable cells");
+    const editableCells = document.querySelectorAll('td.editable');
+    console.log("Found", editableCells.length, "editable cells");
+    
+    editableCells.forEach((cell, index) => {
+        console.log(`Setting up editable cell ${index}`);
+        
+        cell.style.cursor = 'pointer';
+        cell.style.backgroundColor = '#f9f9f9';
+        cell.title = 'Click to edit';
+        
+        cell.addEventListener('click', function() {
+            console.log("Editable cell clicked!");
+            
+            // Check if already editing
+            if (this.querySelector('input, select')) {
+                console.log("Already editing, ignoring");
+                return;
+            }
+            
+            const type = this.classList[1]; // amount, category, description, user, date
+            const currentValue = this.getAttribute('data-value');
+            const originalHTML = this.innerHTML;
+            
+            console.log("Starting edit - type:", type, "value:", currentValue);
+            
+            // Create input based on type
+            let input;
+            if (type === 'amount') {
+                input = document.createElement('input');
+                input.type = 'number';
+                input.step = '0.01';
+                input.min = '0.01';
+                input.value = parseFloat(currentValue).toFixed(2);
+            } else if (type === 'description') {
+                input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentValue;
+            } else if (type === 'date') {
+                input = document.createElement('input');
+                input.type = 'date';
+                input.value = currentValue;
+            } else {
+                // For category and user, just use text input for now (simple)
+                input = document.createElement('input');
+                input.type = 'text';
+                input.value = currentValue;
+            }
+            
+            // Style the input
+            input.style.width = '100%';
+            input.style.border = '2px solid blue';
+            input.style.padding = '4px';
+            
+            // Replace content with input
+            this.innerHTML = '';
+            this.appendChild(input);
+            input.focus();
+            
+            const saveEdit = () => {
+                console.log("Saving edit with value:", input.value);
+                
+                const newValue = input.value.trim();
+                const row = this.closest('tr');
+                const expenseId = row.getAttribute('data-expense-id');
+                
+                console.log("Saving expense", expenseId, "field", type, "new value:", newValue);
+                
+                // Basic validation
+                if (type === 'amount') {
+                    const numValue = parseFloat(newValue);
+                    if (isNaN(numValue) || numValue <= 0) {
+                        showMessage('Amount must be a positive number', 'red');
+                        this.innerHTML = originalHTML;
+                        return;
                     }
                 }
+                
+                // Prepare data
+                const data = {};
+                data[type] = newValue;
+                
+                console.log("Sending update data:", data);
+                
+                // Send to server
+                fetch(`/edit_expense/${expenseId}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    console.log("Edit response status:", response.status);
+                    return response.json();
+                })
+                .then(result => {
+                    console.log("Edit result:", result);
+                    if (result.success) {
+                        // Update display
+                        if (type === 'amount') {
+                            const numValue = parseFloat(newValue);
+                            this.innerHTML = `$${numValue.toFixed(2)}`;
+                            this.setAttribute('data-value', numValue.toFixed(2));
+                        } else {
+                            this.innerHTML = newValue;
+                            this.setAttribute('data-value', newValue);
+                        }
+                        showMessage('Updated successfully!', 'green');
+                    } else {
+                        showMessage(result.error || 'Update failed', 'red');
+                        this.innerHTML = originalHTML;
+                    }
+                })
+                .catch(error => {
+                    console.error('Edit fetch error:', error);
+                    showMessage('Network error', 'red');
+                    this.innerHTML = originalHTML;
+                });
+            };
+            
+            const cancelEdit = () => {
+                console.log("Canceling edit");
+                this.innerHTML = originalHTML;
+            };
+            
+            // Event listeners
+            input.addEventListener('blur', saveEdit);
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveEdit();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelEdit();
+                }
             });
-        }
-
-        cell.innerText = '';
-        cell.appendChild(input);
-        input.focus();
-
-        // Description autocomplete
-        if (type === 'description') {
-            const suggBox = document.createElement('div');
-            suggBox.classList.add('suggestions');
-            cell.appendChild(suggBox);
-
-            input.addEventListener('input', () => {
-                const query = input.value.trim();
-                suggBox.innerHTML = '';
-                if (!query) return;
-
-                fetch(`/store_suggestions?q=${encodeURIComponent(query)}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        data.suggestions.forEach(s => {
-                            const div = document.createElement('div');
-                            div.innerText = s;
-                            div.addEventListener('mousedown', (e) => {
-                                e.preventDefault(); 
-                                input.value = s;
-                                suggBox.innerHTML = '';
-                                input.focus();
-                                saveEdit();
-                            });
-                            suggBox.appendChild(div);
-                        });
-                    });
-            });
-        }
-
-        function saveEdit() {
-            let newValue = input.value.trim();
-            if (type === 'amount') {
-                newValue = parseFloat(newValue);
-                if (isNaN(newValue) || newValue < 0) newValue = 0;
-                cell.innerText = `$${newValue.toFixed(2)}`;
-            } else {
-                cell.innerText = newValue;
-            }
-            cell.setAttribute('data-value', newValue);
-            saveRow(cell.closest('tr'));
-        }
-
-        input.addEventListener('blur', saveEdit);
-        input.addEventListener('keydown', e => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveEdit();
-            }
         });
     });
-});
-
-// Delete expense
-function deleteExpense(expenseId) {
-    if (!confirm("Are you sure you want to delete this expense?")) return;
-
-    fetch(`/delete_expense/${expenseId}`, { method: 'POST' })
-        .then(res => res.json())
-        .then(result => {
-            if(result.success){
-                const row = document.querySelector(`tr[data-expense-id='${expenseId}']`);
-                if(row) row.remove();
-            } else {
-                alert("Error deleting expense.");
-            }
-        });
-}
-
-document.querySelectorAll('.delete-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        const row = btn.closest('tr');
-        const expenseId = row.getAttribute('data-expense-id');
-        deleteExpense(expenseId);
-    });
+    
+    console.log("Table setup complete!");
 });
