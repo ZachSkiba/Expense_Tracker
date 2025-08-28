@@ -36,6 +36,10 @@
                 <button class="delete-btn" data-expense-id="{{ expense.id }}">❌ Delete</button>
             </td>
         </tr>
+        {% else %}
+        <tr>
+            <td colspan="6" style="text-align: center; color: #888;">No expenses found</td>
+        </tr>
         {% endfor %}
     </tbody>
 </table>
