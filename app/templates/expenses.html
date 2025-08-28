@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>All Expenses</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+
+<h1>All Expenses</h1>
+<div id="table-error"></div>
+
+{% include "_expenses_table.html" %}
+
+<br>
+<a href="{{ url_for('expenses.add_expense') }}">➕ Add Another Expense</a><br>
+<a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
+
+<script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
+<script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
+<script src="{{ url_for('static', filename='js/expenses_table.js') }}"></script>
+
+</body>
+</html>

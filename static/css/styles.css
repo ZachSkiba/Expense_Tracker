@@ -1,0 +1,51 @@
+ table {
+        border-collapse: collapse;
+        width: 100%;
+        margin-top: 20px;
+        font-family: Arial, sans-serif;
+    }
+
+    th, td {
+        border: 1px solid #ccc;
+        padding: 8px 12px;
+        text-align: left;
+    }
+
+    th {
+        background-color: #f4f4f4;
+        font-weight: bold;
+    }
+
+    tbody tr:nth-child(even) {
+        background-color: #fafafa;
+    }
+
+    tbody tr:hover {
+        background-color: #f1f1f1;
+    }
+
+    td.editable input,
+    td.editable select {
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    button {
+        cursor: pointer;
+        padding: 4px 8px;
+        margin-right: 2px;
+        border: none;
+        background-color: #e74c3c;
+        color: white;
+        border-radius: 4px;
+    }
+
+    button:hover {
+        background-color: #c0392b;
+    }
+
+    #table-error {
+        color: red;
+        margin-bottom: 10px;
+        font-weight: bold;
+    }

@@ -1,0 +1,42 @@
+{# templates/_expenses_table.html #}
+<h1>All Expenses</h1>
+<div id="table-error"></div>
+ <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+
+<table>
+    <thead>
+        <tr>
+            <th>Amount</th>
+            <th>Category</th>
+            <th>Description</th>
+            <th>Paid By</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for expense in expenses %}
+        <tr data-expense-id="{{ expense.id }}">
+            <td class="editable amount" data-value="{{ "%.2f"|format(expense.amount) }}">
+                ${{ "%.2f"|format(expense.amount) }}
+            </td>
+            <td class="editable category" data-value="{{ expense.category_obj.name }}">
+                {{ expense.category_obj.name }}
+            </td>
+            <td class="editable description" data-value="{{ expense.category_description or '' }}">
+                {{ expense.category_description or '' }}
+            </td>
+            <td class="editable user" data-value="{{ expense.user.name }}">
+                {{ expense.user.name }}
+            </td>
+            <td class="editable date" data-value="{{ expense.date.strftime('%Y-%m-%d') }}">
+                {{ expense.date.strftime('%Y-%m-%d') }}
+            </td>
+            <td>
+                <button class="delete-btn">❌ Delete</button>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

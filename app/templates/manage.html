@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Expense Manager</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+<h1>Expense Management</h1>
+
+<ul>
+    <li><a href="{{ url_for('expenses.add_expense') }}">➕ Add New Expense</a></li>
+    <li><a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a></li>
+</ul>
+
+<hr>
+<h2>Future Features</h2>
+<ul>
+    <li>Edit or Delete Expenses</li>
+    <li>Monthly/Category Reports</li>
+    <li>Export Data (CSV/Excel)</li>
+</ul>
+</body>
+</html>
