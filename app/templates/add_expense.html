@@ -50,6 +50,32 @@
             <option value="manage">➕ Add/Remove Users</option>
         </select><br><br>
 
+        <!-- NEW: Participants Section -->
+        <div class="participants-section">
+            <label><strong>Who participated in this expense?</strong></label>
+            <p style="font-size: 0.9em; color: #666; margin: 5px 0 15px 0;">
+                Select everyone who should split this expense (including the person who paid if they participated)
+            </p>
+            
+            <div id="participants-list">
+                {% for user in users %}
+                <div class="participant-checkbox">
+                    <input type="checkbox" 
+                           id="participant-{{ user.id }}" 
+                           name="participant_ids" 
+                           value="{{ user.id }}"
+                           onchange="updateSplitPreview()">
+                    <label for="participant-{{ user.id }}">{{ user.name }}</label>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div id="split-preview" class="split-preview" style="display: none;">
+                <strong>Split Preview:</strong>
+                <div id="split-details"></div>
+            </div>
+        </div>
+
         <!-- Date -->
         <div>
             <label>Date:</label>
@@ -62,6 +88,7 @@
 
     <br>
     <a href="{{ url_for('expenses.expenses') }}">View All Expenses</a><br>
+    <a href="{{ url_for('balances.balances_page') }}">💰 View Balances</a><br>
     <a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
 
 <hr>
@@ -101,7 +128,81 @@
             window.location.href = urls.manageUsers + "?next=" + nextUrl;
             return;
         }
+    
+
+    // Auto-select the payer as a participant
+        const payerId = select.value;
+        if (payerId) {
+            const payerCheckbox = document.getElementById(`participant-${payerId}`);
+            if (payerCheckbox && !payerCheckbox.checked) {
+                payerCheckbox.checked = true;
+                updateSplitPreview();
+            }
+        }
     }
+
+// Update split preview when amount or participants change
+    function updateSplitPreview() {
+        const amountInput = document.getElementById('amount-input');
+        const participantCheckboxes = document.querySelectorAll('input[name="participant_ids"]:checked');
+        const splitPreview = document.getElementById('split-preview');
+        const splitDetails = document.getElementById('split-details');
+        
+        const amount = parseFloat(amountInput.value) || 0;
+        const participantCount = participantCheckboxes.length;
+        
+        if (amount > 0 && participantCount > 0) {
+            const sharePerPerson = amount / participantCount;
+            
+            let detailsHtml = `<div>Total: ${amount.toFixed(2)} ÷ ${participantCount} people = ${sharePerPerson.toFixed(2)} per person</div>`;
+            detailsHtml += '<div style="margin-top: 8px; font-size: 0.85em;">Participants: ';
+            
+            const participantNames = [];
+            participantCheckboxes.forEach(checkbox => {
+                const label = document.querySelector(`label[for="${checkbox.id}"]`);
+                participantNames.push(label.textContent);
+            });
+            
+            detailsHtml += participantNames.join(', ') + '</div>';
+            
+            splitDetails.innerHTML = detailsHtml;
+            splitPreview.style.display = 'block';
+        } else {
+            splitPreview.style.display = 'none';
+        }
+    }
+
+    // Form validation
+    document.getElementById('expense-form').addEventListener('submit', function(e) {
+        const participantCheckboxes = document.querySelectorAll('input[name="participant_ids"]:checked');
+        
+        if (participantCheckboxes.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one participant for this expense.');
+            return false;
+        }
+        
+        // Check if category or user is set to "manage"
+        const categorySelect = document.getElementById('category-select');
+        const userSelect = document.getElementById('user-select');
+        
+        if (categorySelect.value === "manage" || userSelect.value === "manage") {
+            e.preventDefault();
+            return false;
+        }
+    });
+
+    // Initialize form
+    document.addEventListener('DOMContentLoaded', function() {
+        // Show category description if category is already selected
+        const categorySelect = document.getElementById('category-select');
+        if (categorySelect.value && categorySelect.value !== 'manage') {
+            document.getElementById('category-desc-container').style.display = 'block';
+        }
+        
+        // Update split preview on page load
+        updateSplitPreview();
+    });
 </script>
 
 <!-- Load scripts for form and table functionality -->

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Roommate Balances</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        .balance-positive { color: #27ae60; font-weight: bold; }
+        .balance-negative { color: #e74c3c; font-weight: bold; }
+        .balance-even { color: #7f8c8d; }
+        
+        .balance-card {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .settlement-card {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 12px;
+            margin: 8px 0;
+            text-align: center;
+        }
+        
+        .summary-stats {
+            display: flex;
+            gap: 20px;
+            margin: 20px 0;
+        }
+        
+        .stat-box {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            flex: 1;
+        }
+        
+        .stat-number {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .refresh-btn {
+            background-color: #3498db;
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        .refresh-btn:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Roommate Balances</h1>
+
+<div class="summary-stats">
+    <div class="stat-box">
+        <div class="stat-number">{{ balances|length }}</div>
+        <div>Total Roommates</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-number">{{ settlements|length }}</div>
+        <div>Pending Settlements</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-number">${{ "%.2f"|format(balances|sum(attribute='balance')|abs) }}</div>
+        <div>Total Imbalance</div>
+    </div>
+</div>
+
+<button class="refresh-btn" onclick="recalculateBalances()">🔄 Recalculate Balances</button>
+
+<h2>Current Balances</h2>
+
+{% for balance in balances %}
+<div class="balance-card">
+    <div>
+        <strong>{{ balance.user_name }}</strong>
+        {% if balance.last_updated %}
+        <small style="color: #666;">(Updated: {{ balance.last_updated[:10] }})</small>
+        {% endif %}
+    </div>
+    <div class="balance-amount">
+        {% if balance.balance > 0.01 %}
+            <span class="balance-positive">+${{ "%.2f"|format(balance.balance) }}</span>
+            <small>(is owed)</small>
+        {% elif balance.balance < -0.01 %}
+            <span class="balance-negative">-${{ "%.2f"|format(balance.balance|abs) }}</span>
+            <small>(owes)</small>
+        {% else %}
+            <span class="balance-even">$0.00</span>
+            <small>(even)</small>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+
+{% if settlements %}
+<h2>💰 Suggested Settlements</h2>
+<p>To settle all debts with minimum transactions:</p>
+
+{% for settlement in settlements %}
+<div class="settlement-card">
+    <strong>{{ settlement.from }}</strong> should pay <strong>{{ settlement.to }}</strong> 
+    <span class="balance-positive">${{ "%.2f"|format(settlement.amount) }}</span>
+</div>
+{% endfor %}
+
+{% else %}
+<h2>🎉 All Settled!</h2>
+<p>Everyone is even - no settlements needed!</p>
+{% endif %}
+
+<hr>
+
+<h2>Quick Actions</h2>
+<a href="{{ url_for('expenses.add_expense') }}">➕ Add New Expense</a><br>
+<a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a><br>
+<a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
+
+<script>
+async function recalculateBalances() {
+    const button = document.querySelector('.refresh-btn');
+    const originalText = button.innerHTML;
+    
+    button.disabled = true;
+    button.innerHTML = '🔄 Recalculating...';
+    
+    try {
+        const response = await fetch('/api/balances/recalculate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+            alert('Balances recalculated successfully!');
+            location.reload(); // Refresh the page to show updated balances
+        } else {
+            alert('Error: ' + result.error);
+        }
+    } catch (error) {
+        alert('Network error: ' + error.message);
+    } finally {
+        button.disabled = false;
+        button.innerHTML = originalText;
+    }
+}
+
+// Auto-refresh balances every 30 seconds
+setInterval(() => {
+    fetch('/api/balances')
+        .then(response => response.json())
+        .then(data => {
+            // You could update the UI here without full page reload
+            console.log('Balances updated:', data);
+        })
+        .catch(error => console.error('Error fetching balances:', error));
+}, 30000);
+</script>
+
+</body>
+</html>

@@ -14,10 +14,12 @@ def create_app():
     from app.routes.users import users_bp
     from app.routes.categories import categories_bp
     from app.routes.manage import manage_bp
+    from app.routes.balances import balances_bp  # NEW
 
     app.register_blueprint(manage_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(users_bp)
     app.register_blueprint(categories_bp)
+    app.register_blueprint(balances_bp)  # NEW
 
     return app

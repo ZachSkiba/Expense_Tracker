@@ -1,6 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify
 from datetime import datetime
-from models import db, Expense, User, Category
+from models import db, Expense, User, Category, ExpenseParticipant, Balance
+from balance_service import BalanceService
 
 expenses_bp = Blueprint("expenses", __name__)
 
@@ -52,12 +53,16 @@ def add_expense():
             user_id = request.form.get('user_id')
             date_str = request.form['date'] or datetime.today().strftime('%Y-%m-%d')
             category_description = request.form.get('category_description', None)
+            
+            # NEW: Get participant IDs
+            participant_ids = request.form.getlist('participant_ids')
 
             if user_id == "manage":
                 return redirect(url_for("users.manage_users", next=url_for("expenses.add_expense")))
             if selected_category_id == "manage":
                 return redirect(url_for("categories.manage_categories", next=url_for("expenses.add_expense")))
 
+            # Validation
             try:
                 amount = float(amount)
                 if amount <= 0:
@@ -65,46 +70,102 @@ def add_expense():
             except ValueError:
                 error = "Amount must be a number"
 
-            user = User.query.get(int(user_id)) if user_id else None
-            if not user:
+            if not user_id or user_id == "manage":
                 error = "Please select a valid user"
 
-            category = Category.query.get(int(selected_category_id)) if selected_category_id else None
-            if not category:
+            if not selected_category_id or selected_category_id == "manage":
                 error = "Please select a valid category"
 
+            if not participant_ids:
+                error = "Please select at least one participant"
+
             try:
-                date = datetime.strptime(date_str, '%Y-%m-%d')
+                date = datetime.strptime(date_str, '%Y-%m-%d').date()
             except ValueError:
                 error = "Invalid date format. Use YYYY-MM-DD"
 
             if error:
-                return render_template("add_expense.html", error=error, users=users, categories=categories, expenses=all_expenses, selected_category_id=selected_category_id)
+                return render_template("add_expense.html", 
+                                     error=error, 
+                                     users=users_data, 
+                                     categories=categories_data, 
+                                     expenses=all_expenses, 
+                                     selected_category_id=selected_category_id,
+                                     amount=amount if 'amount' in locals() else None,
+                                     category_description=category_description,
+                                     date=date_str)
 
-            expense = Expense(amount=amount, user_id=user.id, category_id=category.id, category_description=category_description, date=date)
-            db.session.add(expense)
-            db.session.commit()
-            return redirect(url_for("expenses.add_expense"))
+            # Convert participant IDs to integers
+            participant_ids = [int(pid) for pid in participant_ids]
+
+            # Use BalanceService to create expense with participants
+            expense = BalanceService.create_expense_with_participants(
+                amount=amount,
+                payer_id=int(user_id),
+                participant_ids=participant_ids,
+                category_id=int(selected_category_id),
+                category_description=category_description,
+                date=date
+            )
+
+            if expense:
+                return redirect(url_for("expenses.add_expense"))
+            else:
+                error = "Failed to create expense. Please try again."
+                return render_template("add_expense.html", 
+                                     error=error, 
+                                     users=users_data, 
+                                     categories=categories_data, 
+                                     expenses=all_expenses)
 
         except Exception as e:
             error = f"Unexpected error: {e}"
-            return render_template("add_expense.html", error=error, users=users_data, categories=categories_data, expenses=all_expenses, selected_category_id=selected_category_id)
+            return render_template("add_expense.html", 
+                                 error=error, 
+                                 users=users_data, 
+                                 categories=categories_data, 
+                                 expenses=all_expenses)
 
-    return render_template("add_expense.html", error=None, users=users_data, categories=categories_data, expenses=all_expenses)
+    return render_template("add_expense.html", 
+                         error=None, 
+                         users=users_data, 
+                         categories=categories_data, 
+                         expenses=all_expenses)
 
 @expenses_bp.route("/delete_expense/<int:expense_id>", methods=["POST"])
 def delete_expense(expense_id):
-    expense = Expense.query.get_or_404(expense_id)
+    """Delete expense and reverse balance changes"""
     try:
+        expense = Expense.query.get_or_404(expense_id)
+        
+        # Get participants before deletion
+        participants = expense.participants
+        payer_id = expense.user_id
+        total_amount = expense.amount
+        
+        # Calculate what balances need to be reversed
+        participant_amounts = {p.user_id: p.amount_owed for p in participants}
+        
+        # Reverse the balance changes
+        # Debit the payer (opposite of original credit)
+        BalanceService._update_user_balance(payer_id, -total_amount)
+        
+        # Credit each participant their share (opposite of original debit)
+        for participant_id, amount_owed in participant_amounts.items():
+            BalanceService._update_user_balance(participant_id, amount_owed)
+        
+        # Delete the expense (participants will be deleted via cascade)
         db.session.delete(expense)
         db.session.commit()
+        
         return jsonify({'success': True})
     except Exception as e:
+        db.session.rollback()
         return jsonify({'success': False, 'error': str(e)})
-
 
 @expenses_bp.route("/edit_expense/<int:expense_id>", methods=["POST"])
 def edit_expense(expense_id):
+    """Edit expense - currently limited to description and date to avoid complex balance recalculations"""
     expense = Expense.query.get_or_404(expense_id)
     data = request.get_json()
 
@@ -112,31 +173,55 @@ def edit_expense(expense_id):
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
     try:
-        # Update fields if they exist in the received data
-        if 'amount' in data:
-            expense.amount = float(data['amount'])
+        # Only allow editing of description and date for now
+        # Editing amount, category, or participants would require complex balance recalculation
+        
         if 'description' in data:
             expense.category_description = data['description']
+            
         if 'date' in data:
             expense.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
 
-        # Handle category and user by looking them up by name
-        if 'category' in data:
-            category = Category.query.filter_by(name=data['category']).first()
-            if category:
-                expense.category_id = category.id
-            else:
-                return jsonify({'success': False, 'error': f"Category '{data['category']}' not found"}), 400
-        
-        if 'user' in data:
-            user = User.query.filter_by(name=data['user']).first()
-            if user:
-                expense.user_id = user.id
-            else:
-                return jsonify({'success': False, 'error': f"User '{data['user']}' not found"}), 400
+        # For amount, category, or user changes, show a helpful message
+        if 'amount' in data or 'category' in data or 'user' in data:
+            return jsonify({
+                'success': False, 
+                'error': 'To change amount, category, or participants, please delete this expense and create a new one to maintain accurate balances.'
+            }), 400
 
         db.session.commit()
         return jsonify({'success': True})
+        
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@expenses_bp.route("/expense_details/<int:expense_id>")
+def expense_details(expense_id):
+    """API endpoint to get detailed expense information including participants"""
+    try:
+        expense = Expense.query.get_or_404(expense_id)
+        
+        participants_data = []
+        for participant in expense.participants:
+            participants_data.append({
+                'user_id': participant.user_id,
+                'user_name': participant.user.name,
+                'amount_owed': participant.amount_owed
+            })
+        
+        expense_data = {
+            'id': expense.id,
+            'amount': expense.amount,
+            'category': expense.category_obj.name,
+            'description': expense.category_description,
+            'payer': expense.user.name,
+            'payer_id': expense.user_id,
+            'date': expense.date.strftime('%Y-%m-%d'),
+            'participants': participants_data
+        }
+        
+        return jsonify({'expense': expense_data})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
