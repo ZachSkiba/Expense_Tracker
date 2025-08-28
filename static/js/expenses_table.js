@@ -1,8 +1,8 @@
-console.log("expenses_table.js loaded");
+// Initialize expenses table functionality
 
 // Wait for DOM to be ready
 document.addEventListener("DOMContentLoaded", function() {
-    console.log("DOM ready, initializing table functionality");
+    // Initialize table functionality
     
     const tableError = document.getElementById('table-error');
     
@@ -21,31 +21,26 @@ document.addEventListener("DOMContentLoaded", function() {
             usersData = JSON.parse(usersScript.textContent);
         }
         
-        console.log("Categories data:", categoriesData);
-        console.log("Users data:", usersData);
+        // Categories and users data loaded successfully
     } catch (e) {
         console.error("Error parsing data:", e);
     }
     
     function showMessage(message, color = 'black') {
-        console.log("Showing message:", message, color);
         if (tableError) {
             tableError.style.color = color;
             tableError.innerHTML = message;
             setTimeout(() => {
                 tableError.innerHTML = '';
-            }, 5000);
+            }, 8000);
         }
     }
 
     // DELETE FUNCTIONALITY
     function setupDeleteButtons() {
-        console.log("Setting up delete buttons");
         const deleteButtons = document.querySelectorAll('.delete-btn');
-        console.log("Found", deleteButtons.length, "delete buttons");
         
         deleteButtons.forEach((btn, index) => {
-            console.log(`Setting up delete button ${index}`);
             
             // Remove any existing event listeners by cloning the button
             const newBtn = btn.cloneNode(true);
@@ -55,15 +50,10 @@ document.addEventListener("DOMContentLoaded", function() {
                 e.preventDefault();
                 e.stopPropagation();
                 
-                console.log("Delete button clicked!");
-                
                 const row = this.closest('tr');
                 const expenseId = this.getAttribute('data-expense-id') || row.getAttribute('data-expense-id');
                 
-                console.log("Expense ID to delete:", expenseId);
-                
                 if (!expenseId) {
-                    console.error("No expense ID found");
                     showMessage('Error: No expense ID found', 'red');
                     return;
                 }
@@ -71,8 +61,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 if (!confirm("Are you sure you want to delete this expense?")) {
                     return;
                 }
-                
-                console.log("Attempting to delete expense", expenseId);
                 
                 // Disable button during request
                 this.disabled = true;
@@ -86,14 +74,12 @@ document.addEventListener("DOMContentLoaded", function() {
                     }
                 })
                 .then(response => {
-                    console.log("Delete response status:", response.status);
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(result => {
-                    console.log("Delete result:", result);
                     if (result.success) {
                         row.remove();
                         showMessage('Expense deleted successfully!', 'green');
@@ -105,7 +91,6 @@ document.addEventListener("DOMContentLoaded", function() {
                     }
                 })
                 .catch(error => {
-                    console.error('Delete fetch error:', error);
                     showMessage('Network error deleting expense: ' + error.message, 'red');
                     // Re-enable button
                     this.disabled = false;
@@ -117,12 +102,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // EDIT FUNCTIONALITY
     function setupEditableCells() {
-        console.log("Setting up editable cells");
         const editableCells = document.querySelectorAll('td.editable');
-        console.log("Found", editableCells.length, "editable cells");
         
         editableCells.forEach((cell, index) => {
-            console.log(`Setting up editable cell ${index}`);
             
             cell.style.cursor = 'pointer';
             cell.style.backgroundColor = '#f9f9f9';
@@ -134,11 +116,9 @@ document.addEventListener("DOMContentLoaded", function() {
             
             newCell.addEventListener('click', function(e) {
                 e.stopPropagation();
-                console.log("Editable cell clicked!");
                 
                 // Check if already editing
                 if (this.querySelector('input, select')) {
-                    console.log("Already editing, ignoring");
                     return;
                 }
                 
@@ -146,8 +126,6 @@ document.addEventListener("DOMContentLoaded", function() {
                 const type = classes.find(c => c !== 'editable'); // amount, category, description, user, date
                 const currentValue = this.getAttribute('data-value') || '';
                 const originalHTML = this.innerHTML;
-                
-                console.log("Starting edit - type:", type, "value:", currentValue);
                 
                 // Create input based on type
                 let input;
@@ -161,12 +139,34 @@ document.addEventListener("DOMContentLoaded", function() {
                     input = document.createElement('input');
                     input.type = 'text';
                     input.value = currentValue;
+                    input.autocomplete = 'off';
+                    
+                    // Store autocomplete creation for after input is added to DOM
+                    let autocomplete = null;
+                    
+                    // Prepare cleanup function
+                    const cleanupAutocomplete = () => {
+                        if (autocomplete && typeof autocomplete.cleanup === 'function') {
+                            autocomplete.cleanup();
+                        }
+                    };
+                    
+                    // Store cleanup function for later use
+                    window.descriptionCleanup = cleanupAutocomplete;
                 } else if (type === 'date') {
                     input = document.createElement('input');
                     input.type = 'date';
                     input.value = currentValue;
                 } else if (type === 'category') {
                     input = document.createElement('select');
+                    // placeholder
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Select category';
+                    placeholder.disabled = true;
+                    placeholder.selected = true;
+                    input.appendChild(placeholder);
+                    // options
                     categoriesData.forEach(cat => {
                         const option = document.createElement('option');
                         option.value = cat.name;
@@ -174,8 +174,21 @@ document.addEventListener("DOMContentLoaded", function() {
                         option.selected = cat.name === currentValue;
                         input.appendChild(option);
                     });
+                    // manage
+                    const manageOpt = document.createElement('option');
+                    manageOpt.value = 'manage';
+                    manageOpt.textContent = '➕ Add/Remove Categories';
+                    input.appendChild(manageOpt);
                 } else if (type === 'user') {
                     input = document.createElement('select');
+                    // placeholder
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = 'Select user';
+                    placeholder.disabled = true;
+                    placeholder.selected = true;
+                    input.appendChild(placeholder);
+                    // options
                     usersData.forEach(user => {
                         const option = document.createElement('option');
                         option.value = user.name;
@@ -183,6 +196,11 @@ document.addEventListener("DOMContentLoaded", function() {
                         option.selected = user.name === currentValue;
                         input.appendChild(option);
                     });
+                    // manage
+                    const manageOpt = document.createElement('option');
+                    manageOpt.value = 'manage';
+                    manageOpt.textContent = '➕ Add/Remove Users';
+                    input.appendChild(manageOpt);
                 } else {
                     // Fallback for any other type
                     input = document.createElement('input');
@@ -201,14 +219,26 @@ document.addEventListener("DOMContentLoaded", function() {
                 this.appendChild(input);
                 input.focus();
                 
+                // Set up autocomplete after input is in the DOM (for description fields)
+                if (type === 'description') {
+                    // Small delay to ensure DOM is fully updated, then set up autocomplete
+                    setTimeout(() => {
+                        if (typeof window.createAutocomplete === 'function') {
+                            autocomplete = window.createAutocomplete(input);
+                        }
+                    }, 10);
+                }
+                
                 const saveEdit = () => {
-                    console.log("Saving edit with value:", input.value);
+                    // Clean up autocomplete if editing description
+                    if (type === 'description' && window.descriptionCleanup) {
+                        window.descriptionCleanup();
+                        window.descriptionCleanup = null;
+                    }
                     
                     const newValue = input.value.trim();
                     const row = this.closest('tr');
                     const expenseId = row.getAttribute('data-expense-id');
-                    
-                    console.log("Saving expense", expenseId, "field", type, "new value:", newValue);
                     
                     // Basic validation
                     if (type === 'amount') {
@@ -240,8 +270,6 @@ document.addEventListener("DOMContentLoaded", function() {
                         data.date = newValue;
                     }
                     
-                    console.log("Sending update data:", data);
-                    
                     // Show loading state
                     input.disabled = true;
                     input.style.backgroundColor = '#f0f0f0';
@@ -256,14 +284,12 @@ document.addEventListener("DOMContentLoaded", function() {
                         body: JSON.stringify(data)
                     })
                     .then(response => {
-                        console.log("Edit response status:", response.status);
                         if (!response.ok) {
                             throw new Error(`HTTP error! status: ${response.status}`);
                         }
                         return response.json();
                     })
                     .then(result => {
-                        console.log("Edit result:", result);
                         if (result.success) {
                             // Update display
                             if (type === 'amount') {
@@ -281,14 +307,18 @@ document.addEventListener("DOMContentLoaded", function() {
                         }
                     })
                     .catch(error => {
-                        console.error('Edit fetch error:', error);
                         showMessage('Network error: ' + error.message, 'red');
                         this.innerHTML = originalHTML;
                     });
                 };
                 
                 const cancelEdit = () => {
-                    console.log("Canceling edit");
+                    // Clean up autocomplete if editing description
+                    if (type === 'description' && window.descriptionCleanup) {
+                        window.descriptionCleanup();
+                        window.descriptionCleanup = null;
+                    }
+                    
                     this.innerHTML = originalHTML;
                 };
                 
@@ -307,6 +337,19 @@ document.addEventListener("DOMContentLoaded", function() {
                         cancelEdit();
                     }
                 });
+
+                if (type === 'category' || type === 'user') {
+                    input.addEventListener('change', function() {
+                        if (this.value === 'manage') {
+                            const nextUrl = encodeURIComponent(window.location.href);
+                            const dest = type === 'category' ? urls.manageCategories : urls.manageUsers;
+                            window.location.href = `${dest}?next=${nextUrl}`;
+                            return;
+                        }
+                        // For normal selection, immediately save
+                        saveEdit();
+                    });
+                }
             });
         });
     }
@@ -314,6 +357,4 @@ document.addEventListener("DOMContentLoaded", function() {
     // Initialize everything
     setupDeleteButtons();
     setupEditableCells();
-    
-    console.log("Table setup complete!");
 });

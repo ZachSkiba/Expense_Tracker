@@ -64,42 +64,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
     // DESCRIPTION AUTOCOMPLETE
     if (descInput && suggestionsContainer) {
-        descInput.addEventListener("input", function() {
-            const query = this.value.trim();
-            if (!query) {
-                suggestionsContainer.style.display = "none";
-                return;
-            }
-
-            fetch(`/store_suggestions?q=${encodeURIComponent(query)}`)
-                .then(res => res.json())
-                .then(data => {
-                    suggestionsContainer.innerHTML = "";
-                    if (!data.suggestions.length) {
-                        suggestionsContainer.style.display = "none";
-                        return;
-                    }
-
-                    data.suggestions.forEach(s => {
-                        const div = document.createElement("div");
-                        div.textContent = s;
-                        div.style.padding = "4px";
-                        div.style.cursor = "pointer";
-                        div.addEventListener("click", () => {
-                            descInput.value = s;
-                            suggestionsContainer.style.display = "none";
-                        });
-                        suggestionsContainer.appendChild(div);
-                    });
-                    suggestionsContainer.style.display = "block";
-                });
-        });
-
-        // Hide suggestions if clicked outside
-        document.addEventListener("click", function(e) {
-            if (e.target !== descInput) {
-                suggestionsContainer.style.display = "none";
-            }
-        });
+        createAutocomplete(descInput, 'suggestions-container');
     }
 });

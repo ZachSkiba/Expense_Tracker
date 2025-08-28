@@ -49,3 +49,8 @@
         margin-bottom: 10px;
         font-weight: bold;
     }
+
+    /* Add space between Category and Description when it appears */
+    #category-desc-container {
+        margin-top: 16px;
+    }

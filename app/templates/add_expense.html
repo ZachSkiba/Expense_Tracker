@@ -11,6 +11,8 @@
         <p style="color:red;">{{ error }}</p>
     {% endif %}
 
+    
+
     <form method="POST" id="expense-form">
         <!-- Amount -->
         <label>Amount:</label>
@@ -30,7 +32,7 @@
 
         <!-- Description / Store -->
         <div id="category-desc-container" style="display:none;">
-            <label>Description / Store:</label><br>
+            <label>Description / Store:</label>
             <input type="text" id="category-description" name="category_description" value="{{ category_description or '' }}" autocomplete="off">
             <div id="suggestions-container" style="border:1px solid #ccc; display:none; max-height:150px; overflow-y:auto; position:absolute; background:white;"></div>
         </div>
@@ -103,6 +105,7 @@
 </script>
 
 <!-- Load scripts for form and table functionality -->
+<script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
 <script src="{{ url_for('static', filename='js/add_expense_form.js') }}"></script>
 <script src="{{ url_for('static', filename='js/expenses_table.js') }}"></script>
 
