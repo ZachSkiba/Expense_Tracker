@@ -60,6 +60,8 @@ def get_settlements_api():
 @balances_bp.route("/balances", methods=["GET"])
 def balances_page():
     """Web page to view balances"""
+    # Recalculate balances every time the page is loaded
+    BalanceService.recalculate_all_balances()
     balances = BalanceService.get_all_balances()
     settlements = BalanceService.get_settlement_suggestions()
     

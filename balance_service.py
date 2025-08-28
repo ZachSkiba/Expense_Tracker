@@ -164,28 +164,42 @@ class BalanceService:
     def recalculate_all_balances():
         """Recalculate all balances from scratch (useful for data consistency)"""
         try:
-            # Reset all balances to 0
-            Balance.query.update({Balance.amount: 0.0, Balance.last_updated: datetime.utcnow()})
-            
+            # Delete all balances
+            db.session.query(Balance).delete()
+            db.session.commit()
+
             # Get all expenses with their participants
             expenses = db.session.query(Expense).all()
-            
+
             for expense in expenses:
-                # Calculate participant amounts
                 participants = expense.participants
                 if not participants:
-                    # Skip expenses without participants (old data)
                     continue
-                
                 participant_amounts = {p.user_id: p.amount_owed for p in participants}
-                
-                # Update balances
                 BalanceService._update_balances_for_expense(expense.id, expense.user_id, participant_amounts)
-            
+
             db.session.commit()
             return True
-            
+
         except Exception as e:
             db.session.rollback()
             print(f"Error recalculating balances: {e}")
             return False
+        
+    @staticmethod
+    def reverse_balances_for_expense(expense):
+        """
+        Reverse the balance effects of a given expense.
+        """
+        participants = expense.participants
+        if not participants:
+            return
+
+        participant_amounts = {p.user_id: p.amount_owed for p in participants}
+        payer_id = expense.user_id
+        total_amount = sum(participant_amounts.values())
+
+        # Undo: debit payer, credit participants
+        BalanceService._update_user_balance(payer_id, -total_amount)
+        for participant_id, amount_owed in participant_amounts.items():
+            BalanceService._update_user_balance(participant_id, amount_owed)

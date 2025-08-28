@@ -17,7 +17,7 @@ class User(db.Model):
     expense_participants = db.relationship("ExpenseParticipant", back_populates="user")
     
     # relationship to balances
-    balances = db.relationship("Balance", back_populates="user")
+    balances = db.relationship("Balance", back_populates="user", cascade="all, delete-orphan")
 
     def get_net_balance(self):
         """Calculate net balance for this user"""
@@ -74,7 +74,11 @@ class Balance(db.Model):
     __tablename__ = "balance"
 
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    user_id = db.Column(
+        db.Integer, 
+        db.ForeignKey("user.id", ondelete="CASCADE"),  # <-- add ondelete
+        nullable=False
+    )
     amount = db.Column(db.Float, nullable=False, default=0.0)
     last_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 

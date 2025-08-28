@@ -83,7 +83,7 @@
     </div>
 </div>
 
-<button class="refresh-btn" onclick="recalculateBalances()">🔄 Recalculate Balances</button>
+
 
 <h2>Current Balances</h2>
 
@@ -133,49 +133,6 @@
 <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a><br>
 <a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
 
-<script>
-async function recalculateBalances() {
-    const button = document.querySelector('.refresh-btn');
-    const originalText = button.innerHTML;
-    
-    button.disabled = true;
-    button.innerHTML = '🔄 Recalculating...';
-    
-    try {
-        const response = await fetch('/api/balances/recalculate', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-            alert('Balances recalculated successfully!');
-            location.reload(); // Refresh the page to show updated balances
-        } else {
-            alert('Error: ' + result.error);
-        }
-    } catch (error) {
-        alert('Network error: ' + error.message);
-    } finally {
-        button.disabled = false;
-        button.innerHTML = originalText;
-    }
-}
-
-// Auto-refresh balances every 30 seconds
-setInterval(() => {
-    fetch('/api/balances')
-        .then(response => response.json())
-        .then(data => {
-            // You could update the UI here without full page reload
-            console.log('Balances updated:', data);
-        })
-        .catch(error => console.error('Error fetching balances:', error));
-}, 30000);
-</script>
 
 </body>
 </html>

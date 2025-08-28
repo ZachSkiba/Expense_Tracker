@@ -165,7 +165,7 @@ def delete_expense(expense_id):
 
 @expenses_bp.route("/edit_expense/<int:expense_id>", methods=["POST"])
 def edit_expense(expense_id):
-    """Edit expense - currently limited to description and date to avoid complex balance recalculations"""
+    """Edit expense and recalculate balances as needed"""
     expense = Expense.query.get_or_404(expense_id)
     data = request.get_json()
 
@@ -173,25 +173,45 @@ def edit_expense(expense_id):
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
     try:
-        # Only allow editing of description and date for now
-        # Editing amount, category, or participants would require complex balance recalculation
-        
+        # Reverse old balances BEFORE updating fields
+        BalanceService.reverse_balances_for_expense(expense)
+
+        # Update fields
+        if 'amount' in data:
+            expense.amount = float(data['amount'])
+        if 'category' in data:
+            category = Category.query.filter_by(name=data['category']).first()
+            if category:
+                expense.category_id = category.id
+        if 'user' in data:
+            user = User.query.filter_by(name=data['user']).first()
+            if user:
+                expense.user_id = user.id
         if 'description' in data:
             expense.category_description = data['description']
-            
         if 'date' in data:
             expense.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-
-        # For amount, category, or user changes, show a helpful message
-        if 'amount' in data or 'category' in data or 'user' in data:
-            return jsonify({
-                'success': False, 
-                'error': 'To change amount, category, or participants, please delete this expense and create a new one to maintain accurate balances.'
-            }), 400
+        if 'participants' in data:
+            # Remove old participants
+            for p in expense.participants:
+                db.session.delete(p)
+            # Add new participants
+            for user_id in data['participants']:
+                participant = ExpenseParticipant(expense_id=expense.id, user_id=user_id, amount_owed=0) # Set amount_owed correctly
+                db.session.add(participant)
 
         db.session.commit()
+
+        # Apply new balances AFTER updating fields
+        BalanceService._update_balances_for_expense(
+            expense.id,
+            expense.user_id,
+            {p.user_id: p.amount_owed for p in expense.participants}
+        )
+        db.session.commit()
+
         return jsonify({'success': True})
-        
+
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
