@@ -173,10 +173,10 @@ def edit_expense(expense_id):
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
     try:
-        # Reverse old balances BEFORE updating fields
+        # Step 1: Reverse old balances BEFORE updating anything
         BalanceService.reverse_balances_for_expense(expense)
 
-        # Update fields
+        # Step 2: Update expense fields
         if 'amount' in data:
             expense.amount = float(data['amount'])
         if 'category' in data:
@@ -191,23 +191,48 @@ def edit_expense(expense_id):
             expense.category_description = data['description']
         if 'date' in data:
             expense.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        
+        # Step 3: Handle participants if provided
         if 'participants' in data:
             # Remove old participants
             for p in expense.participants:
                 db.session.delete(p)
-            # Add new participants
-            for user_id in data['participants']:
-                participant = ExpenseParticipant(expense_id=expense.id, user_id=user_id, amount_owed=0) # Set amount_owed correctly
-                db.session.add(participant)
+            db.session.flush()  # Ensure deletion is processed
+            
+            # Add new participants with correct amounts
+            participant_count = len(data['participants'])
+            if participant_count > 0:
+                individual_share = expense.amount / participant_count
+                for user_id in data['participants']:
+                    participant = ExpenseParticipant(
+                        expense_id=expense.id, 
+                        user_id=user_id, 
+                        amount_owed=individual_share
+                    )
+                    db.session.add(participant)
+        else:
+            # If participants weren't updated, recalculate their amounts based on new expense amount
+            participant_count = len(expense.participants)
+            if participant_count > 0:
+                individual_share = expense.amount / participant_count
+                for participant in expense.participants:
+                    participant.amount_owed = individual_share
 
+        # Step 4: Commit the expense and participant changes
         db.session.commit()
 
-        # Apply new balances AFTER updating fields
+        # Step 5: Apply new balances AFTER all updates are committed
+        # Refresh the expense to get updated participants
+        db.session.refresh(expense)
+        participant_amounts = {p.user_id: p.amount_owed for p in expense.participants}
+        
         BalanceService._update_balances_for_expense(
             expense.id,
             expense.user_id,
-            {p.user_id: p.amount_owed for p in expense.participants}
+            participant_amounts
         )
+        
+        # Final commit for balance changes
         db.session.commit()
 
         return jsonify({'success': True})
