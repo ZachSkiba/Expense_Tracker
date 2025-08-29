@@ -40,8 +40,8 @@ function createAutocomplete(input, containerId = null) {
         }
         
         // Add to page
-        document.body.appendChild(suggestionsContainer);
-        
+         document.body.appendChild(suggestionsContainer);    
+             
         // Force a reflow to ensure positioning is correct
         suggestionsContainer.offsetHeight;
     }
