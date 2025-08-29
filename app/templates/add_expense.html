@@ -22,54 +22,8 @@
 
     <!-- Main Layout -->
     <div class="main-layout">
-        <!-- Left Section - Current Balances -->
-        <div class="left-section">
-            <h2>Current Balances</h2>
-            
-            <div class="balance-list" id="balances-container">
-                <!-- This will be populated dynamically -->
-                <div style="text-align: center; padding: 20px; color: #7f8c8d;">
-                    Loading balances...
-                </div>
-            </div>
-
-            <!-- Settlements Section -->
-            <div style="margin-top: 30px;">
-                <h3 style="color: #2c3e50; margin-bottom: 15px;">Suggested Settlements</h3>
-                <div id="settlements-container">
-                    <div class="no-settlements">
-                        🎉 All settled! No payments needed.
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right Section - Quick Actions -->
-        <div class="right-section">
-            <div class="quick-actions-card">
-                <h3>Quick Actions</h3>
-                <div class="action-buttons">
-                    <button class="action-btn primary" onclick="openAddExpenseModal()">
-                        ➕ Add Expense
-                    </button>
-                    <button class="action-btn secondary" onclick="openSettleUpModal()">
-                        💰 Settle Up
-                    </button>
-                </div>
-            </div>
-
-            <div class="settlements-card">
-                <h3>This Month</h3>
-                <div style="text-align: center; margin: 15px 0;">
-                    <div style="font-size: 1.8rem; font-weight: bold; color: #2c3e50;">$0.00</div>
-                    <div style="color: #7f8c8d; font-size: 0.9rem;">Total Expenses</div>
-                </div>
-                <div style="text-align: center;">
-                    <div style="font-size: 1.2rem; font-weight: bold; color: #2c3e50;">0</div>
-                    <div style="color: #7f8c8d; font-size: 0.9rem;">Transactions</div>
-                </div>
-            </div>
-        </div>
+        {% include 'balances_section.html' %}
+        {% include 'right_section.html' %}
     </div>
 
     <!-- Expenses Section -->
