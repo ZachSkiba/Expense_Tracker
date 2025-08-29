@@ -152,13 +152,13 @@ button:hover {
     background: #f8f9fa;
     border: 1px solid #e9ecef;
     border-radius: 8px;
-    padding: 15px;
-    margin: 10px 0;
+    padding: 8px;
+    margin: 4px 0 20px 0;
     max-width: 250px;  /* Make container narrower */
 }
 
 .participants-title {
-    font-size: 1.1em;
+    font-size: 1em;
     color: #2c3e50;
     margin-bottom: 5px;
 }
@@ -166,7 +166,7 @@ button:hover {
 .participants-subtitle {
     font-size: 0.9em;
     color: #6c757d;
-    margin-bottom: 10px;
+    margin-bottom: 0 0 3px 0;
 }
 
 .participants-list {
@@ -199,4 +199,22 @@ button:hover {
     cursor: pointer;
     user-select: none;
     font-size: 0.95em;
+}
+
+.select-all-btn {
+    background: #e9ecef;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 4px 8px;
+    margin: 0 auto 8px auto;  /* Center the button */
+    cursor: pointer;
+    font-size: 0.9em;
+    width: 60%;  /* Reduce width from 100% to 80% */
+    display: block;  /* Needed for margin auto to work */
+    color: #495057;  /* Dark gray text */
+    transition: background-color 0.2s;
+}
+
+.select-all-btn:hover {
+    background: #dee2e6;
 }
