@@ -143,8 +143,9 @@ function openAddExpenseModal() {
         // Category handling
         function handleCategoryChange(select) {
             const descContainer = document.getElementById('category-desc-container');
+
             if (select.value === 'manage') {
-                window.location.href = "{{ url_for('categories.manage_categories') }}?next=" + encodeURIComponent(window.location.href);
+                window.location.href = window.urls.manageCategories + '?next=' + encodeURIComponent(window.location.href);
                 return;
             }
             
@@ -155,12 +156,13 @@ function openAddExpenseModal() {
             }
         }
 
+
         // User handling
         function handleUserChange(select) {
             if (select.value === 'manage') {
-                window.location.href = "{{ url_for('users.manage_users') }}?next=" + encodeURIComponent(window.location.href);
+                window.location.href = window.urls.manageUsers + '?next=' + encodeURIComponent(window.location.href);
                 return;
-            }
+    }
             
             // Auto-select payer as participant
             const payerCheckbox = document.getElementById(`participant-${select.value}`);
@@ -217,11 +219,7 @@ function openAddExpenseModal() {
         }
 
         // Make URLs available to JavaScript modules
-        window.urls = {
-            addExpense: "{{ url_for('expenses.add_expense') }}",
-            manageCategories: "{{ url_for('categories.manage_categories') }}",
-            manageUsers: "{{ url_for('users.manage_users') }}"
-        };
+    
 
         // Load existing JavaScript functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -297,7 +295,7 @@ function openAddExpenseModal() {
                             </div>
                         </div>
                         <div class="balance-amount">
-                            <div class="amount">${amount.toFixed(2)}</div>
+                            <div class="amount">$${amount.toFixed(2)}</div>
                             <div class="status">${statusText}</div>
                         </div>
                     </div>
@@ -318,7 +316,7 @@ function openAddExpenseModal() {
             const settlementItems = settlements.map(settlement => `
                 <div class="settlement-item">
                     <strong>${settlement.from}</strong> should pay <strong>${settlement.to}</strong> 
-                    <span class="settlement-amount">${settlement.amount.toFixed(2)}</span>
+                    <span class="settlement-amount">$${settlement.amount.toFixed(2)}</span>
                 </div>
             `).join('');
 

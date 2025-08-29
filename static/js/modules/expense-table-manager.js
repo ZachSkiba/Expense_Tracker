@@ -96,6 +96,7 @@ class ExpenseTableManager {
             if (result.success) {
                 row.remove();
                 this.showMessage('Expense deleted successfully!', 'green');
+                if (window.loadBalancesData) window.loadBalancesData();
             } else {
                 this.showMessage(result.error || 'Error deleting expense', 'red');
                 button.disabled = false;
@@ -317,6 +318,8 @@ class ExpenseTableManager {
                     cell.setAttribute('data-value', newValue);
                 }
                 this.showMessage('Updated successfully!', 'green');
+
+                if (window.loadBalancesData) window.loadBalancesData();
             } else {
                 this.showMessage(result.error || 'Update failed', 'red');
                 cell.innerHTML = originalHTML;
@@ -325,6 +328,7 @@ class ExpenseTableManager {
             this.showMessage('Network error: ' + error.message, 'red');
             cell.innerHTML = originalHTML;
         }
+            
     }
     
     cancelEdit(cell, originalHTML, autocomplete) {

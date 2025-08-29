@@ -10,7 +10,7 @@
     <!-- Header -->
     <div class="header">
         <h1>
-            🏠 RoomMate Tracker
+            🏠 403 Expense Tracker
             <span class="version">v2.0</span>
         </h1>
         <div class="status-indicator all-even">All Even</div>
@@ -140,6 +140,15 @@
     <!-- JavaScript -->
     <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
     <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
+
+    <script>
+        window.urls = {
+            addExpense: "{{ url_for('expenses.add_expense') }}",
+            manageCategories: "{{ url_for('categories.manage_categories') }}",
+            manageUsers: "{{ url_for('users.manage_users') }}"
+        };
+    </script>
+
 
     <!-- Load your existing JavaScript modules -->
     <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
