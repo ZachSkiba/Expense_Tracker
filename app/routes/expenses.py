@@ -21,7 +21,11 @@ def expenses():
     categories_data = CategoryService.get_all_data()
     users_data = UserService.get_all_data()
 
-    return render_template("expenses.html", expenses=all_expenses, categories=categories_data, users=users_data)
+    return render_template("expenses.html", 
+                         expenses=all_expenses, 
+                         categories=categories_data, 
+                         users=users_data,
+                         show_participants=True)  # Show participants on view all expenses page
 
 @expenses_bp.route("/store_suggestions")
 def store_suggestions():
@@ -73,6 +77,7 @@ def add_expense():
                                  users=users_data, 
                                  categories=categories_data, 
                                  expenses=all_expenses,
+                                 show_participants=False,  # Don't show participants on main page
                                  # Preserve form data
                                  selected_category_id=selected_category_id,
                                  amount=expense_data.get('amount'),
@@ -83,7 +88,8 @@ def add_expense():
                          error=None, 
                          users=users_data, 
                          categories=categories_data, 
-                         expenses=all_expenses)
+                         expenses=all_expenses,
+                         show_participants=False)  # Don't show participants on main page
 
 @expenses_bp.route("/delete_expense/<int:expense_id>", methods=["POST"])
 def delete_expense(expense_id):

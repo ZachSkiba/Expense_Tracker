@@ -39,10 +39,10 @@ body {
     font-weight: normal;
 }
 
-/* Layout styles */
+/* Layout styles - Made left section narrower */
 .main-layout {
     display: grid;
-    grid-template-columns: .8fr 1.2fr;
+    grid-template-columns: 0.6fr 1.4fr; /* Changed from .8fr 1.2fr to make left section narrower */
     gap: 30px;
     margin-bottom: 30px;
 }
@@ -61,12 +61,6 @@ body {
     border-bottom: 2px solid #3498db;
     padding-bottom: 10px;
 }
-
-
-
-
-
-
 
 .right-section {
     display: flex;
@@ -583,6 +577,29 @@ button:disabled {
     font-size: 0.85rem;
 }
 
+/* Participant tags styling for table */
+.participant-tag {
+    display: inline-block;
+    background: #e8f4fd;
+    color: #2980b9;
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    margin: 1px;
+}
+
+.participants {
+    max-width: 200px;
+    word-wrap: break-word;
+}
+
+/* Ensure table cells don't get too cramped */
+td.participants {
+    padding: 8px;
+    vertical-align: top;
+}
+
 /* Scrollbar styling */
 .table-container::-webkit-scrollbar,
 .modal-body::-webkit-scrollbar {
@@ -660,4 +677,3 @@ a:hover {
         padding: 20px;
     }
 }
-

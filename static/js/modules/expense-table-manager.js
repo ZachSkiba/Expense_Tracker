@@ -139,9 +139,22 @@ class ExpenseTableManager {
         const currentValue = cell.getAttribute('data-value') || '';
         const originalHTML = cell.innerHTML;
         
-        const input = this.createInputForType(type, currentValue);
+        // Store original HTML for participants editing
+        if (type === 'participants') {
+            cell.setAttribute('data-original-html', originalHTML);
+        }
         
-        // Style the input
+        const input = this.createInputForType(type, currentValue, cell);
+        
+        // Handle participants differently (no blur event)
+        if (type === 'participants') {
+            // Replace content with participants editor
+            cell.innerHTML = '';
+            cell.appendChild(input);
+            return; // Exit early for participants
+        }
+        
+        // Style the input for non-participants
         input.style.width = '100%';
         input.style.border = '2px solid blue';
         input.style.padding = '4px';
@@ -163,7 +176,7 @@ class ExpenseTableManager {
         const saveEdit = () => this.saveEdit(cell, input, type, originalHTML, autocomplete);
         const cancelEdit = () => this.cancelEdit(cell, originalHTML, autocomplete);
         
-        // Event listeners
+        // Event listeners for non-participants
         input.addEventListener('blur', () => setTimeout(saveEdit, 100));
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
@@ -188,7 +201,7 @@ class ExpenseTableManager {
         }
     }
     
-    createInputForType(type, currentValue) {
+    createInputForType(type, currentValue, cell) {
         let input;
         
         switch (type) {
@@ -223,6 +236,10 @@ class ExpenseTableManager {
                 this.populateSelect(input, this.usersData, currentValue, 'user');
                 break;
                 
+            case 'participants':
+                input = this.createParticipantsEditor(cell);
+                break;
+                
             default:
                 input = document.createElement('input');
                 input.type = 'text';
@@ -230,6 +247,99 @@ class ExpenseTableManager {
         }
         
         return input;
+    }
+    
+    createParticipantsEditor(cell) {
+        const container = document.createElement('div');
+        container.style.cssText = 'background: white; border: 2px solid #3498db; border-radius: 6px; padding: 8px; max-height: 180px; overflow-y: auto; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+        
+        // Get current participant IDs
+        const currentParticipantIds = (cell.getAttribute('data-participant-ids') || '').split(',').filter(id => id);
+        
+        // Title
+        const title = document.createElement('div');
+        title.textContent = 'Select Participants:';
+        title.style.cssText = 'font-weight: bold; margin-bottom: 6px; font-size: 0.85rem; color: #2c3e50;';
+        container.appendChild(title);
+        
+        // Checkboxes for each user - more compact layout
+        this.usersData.forEach(user => {
+            const wrapper = document.createElement('label');
+            wrapper.style.cssText = 'display: flex; align-items: center; margin: 2px 0; padding: 3px 6px; background: #f8f9fa; border-radius: 3px; cursor: pointer; font-size: 0.8rem; transition: background-color 0.2s;';
+            
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.value = user.id;
+            checkbox.checked = currentParticipantIds.includes(user.id.toString());
+            checkbox.style.cssText = 'margin-right: 6px; transform: scale(0.9);';
+            
+            const labelText = document.createElement('span');
+            labelText.textContent = user.name;
+            labelText.style.cssText = 'flex: 1; color: #2c3e50;';
+            
+            wrapper.appendChild(checkbox);
+            wrapper.appendChild(labelText);
+            
+            // Add hover effect
+            wrapper.addEventListener('mouseenter', () => {
+                wrapper.style.backgroundColor = '#e9ecef';
+            });
+            wrapper.addEventListener('mouseleave', () => {
+                wrapper.style.backgroundColor = '#f8f9fa';
+            });
+            
+            container.appendChild(wrapper);
+        });
+        
+        // Buttons - more compact
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = 'display: flex; gap: 6px; margin-top: 8px;';
+        
+        const saveBtn = document.createElement('button');
+        saveBtn.textContent = 'Save';
+        saveBtn.style.cssText = 'background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; flex: 1;';
+        
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = 'background: #95a5a6; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; flex: 1;';
+        
+        buttonContainer.appendChild(saveBtn);
+        buttonContainer.appendChild(cancelBtn);
+        container.appendChild(buttonContainer);
+        
+        // Store reference to container for event handlers
+        container._saveBtn = saveBtn;
+        container._cancelBtn = cancelBtn;
+        
+        // Add event listeners with proper context
+        saveBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const selectedIds = Array.from(container.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value));
+            
+            // Validate at least one participant
+            if (selectedIds.length === 0) {
+                alert('Please select at least one participant');
+                return;
+            }
+            
+            // Set the selected participants on the container
+            container._selectedParticipants = selectedIds;
+            
+            // Call the save handler directly
+            this.handleParticipantsSave(container, cell);
+        });
+        
+        cancelBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            // Call the cancel handler directly  
+            this.handleParticipantsCancel(container, cell);
+        });
+        
+        return container;
     }
     
     populateSelect(select, data, currentValue, type) {
@@ -263,33 +373,50 @@ class ExpenseTableManager {
             autocomplete.cleanup();
         }
         
-        const newValue = input.value.trim();
         const row = cell.closest('tr');
         const expenseId = row.getAttribute('data-expense-id');
         
-        // Validation
-        if (type === 'amount') {
-            const numValue = parseFloat(newValue);
-            if (isNaN(numValue) || numValue <= 0) {
-                this.showMessage('Amount must be a positive number', 'red');
+        let newValue, data = {};
+        
+        if (type === 'participants') {
+            // Handle participants editing - use direct method calls
+            const container = input;
+            
+            // Don't use setTimeout, handle directly
+            return;
+        } else {
+            // Handle other field types
+            newValue = input.value.trim();
+            
+            // Validation
+            if (type === 'amount') {
+                const numValue = parseFloat(newValue);
+                if (isNaN(numValue) || numValue <= 0) {
+                    this.showMessage('Amount must be a positive number', 'red');
+                    cell.innerHTML = originalHTML;
+                    return;
+                }
+                newValue = numValue;
+            }
+            
+            if (!newValue && type !== 'description') {
+                this.showMessage(`${type} cannot be empty`, 'red');
                 cell.innerHTML = originalHTML;
                 return;
             }
+            
+            // Prepare data
+            data[type === 'user' ? 'user' : type] = newValue;
+            await this.performSave(cell, data, expenseId, type, originalHTML, input, newValue);
         }
-        
-        if (!newValue && type !== 'description') {
-            this.showMessage(`${type} cannot be empty`, 'red');
-            cell.innerHTML = originalHTML;
-            return;
-        }
-        
-        // Prepare data
-        const data = {};
-        data[type === 'user' ? 'user' : type] = type === 'amount' ? parseFloat(newValue) : newValue;
-        
+    }
+    
+    async performSave(cell, data, expenseId, type, originalHTML, input, newValue) {
         // Show loading state
-        input.disabled = true;
-        input.style.backgroundColor = '#f0f0f0';
+        if (input.disabled !== undefined) {
+            input.disabled = true;
+            input.style.backgroundColor = '#f0f0f0';
+        }
         
         try {
             const response = await fetch(`/edit_expense/${expenseId}`, {
@@ -308,11 +435,15 @@ class ExpenseTableManager {
             const result = await response.json();
             
             if (result.success) {
-                // Update display
+                // Update display based on type
                 if (type === 'amount') {
                     const numValue = parseFloat(newValue);
                     cell.innerHTML = `$${numValue.toFixed(2)}`;
                     cell.setAttribute('data-value', numValue.toFixed(2));
+                } else if (type === 'participants') {
+                    // Refresh the entire row to get updated participant info
+                    window.location.reload();
+                    return;
                 } else {
                     cell.innerHTML = newValue || '';
                     cell.setAttribute('data-value', newValue);
@@ -328,7 +459,6 @@ class ExpenseTableManager {
             this.showMessage('Network error: ' + error.message, 'red');
             cell.innerHTML = originalHTML;
         }
-            
     }
     
     cancelEdit(cell, originalHTML, autocomplete) {
@@ -336,6 +466,66 @@ class ExpenseTableManager {
             autocomplete.cleanup();
         }
         cell.innerHTML = originalHTML;
+    }
+    
+    // Handler methods for participants editing
+    async handleParticipantsSave(container, cell) {
+        const selectedIds = container._selectedParticipants || [];
+        
+        if (selectedIds.length === 0) {
+            this.showMessage('At least one participant is required', 'red');
+            return;
+        }
+        
+        const row = cell.closest('tr');
+        const expenseId = row.getAttribute('data-expense-id');
+        const data = { participants: selectedIds };
+        
+        try {
+            const response = await fetch(`/edit_expense/${expenseId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.showMessage('Participants updated successfully!', 'green');
+                // Refresh the page to show updated participant info
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+                
+                if (window.loadBalancesData) {
+                    window.loadBalancesData();
+                }
+            } else {
+                this.showMessage(result.error || 'Update failed', 'red');
+                this.handleParticipantsCancel(container, cell);
+            }
+        } catch (error) {
+            this.showMessage('Network error: ' + error.message, 'red');
+            this.handleParticipantsCancel(container, cell);
+        }
+    }
+    
+    handleParticipantsCancel(container, cell) {
+        // Restore original HTML
+        const originalHTML = cell.getAttribute('data-original-html');
+        if (originalHTML) {
+            cell.innerHTML = originalHTML;
+        } else {
+            // Fallback: reload the page if we can't restore
+            window.location.reload();
+        }
     }
 }
 
