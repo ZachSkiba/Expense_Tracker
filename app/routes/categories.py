@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for
 from models import db, Category
+# NEW: Import the service
+from app.services.category_service import CategoryService
 
 categories_bp = Blueprint("categories", __name__)
 
@@ -9,28 +11,35 @@ def manage_categories():
     next_url = request.form.get("next") or request.args.get("next") or url_for("expenses.add_expense")
 
     if request.method == "POST":
-        name = request.form.get("name", "").strip()
+        name = request.form.get("name", "")
         if name:
-            if Category.query.filter_by(name=name).first():
-                error = f"Category '{name}' already exists"
-            else:
-                new_cat = Category(name=name)
-                db.session.add(new_cat)
-                db.session.commit()
+            # Use service instead of direct database operations
+            category, error = CategoryService.create_category(name)
+            if category:
                 return redirect(next_url)
-        categories = Category.query.all()
+            # If there's an error, it will be displayed below
+            
+        # Get categories using service
+        categories = CategoryService.get_all()
         return render_template("categories.html", categories=categories, error=error, next_url=next_url)
 
-    categories = Category.query.all()
+    # Get categories using service
+    categories = CategoryService.get_all()
     return render_template("categories.html", categories=categories, error=error, next_url=next_url)
 
 @categories_bp.route("/delete_category/<int:cat_id>")
 def delete_category(cat_id):
-    cat = Category.query.get_or_404(cat_id)
-    if cat.expenses:
-        error = f"Cannot delete category '{cat.name}' because it has existing expenses."
-        categories = Category.query.all()
+    # Use service to check if category can be deleted
+    can_delete, error_message = CategoryService.can_delete_category(cat_id)
+    
+    if not can_delete:
+        categories = CategoryService.get_all()
+        return render_template("categories.html", categories=categories, error=error_message)
+    
+    # Use service to delete category
+    success, error = CategoryService.delete_category(cat_id)
+    if not success:
+        categories = CategoryService.get_all()
         return render_template("categories.html", categories=categories, error=error)
-    db.session.delete(cat)
-    db.session.commit()
+    
     return redirect(url_for("categories.manage_categories"))
