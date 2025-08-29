@@ -52,19 +52,21 @@
 
         <!-- NEW: Participants Section -->
         <div class="participants-section">
-            <label><strong>Who participated in this expense?</strong></label>
-            <p style="font-size: 0.9em; color: #666; margin: 5px 0 15px 0;">
-                Select everyone who should split this expense (including the person who paid if they participated)
+            <h3 class="participants-title">Who participated in this expense?</h3>
+            <p class="participants-subtitle">
+                Select everyone who should split this expense (including the person who paid)
             </p>
             
-            <div id="participants-list">
+            <button type="button" class="select-all-btn" onclick="toggleAllParticipants()">Select All</button>
+
+            <div id="participants-list" class="participants-grid">
                 {% for user in users %}
                 <div class="participant-checkbox">
                     <input type="checkbox" 
-                           id="participant-{{ user.id }}" 
-                           name="participant_ids" 
-                           value="{{ user.id }}"
-                           onchange="updateSplitPreview()">
+                        id="participant-{{ user.id }}" 
+                        name="participant_ids" 
+                        value="{{ user.id }}"
+                        onchange="updateSplitPreview()">
                     <label for="participant-{{ user.id }}">{{ user.name }}</label>
                 </div>
                 {% endfor %}

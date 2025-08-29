@@ -19,12 +19,30 @@ class ExpenseFormManager {
         this.init();
     }
     
+    setupSelectAllParticipants() {
+        const selectAllBtn = document.querySelector('.select-all-btn');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                const checkboxes = document.querySelectorAll('input[name="participant_ids"]');
+                const anyUnchecked = Array.from(checkboxes).some(cb => !cb.checked);
+                
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = anyUnchecked;
+                });
+                
+                this.updateSplitPreview();
+            });
+        }
+    }
+
     init() {
         this.setupCategoryHandling();
         this.setupUserHandling();
         this.setupParticipantHandling();
         this.setupFormValidation();
         this.setupAutoComplete();
+        this.setupSelectAllParticipants();
+
         
         // Initialize form state
         this.updateCategoryDescriptionVisibility();
