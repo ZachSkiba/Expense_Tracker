@@ -94,121 +94,26 @@
 <hr>
 {% include "_expenses_table.html" %}
 
-<!-- Data for JavaScript (needed for both form and table functionality) -->
+
+
+<!-- Data for JavaScript -->
 <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
 <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
 
 <script>
-    const urls = {
+    // Make URLs available to JavaScript modules
+    window.urls = {
         addExpense: "{{ url_for('expenses.add_expense') }}",
         manageCategories: "{{ url_for('categories.manage_categories') }}",
         manageUsers: "{{ url_for('users.manage_users') }}"
     };
-
-    // Handle category change inline
-    function handleCategoryChange(select) {
-        if (select.value === "manage") {
-            const nextUrl = encodeURIComponent(window.location.href);
-            window.location.href = urls.manageCategories + "?next=" + nextUrl;
-            return;
-        }
-        
-        const descContainer = document.getElementById("category-desc-container");
-        if (select.value) {
-            descContainer.style.display = "block";
-        } else {
-            descContainer.style.display = "none";
-        }
-    }
-
-    // Handle user change inline
-    function handleUserChange(select) {
-        if (select.value === "manage") {
-            const nextUrl = encodeURIComponent(window.location.href);
-            window.location.href = urls.manageUsers + "?next=" + nextUrl;
-            return;
-        }
-    
-
-    // Auto-select the payer as a participant
-        const payerId = select.value;
-        if (payerId) {
-            const payerCheckbox = document.getElementById(`participant-${payerId}`);
-            if (payerCheckbox && !payerCheckbox.checked) {
-                payerCheckbox.checked = true;
-                updateSplitPreview();
-            }
-        }
-    }
-
-// Update split preview when amount or participants change
-    function updateSplitPreview() {
-        const amountInput = document.getElementById('amount-input');
-        const participantCheckboxes = document.querySelectorAll('input[name="participant_ids"]:checked');
-        const splitPreview = document.getElementById('split-preview');
-        const splitDetails = document.getElementById('split-details');
-        
-        const amount = parseFloat(amountInput.value) || 0;
-        const participantCount = participantCheckboxes.length;
-        
-        if (amount > 0 && participantCount > 0) {
-            const sharePerPerson = amount / participantCount;
-            
-            let detailsHtml = `<div>Total: ${amount.toFixed(2)} ÷ ${participantCount} people = ${sharePerPerson.toFixed(2)} per person</div>`;
-            detailsHtml += '<div style="margin-top: 8px; font-size: 0.85em;">Participants: ';
-            
-            const participantNames = [];
-            participantCheckboxes.forEach(checkbox => {
-                const label = document.querySelector(`label[for="${checkbox.id}"]`);
-                participantNames.push(label.textContent);
-            });
-            
-            detailsHtml += participantNames.join(', ') + '</div>';
-            
-            splitDetails.innerHTML = detailsHtml;
-            splitPreview.style.display = 'block';
-        } else {
-            splitPreview.style.display = 'none';
-        }
-    }
-
-    // Form validation
-    document.getElementById('expense-form').addEventListener('submit', function(e) {
-        const participantCheckboxes = document.querySelectorAll('input[name="participant_ids"]:checked');
-        
-        if (participantCheckboxes.length === 0) {
-            e.preventDefault();
-            alert('Please select at least one participant for this expense.');
-            return false;
-        }
-        
-        // Check if category or user is set to "manage"
-        const categorySelect = document.getElementById('category-select');
-        const userSelect = document.getElementById('user-select');
-        
-        if (categorySelect.value === "manage" || userSelect.value === "manage") {
-            e.preventDefault();
-            return false;
-        }
-    });
-
-    // Initialize form
-    document.addEventListener('DOMContentLoaded', function() {
-        // Show category description if category is already selected
-        const categorySelect = document.getElementById('category-select');
-        if (categorySelect.value && categorySelect.value !== 'manage') {
-            document.getElementById('category-desc-container').style.display = 'block';
-        }
-        
-        // Update split preview on page load
-        updateSplitPreview();
-    });
 </script>
 
-<!-- Load scripts for form and table functionality -->
+<!-- Load JavaScript modules -->
 <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
-<script src="{{ url_for('static', filename='js/add_expense_form.js') }}"></script>
-<script src="{{ url_for('static', filename='js/expenses_table.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/modules/expense-form-manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 </body>
 </html>

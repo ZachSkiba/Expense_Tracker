@@ -1,4 +1,5 @@
 from models import db, User
+from flask import url_for
 
 class UserService:
     
@@ -39,27 +40,33 @@ class UserService:
     
     @staticmethod
     def can_delete_user(user_id):
-        """
-        Check if user can be safely deleted
-        
-        Returns:
-            tuple: (can_delete_boolean, reasons_list)
-        """
+        """Check if user can be safely deleted"""
         user = User.query.get_or_404(user_id)
         reasons = []
         
         # Check if user has expenses as payer
         payer_expenses = user.expenses
         if payer_expenses:
-            reasons.append(f"{user.name} paid for {len(payer_expenses)} expense(s)")
+            expense_url = url_for('expenses.add_expense')
+            reasons.append(
+                f"{user.name} paid for "
+                f"<a href='{expense_url}'>{len(payer_expenses)} expense(s)</a>"
+            )
         
         # Check if user has non-zero balance
         net_balance = user.get_net_balance()
         if abs(net_balance) > 0.01:  # Not zero (accounting for floating point)
+            balance_url = url_for('balances.balances_page')
             if net_balance > 0:
-                reasons.append(f"{user.name} is owed <strong>${net_balance:.2f}</strong>")
+                reasons.append(
+                    f"{user.name} is owed <strong>${net_balance:.2f}</strong> "
+                    f"(<a href='{balance_url}'>view balances</a>)"
+                )
             else:
-                reasons.append(f"{user.name} owes <strong>${abs(net_balance):.2f}</strong>")
+                reasons.append(
+                    f"{user.name} owes <strong>${abs(net_balance):.2f}</strong> "
+                    f"(<a href='{balance_url}'>view balances</a>)"
+                )
         
         can_delete = len(reasons) == 0
         return can_delete, reasons
