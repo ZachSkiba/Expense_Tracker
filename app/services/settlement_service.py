@@ -7,7 +7,7 @@ class SettlementService:
     @staticmethod
     def create_settlement(settlement_data):
         """
-        Create a settlement/payment between users and update balances
+        Create a settlement/payment between users and recalculate all balances
         
         Args:
             settlement_data: dict with keys: amount, payer_id, receiver_id, description, date
@@ -80,15 +80,11 @@ class SettlementService:
                 date=settlement_date
             )
             db.session.add(settlement)
-            db.session.flush()  # Get the settlement ID
-            
-            # Update balances
-            # Payer's balance decreases (they paid money)
-            BalanceService._update_user_balance(payer_id, -amount)
-            # Receiver's balance increases (they received money)
-            BalanceService._update_user_balance(receiver_id, amount)
-            
             db.session.commit()
+            
+            # Recalculate ALL balances from scratch to ensure accuracy
+            BalanceService.recalculate_all_balances()
+            
             return settlement, []
             
         except Exception as e:
@@ -125,7 +121,7 @@ class SettlementService:
     @staticmethod
     def delete_settlement(settlement_id):
         """
-        Delete settlement and reverse balance changes
+        Delete settlement and recalculate all balances
         
         Args:
             settlement_id: int
@@ -136,14 +132,58 @@ class SettlementService:
         try:
             settlement = Settlement.query.get_or_404(settlement_id)
             
-            # Reverse balance changes
-            # Undo: payer's balance increases, receiver's balance decreases
-            BalanceService._update_user_balance(settlement.payer_id, settlement.amount)
-            BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount)
-            
             # Delete settlement
             db.session.delete(settlement)
             db.session.commit()
+            
+            # Recalculate ALL balances from scratch to ensure accuracy
+            BalanceService.recalculate_all_balances()
+            
+            return True, None
+            
+        except Exception as e:
+            db.session.rollback()
+            return False, str(e)
+    
+    @staticmethod
+    def update_settlement(settlement_id, update_data):
+        """
+        Update settlement and recalculate all balances
+        
+        Args:
+            settlement_id: int
+            update_data: dict with fields to update
+        
+        Returns:
+            tuple: (success_boolean, error_message)
+        """
+        try:
+            settlement = Settlement.query.get_or_404(settlement_id)
+            
+            # Update fields
+            if 'amount' in update_data:
+                settlement.amount = float(update_data['amount'])
+                
+            if 'payer' in update_data:
+                user = User.query.filter_by(name=update_data['payer']).first()
+                if user:
+                    settlement.payer_id = user.id
+                    
+            if 'receiver' in update_data:
+                user = User.query.filter_by(name=update_data['receiver']).first()
+                if user:
+                    settlement.receiver_id = user.id
+                    
+            if 'description' in update_data:
+                settlement.description = update_data['description'] if update_data['description'] else None
+                
+            if 'date' in update_data:
+                settlement.date = datetime.strptime(update_data['date'], '%Y-%m-%d').date()
+            
+            db.session.commit()
+            
+            # Recalculate ALL balances from scratch to ensure accuracy
+            BalanceService.recalculate_all_balances()
             
             return True, None
             

@@ -19,7 +19,7 @@ def add_settlement_api():
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
-        # Create settlement
+        # Create settlement using service (which will recalculate balances)
         settlement, errors = SettlementService.create_settlement(data)
         
         if settlement:
@@ -47,6 +47,9 @@ def get_settlements_api():
 @settlements_bp.route("/settlements", methods=["GET", "POST"])
 def manage_settlements():
     """Web page to manage settlements"""
+    # Always recalculate balances when page loads
+    BalanceService.recalculate_all_balances()
+    
     error = None
     users_data = UserService.get_all_data()
     settlements_data = SettlementService.get_settlement_data()
@@ -61,7 +64,7 @@ def manage_settlements():
             'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d')
         }
 
-        # Use service to create settlement
+        # Use service to create settlement (which will recalculate balances)
         settlement, errors = SettlementService.create_settlement(settlement_data)
         
         if settlement:
@@ -87,7 +90,7 @@ def manage_settlements():
 
 @settlements_bp.route("/delete_settlement/<int:settlement_id>", methods=["POST"])
 def delete_settlement(settlement_id):
-    """Delete settlement and reverse balance changes"""
+    """Delete settlement and recalculate all balances"""
     success, error = SettlementService.delete_settlement(settlement_id)
     
     if success:
@@ -97,51 +100,16 @@ def delete_settlement(settlement_id):
 
 @settlements_bp.route("/edit_settlement/<int:settlement_id>", methods=["POST"])
 def edit_settlement(settlement_id):
-    """Edit settlement and recalculate balances as needed"""
+    """Edit settlement and recalculate all balances"""
     data = request.get_json()
 
     if not data:
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
-    try:
-        settlement = Settlement.query.get_or_404(settlement_id)
-        
-        # Store old values for balance reversal
-        old_amount = settlement.amount
-        old_payer_id = settlement.payer_id
-        old_receiver_id = settlement.receiver_id
-        
-        # Reverse old balance changes
-        BalanceService._update_user_balance(old_payer_id, old_amount)
-        BalanceService._update_user_balance(old_receiver_id, -old_amount)
-        
-        # Update fields
-        if 'amount' in data:
-            settlement.amount = float(data['amount'])
-            
-        if 'payer' in data:
-            user = User.query.filter_by(name=data['payer']).first()
-            if user:
-                settlement.payer_id = user.id
-                
-        if 'receiver' in data:
-            user = User.query.filter_by(name=data['receiver']).first()
-            if user:
-                settlement.receiver_id = user.id
-                
-        if 'description' in data:
-            settlement.description = data['description'] if data['description'] else None
-            
-        if 'date' in data:
-            settlement.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
-        
-        # Apply new balance changes
-        BalanceService._update_user_balance(settlement.payer_id, -settlement.amount)
-        BalanceService._update_user_balance(settlement.receiver_id, settlement.amount)
-        
-        db.session.commit()
+    # Use service method which will recalculate all balances
+    success, error = SettlementService.update_settlement(settlement_id, data)
+    
+    if success:
         return jsonify({'success': True})
-        
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
+    else:
+        return jsonify({'success': False, 'error': error}), 500

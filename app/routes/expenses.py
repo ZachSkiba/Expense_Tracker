@@ -9,10 +9,15 @@ expenses_bp = Blueprint("expenses", __name__)
 
 @expenses_bp.route("/")
 def home():
+    # Always recalculate balances when loading home page
+    BalanceService.recalculate_all_balances()
     return redirect(url_for("expenses.add_expense"))
 
 @expenses_bp.route("/expenses")
 def expenses():
+    # Always recalculate balances when loading expenses page
+    BalanceService.recalculate_all_balances()
+    
     # Use services for all data
     from app.services.user_service import UserService
     from app.services.category_service import CategoryService
@@ -36,6 +41,9 @@ def store_suggestions():
 
 @expenses_bp.route("/add-expense", methods=["GET", "POST"])
 def add_expense():
+    # Always recalculate balances when loading add expense page
+    BalanceService.recalculate_all_balances()
+    
     from app.services.user_service import UserService
     from app.services.category_service import CategoryService
     
@@ -64,7 +72,7 @@ def add_expense():
             'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d')
         }
 
-        # Use service to create expense
+        # Use service to create expense (which will recalculate all balances)
         expense, errors = ExpenseService.create_expense(expense_data)
         
         if expense:
@@ -93,8 +101,8 @@ def add_expense():
 
 @expenses_bp.route("/delete_expense/<int:expense_id>", methods=["POST"])
 def delete_expense(expense_id):
-    """Delete expense and reverse balance changes"""
-    # Use service instead of direct database operations
+    """Delete expense and recalculate all balances"""
+    # Use service instead of direct database operations (which will recalculate all balances)
     success, error = ExpenseService.delete_expense(expense_id)
     
     if success:
@@ -104,13 +112,13 @@ def delete_expense(expense_id):
 
 @expenses_bp.route("/edit_expense/<int:expense_id>", methods=["POST"])
 def edit_expense(expense_id):
-    """Edit expense and recalculate balances as needed"""
+    """Edit expense and recalculate all balances"""
     data = request.get_json()
 
     if not data:
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
-    # Use service instead of direct database operations
+    # Use service instead of direct database operations (which will recalculate all balances)
     success, error = ExpenseService.update_expense(expense_id, data)
     
     if success:

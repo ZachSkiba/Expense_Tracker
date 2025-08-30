@@ -1,9 +1,9 @@
 <!-- _settlements_table.html -->
 <div class="settlements-history">
     <h3>Recent Payments</h3>
-    <div id="settlements-container">
+    <div id="settlements-table-container">
         <div style="text-align: center; padding: 20px; color: #7f8c8d;">
-            Loading settlements...
+            Loading payments...
         </div>
     </div>
 </div>
@@ -25,43 +25,51 @@
     padding-bottom: 8px;
 }
 
-.settlement-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 12px 0;
+.settlements-table-main {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.settlements-table-main th,
+.settlements-table-main td {
+    padding: 10px 8px;
+    text-align: left;
     border-bottom: 1px solid #ecf0f1;
+    font-size: 0.9em;
 }
 
-.settlement-item:last-child {
-    border-bottom: none;
-}
-
-.settlement-info {
-    flex-grow: 1;
-}
-
-.settlement-main {
-    font-size: 0.95em;
+.settlements-table-main th {
+    background-color: #f8f9fa;
+    font-weight: 600;
     color: #2c3e50;
-    margin-bottom: 4px;
+    font-size: 0.85em;
 }
 
-.settlement-details {
-    font-size: 0.8em;
-    color: #7f8c8d;
-}
-
-.settlement-amount {
+.settlements-table-main .amount {
     font-weight: 600;
     color: #27ae60;
-    font-size: 1em;
+    text-align: right;
 }
 
-.settlement-date {
-    font-size: 0.75em;
-    color: #95a5a6;
-    margin-left: 10px;
+.settlements-table-main .delete-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.settlements-table-main tr:hover .delete-btn {
+    opacity: 1;
+}
+
+.settlements-table-main .delete-btn:hover {
+    background: #c0392b;
 }
 
 .no-settlements {
@@ -69,32 +77,13 @@
     padding: 30px;
     color: #7f8c8d;
     font-style: italic;
+    background: #f8f9fa;
+    border-radius: 6px;
+    border: 1px dashed #bdc3c7;
 }
 
-.settlement-arrow {
-    color: #3498db;
-    margin: 0 8px;
-    font-weight: bold;
-}
-
-.delete-settlement-btn {
-    background: #e74c3c;
-    color: white;
-    border: none;
-    padding: 4px 8px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 11px;
-    margin-left: 8px;
-    opacity: 0;
-    transition: opacity 0.2s;
-}
-
-.settlement-item:hover .delete-settlement-btn {
-    opacity: 1;
-}
-
-.delete-settlement-btn:hover {
-    background: #c0392b;
+.settlement-date {
+    color: #7f8c8d;
+    font-size: 0.85em;
 }
 </style>

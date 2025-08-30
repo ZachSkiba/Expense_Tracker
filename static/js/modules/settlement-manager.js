@@ -105,16 +105,16 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.settlements) {
-                this.renderSettlements(data.settlements);
+                this.renderSettlementsTable(data.settlements);
             }
         } catch (error) {
             console.error('Error loading settlements:', error);
-            this.renderSettlements([]);
+            this.renderSettlementsTable([]);
         }
     }
 
-    renderSettlements(settlements) {
-        const container = document.getElementById('settlements-container');
+    renderSettlementsTable(settlements) {
+        const container = document.getElementById('settlements-table-container');
         if (!container) return;
 
         if (!settlements || settlements.length === 0) {
@@ -126,28 +126,37 @@ class SettlementManager {
             return;
         }
 
-        const settlementHTML = settlements.map(settlement => `
-            <div class="settlement-item" data-settlement-id="${settlement.id}">
-                <div class="settlement-info">
-                    <div class="settlement-main">
-                        <strong>${settlement.payer_name}</strong>
-                        <span class="settlement-arrow">→</span>
-                        <strong>${settlement.receiver_name}</strong>
-                        <button class="delete-settlement-btn" data-settlement-id="${settlement.id}">❌</button>
-                    </div>
-                    <div class="settlement-details">
-                        ${settlement.description || 'Payment'}
-                        <span class="settlement-date">${settlement.date}</span>
-                    </div>
-                </div>
-                <div class="settlement-amount">$${parseFloat(settlement.amount).toFixed(2)}</div>
-            </div>
-        `).join('');
+        const tableHTML = `
+            <table class="settlements-table-main">
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>From</th>
+                        <th>To</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${settlements.map(settlement => `
+                        <tr data-settlement-id="${settlement.id}">
+                            <td class="amount">$${parseFloat(settlement.amount).toFixed(2)}</td>
+                            <td>${settlement.payer_name}</td>
+                            <td>${settlement.receiver_name}</td>
+                            <td class="settlement-date">${settlement.date}</td>
+                            <td>
+                                <button class="delete-btn" data-settlement-id="${settlement.id}">❌</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
 
-        container.innerHTML = settlementHTML;
+        container.innerHTML = tableHTML;
 
         // Add delete event listeners
-        container.querySelectorAll('.delete-settlement-btn').forEach(button => {
+        container.querySelectorAll('.delete-btn').forEach(button => {
             button.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const settlementId = button.getAttribute('data-settlement-id');
@@ -157,7 +166,7 @@ class SettlementManager {
     }
 
     async deleteSettlement(settlementId) {
-        if (!confirm('Are you sure you want to delete this payment? This will reverse the balance changes.')) {
+        if (!confirm('Are you sure you want to delete this payment? This will recalculate all balances.')) {
             return;
         }
 

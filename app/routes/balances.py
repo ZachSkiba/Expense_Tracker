@@ -16,7 +16,7 @@ def add_expense_api():
             if field not in data:
                 return jsonify({'error': f'Missing required field: {field}'}), 400
         
-        # Create expense
+        # Create expense (which will recalculate all balances)
         expense = BalanceService.create_expense_with_participants(
             amount=float(data['amount']),
             payer_id=int(data['payer_id']),
@@ -43,6 +43,8 @@ def add_expense_api():
 def get_balances_api():
     """API endpoint to get current balances"""
     try:
+        # Always recalculate balances to ensure accuracy
+        BalanceService.recalculate_all_balances()
         balances = BalanceService.get_all_balances()
         return jsonify({'balances': balances}), 200
     except Exception as e:
@@ -52,6 +54,8 @@ def get_balances_api():
 def get_settlements_api():
     """API endpoint to get settlement suggestions"""
     try:
+        # Always recalculate balances first to ensure accuracy
+        BalanceService.recalculate_all_balances()
         settlements = BalanceService.get_settlement_suggestions()
         return jsonify({'settlements': settlements}), 200
     except Exception as e:
@@ -69,7 +73,7 @@ def balances_page():
 
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():
-    """Recalculate all balances from expenses (admin function)"""
+    """Recalculate all balances from expenses and settlements (admin function)"""
     try:
         success = BalanceService.recalculate_all_balances()
         if success:

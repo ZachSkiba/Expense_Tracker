@@ -1,4 +1,4 @@
-from models import db, User, Expense, ExpenseParticipant, Balance
+from models import db, User, Expense, ExpenseParticipant, Balance, Settlement
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
@@ -8,7 +8,7 @@ class BalanceService:
     def create_expense_with_participants(amount, payer_id, participant_ids, category_id, 
                                        category_description=None, date=None, split_type='equal'):
         """
-        Create a new expense and update all balances
+        Create a new expense and recalculate all balances
         
         Args:
             amount: Total expense amount
@@ -59,29 +59,17 @@ class BalanceService:
                 )
                 db.session.add(participant)
             
-            # Update balances
-            BalanceService._update_balances_for_expense(expense.id, payer_id, participant_amounts)
-            
             db.session.commit()
+            
+            # Recalculate ALL balances to ensure accuracy
+            BalanceService.recalculate_all_balances()
+            
             return expense
             
         except Exception as e:
             db.session.rollback()
             print(f"Error creating expense: {e}")
             return None
-    
-    @staticmethod
-    def _update_balances_for_expense(expense_id, payer_id, participant_amounts):
-        """Update balances based on a new expense"""
-        
-        total_amount = sum(participant_amounts.values())
-        
-        # Credit the payer with the full amount
-        BalanceService._update_user_balance(payer_id, total_amount)
-        
-        # Debit each participant their share
-        for participant_id, amount_owed in participant_amounts.items():
-            BalanceService._update_user_balance(participant_id, -amount_owed)
     
     @staticmethod
     def _update_user_balance(user_id, amount):
@@ -162,21 +150,36 @@ class BalanceService:
     
     @staticmethod
     def recalculate_all_balances():
-        """Recalculate all balances from scratch (useful for data consistency)"""
+        """
+        Recalculate all balances from scratch including both expenses AND settlements
+        This ensures complete accuracy by rebuilding all balance data
+        """
         try:
-            # Delete all balances
+            # Delete all existing balances
             db.session.query(Balance).delete()
-            db.session.commit()
+            db.session.flush()
 
-            # Get all expenses with their participants
+            # Process all expenses
             expenses = db.session.query(Expense).all()
-
             for expense in expenses:
                 participants = expense.participants
                 if not participants:
                     continue
-                participant_amounts = {p.user_id: p.amount_owed for p in participants}
-                BalanceService._update_balances_for_expense(expense.id, expense.user_id, participant_amounts)
+                
+                # Credit the payer with the full amount they paid
+                BalanceService._update_user_balance(expense.user_id, expense.amount)
+                
+                # Debit each participant their share
+                for participant in participants:
+                    BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
+            
+            # Process all settlements
+            settlements = db.session.query(Settlement).all()
+            for settlement in settlements:
+                # Payer's balance decreases (they paid money out)
+                BalanceService._update_user_balance(settlement.payer_id, -settlement.amount)
+                # Receiver's balance increases (they received money)
+                BalanceService._update_user_balance(settlement.receiver_id, settlement.amount)
 
             db.session.commit()
             return True
@@ -190,16 +193,8 @@ class BalanceService:
     def reverse_balances_for_expense(expense):
         """
         Reverse the balance effects of a given expense.
+        After this, recalculate_all_balances() should be called.
         """
-        participants = expense.participants
-        if not participants:
-            return
-
-        participant_amounts = {p.user_id: p.amount_owed for p in participants}
-        payer_id = expense.user_id
-        total_amount = sum(participant_amounts.values())
-
-        # Undo: debit payer, credit participants
-        BalanceService._update_user_balance(payer_id, -total_amount)
-        for participant_id, amount_owed in participant_amounts.items():
-            BalanceService._update_user_balance(participant_id, amount_owed)
+        # This method is now simplified since we always do full recalculation
+        # Just mark that we need to recalculate everything
+        pass

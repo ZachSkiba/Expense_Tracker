@@ -66,7 +66,7 @@ class ExpenseService:
             errors.append("Invalid user or category selection")
             return None, errors
         
-        # Create expense using BalanceService
+        # Create expense using BalanceService (which will recalculate all balances)
         expense = BalanceService.create_expense_with_participants(
             amount=amount,
             payer_id=payer_id,
@@ -84,7 +84,7 @@ class ExpenseService:
     @staticmethod
     def update_expense(expense_id, update_data):
         """
-        Update expense with balance recalculation
+        Update expense and recalculate all balances
         
         Args:
             expense_id: int
@@ -95,9 +95,6 @@ class ExpenseService:
         """
         try:
             expense = Expense.query.get_or_404(expense_id)
-            
-            # Reverse old balances
-            BalanceService.reverse_balances_for_expense(expense)
             
             # Update fields
             if 'amount' in update_data:
@@ -148,17 +145,9 @@ class ExpenseService:
             # Commit changes
             db.session.commit()
             
-            # Apply new balances
-            db.session.refresh(expense)
-            participant_amounts = {p.user_id: p.amount_owed for p in expense.participants}
+            # Recalculate ALL balances from scratch to ensure accuracy
+            BalanceService.recalculate_all_balances()
             
-            BalanceService._update_balances_for_expense(
-                expense.id,
-                expense.user_id,
-                participant_amounts
-            )
-            
-            db.session.commit()
             return True, None
             
         except Exception as e:
@@ -168,7 +157,7 @@ class ExpenseService:
     @staticmethod
     def delete_expense(expense_id):
         """
-        Delete expense and reverse balances
+        Delete expense and recalculate all balances
         
         Args:
             expense_id: int
@@ -179,20 +168,12 @@ class ExpenseService:
         try:
             expense = Expense.query.get_or_404(expense_id)
             
-            # Get data before deletion
-            participants = expense.participants
-            payer_id = expense.user_id
-            total_amount = expense.amount
-            participant_amounts = {p.user_id: p.amount_owed for p in participants}
-            
-            # Reverse balances
-            BalanceService._update_user_balance(payer_id, -total_amount)
-            for participant_id, amount_owed in participant_amounts.items():
-                BalanceService._update_user_balance(participant_id, amount_owed)
-            
-            # Delete expense
+            # Delete expense (participants will be deleted via cascade)
             db.session.delete(expense)
             db.session.commit()
+            
+            # Recalculate ALL balances from scratch to ensure accuracy
+            BalanceService.recalculate_all_balances()
             
             return True, None
             
