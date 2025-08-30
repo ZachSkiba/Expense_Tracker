@@ -1,9 +1,11 @@
-// settlement-manager.js - CORRECTED VERSION
+// settlement-manager.js - FIXED VERSION (DOM conflicts resolved + auto refresh)
 class SettlementManager {
     constructor() {
         this.usersData = this.loadUsersData();
+        this.isEditing = false; // Prevent multiple simultaneous edits
+        this.editingCell = null; // Track which cell is being edited
         this.initializeEventListeners();
-        this.loadActualSettlements(); // Load actual payment history, not suggestions
+        this.loadActualSettlements();
         
         // Set today's date as default
         const today = new Date().toISOString().split('T')[0];
@@ -102,11 +104,8 @@ class SettlementManager {
                     closeModal('settleUpModal');
                 }
                 
-                // Reload both settlement history and balance manager
-                await this.loadActualSettlements();
-                if (window.balanceManager) {
-                    await window.balanceManager.refresh();
-                }
+                // Reload settlement history and refresh balances
+                await this.refreshAllData();
                 
                 // Show success message
                 this.showSuccessMessage('Payment recorded successfully!');
@@ -121,12 +120,10 @@ class SettlementManager {
 
     async loadActualSettlements() {
         try {
-            // IMPORTANT: This endpoint should return actual settlement records, not suggestions
-            // Make sure this calls the settlements service get_recent_settlements method
             const response = await fetch('/api/settlements?limit=10');
             const data = await response.json();
 
-            console.log('Loaded settlement data:', data); // Debug log
+            console.log('Loaded settlement data:', data);
 
             if (data.settlements) {
                 this.renderSettlementsTable(data.settlements);
@@ -141,67 +138,64 @@ class SettlementManager {
     }
 
     renderSettlementsTable(settlements) {
-    const container = document.getElementById('settlements-table-container');
-    if (!container) return;
+        const container = document.getElementById('settlements-table-container');
+        if (!container) return;
 
-    const isCompact = container.closest('.compact-mode') !== null;
+        const isCompact = container.closest('.compact-mode') !== null;
 
-    if (!settlements || settlements.length === 0) {
-        container.innerHTML = `
-            <div class="no-settlements">
-                💸 No recent payments
-            </div>
-        `;
-        return;
-    }
+        if (!settlements || settlements.length === 0) {
+            container.innerHTML = `
+                <div class="no-settlements">
+                    💸 No recent payments
+                </div>
+            `;
+            return;
+        }
 
-    const tableHTML = `
-        <div id="table-error" style="display: none;"></div>
-        <table class="settlements-table-main">
-            <thead>
-                <tr>
-                    <th>Amount</th>
-                    <th>From</th>
-                    <th>To</th>
-                    ${!isCompact ? '<th>Description</th>' : ''}
-                    <th>Date</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${settlements.map(settlement => `
-                    <tr data-settlement-id="${settlement.id}">
-                        <td class="editable amount" data-value="${settlement.amount}">
-                            $${parseFloat(settlement.amount).toFixed(2)}
-                        </td>
-                        <td class="editable payer" data-value="${settlement.payer_name}">
-                            ${settlement.payer_name}
-                        </td>
-                        <td class="editable receiver" data-value="${settlement.receiver_name}">
-                            ${settlement.receiver_name}
-                        </td>
-                        ${!isCompact ? `
-                        <td class="editable description" data-value="${settlement.description || ''}">
-                            ${settlement.description || '-'}
-                        </td>` : ''}
-                        <td class="editable date settlement-date" data-value="${settlement.date}">
-                            ${settlement.date}
-                        </td>
-                        <td>
-                            <button class="delete-btn" data-settlement-id="${settlement.id}">❌</button>
-                        </td>
+        const tableHTML = `
+            <div id="table-error" style="display: none;"></div>
+            <table class="settlements-table-main">
+                <thead>
+                    <tr>
+                        <th>Amount</th>
+                        <th>From</th>
+                        <th>To</th>
+                        ${!isCompact ? '<th>Description</th>' : ''}
+                        <th>Date</th>
+                        <th>Actions</th>
                     </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+                </thead>
+                <tbody>
+                    ${settlements.map(settlement => `
+                        <tr data-settlement-id="${settlement.id}">
+                            <td class="editable amount" data-field="amount" data-value="${settlement.amount}">
+                                $${parseFloat(settlement.amount).toFixed(2)}
+                            </td>
+                            <td class="editable payer" data-field="payer" data-value="${settlement.payer_name}">
+                                ${settlement.payer_name}
+                            </td>
+                            <td class="editable receiver" data-field="receiver" data-value="${settlement.receiver_name}">
+                                ${settlement.receiver_name}
+                            </td>
+                            ${!isCompact ? `
+                            <td class="editable description" data-field="description" data-value="${settlement.description || ''}">
+                                ${settlement.description || '-'}
+                            </td>` : ''}
+                            <td class="editable date settlement-date" data-field="date" data-value="${settlement.date}">
+                                ${settlement.date}
+                            </td>
+                            <td>
+                                <button class="delete-btn" data-settlement-id="${settlement.id}">❌</button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
 
-    container.innerHTML = tableHTML;
-
-    // ✅ still attach event listeners for inline editing + delete
-    this.attachEventListeners(container);
-}
-
+        container.innerHTML = tableHTML;
+        this.attachEventListeners(container);
+    }
 
     attachEventListeners(container) {
         // Add delete event listeners
@@ -215,15 +209,27 @@ class SettlementManager {
 
         // Add editing event listeners
         container.querySelectorAll('.editable').forEach(cell => {
-            cell.addEventListener('click', () => this.startEditing(cell));
+            cell.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.startEditing(cell);
+            });
         });
     }
 
     startEditing(cell) {
-        if (cell.classList.contains('editing')) return;
+        // Prevent multiple simultaneous edits
+        if (this.isEditing) {
+            console.log('[DEBUG] Already editing, ignoring new edit request');
+            return;
+        }
+
+        this.isEditing = true;
+        this.editingCell = cell;
         
         const currentValue = cell.getAttribute('data-value') || '';
-        const fieldType = this.getFieldType(cell);
+        const fieldType = cell.getAttribute('data-field');
+        
+        console.log(`[DEBUG] Starting edit: ${fieldType} = "${currentValue}"`);
         
         cell.classList.add('editing');
         
@@ -258,8 +264,12 @@ class SettlementManager {
         inputElement.style.border = '2px solid #3498db';
         inputElement.style.padding = '4px';
         inputElement.style.borderRadius = '4px';
+        inputElement.style.boxSizing = 'border-box';
         
-        const originalContent = cell.innerHTML;
+        // Store original content for cancellation
+        this.originalContent = cell.innerHTML;
+        
+        // Replace cell content with input
         cell.innerHTML = '';
         cell.appendChild(inputElement);
         
@@ -268,39 +278,51 @@ class SettlementManager {
             inputElement.select();
         }
         
-        const saveEdit = () => this.saveEdit(cell, inputElement, originalContent);
-        const cancelEdit = () => this.cancelEdit(cell, originalContent);
+        // Set up event handlers with proper cleanup
+        const handleSave = async () => {
+            console.log('[DEBUG] Save triggered');
+            await this.saveEdit(inputElement);
+        };
         
-        inputElement.addEventListener('blur', saveEdit);
+        const handleCancel = () => {
+            console.log('[DEBUG] Cancel triggered');
+            this.cancelEdit();
+        };
+        
+        // Use addEventListener with once: true to prevent multiple handlers
+        inputElement.addEventListener('blur', handleSave, { once: true });
+        
         inputElement.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                saveEdit();
+                e.stopPropagation();
+                inputElement.blur(); // This will trigger save
             } else if (e.key === 'Escape') {
                 e.preventDefault();
-                cancelEdit();
+                e.stopPropagation();
+                handleCancel();
             }
         });
     }
 
-    getFieldType(cell) {
-        if (cell.classList.contains('amount')) return 'amount';
-        if (cell.classList.contains('payer')) return 'payer';
-        if (cell.classList.contains('receiver')) return 'receiver';
-        if (cell.classList.contains('description')) return 'description';
-        if (cell.classList.contains('date')) return 'date';
-        return 'text';
-    }
+    async saveEdit(inputElement) {
+        if (!this.isEditing || !this.editingCell) {
+            console.log('[DEBUG] Not in editing mode, ignoring save');
+            return;
+        }
 
-    async saveEdit(cell, inputElement, originalContent) {
         const newValue = inputElement.value.trim();
+        const cell = this.editingCell;
         const settlementId = cell.closest('tr').getAttribute('data-settlement-id');
-        const fieldType = this.getFieldType(cell);
+        const fieldType = cell.getAttribute('data-field');
+        const originalValue = cell.getAttribute('data-value') || '';
         
-        cell.classList.remove('editing');
+        console.log(`[DEBUG] Saving edit: ${fieldType} = "${newValue}" (was "${originalValue}")`);
         
-        if (newValue === cell.getAttribute('data-value')) {
-            this.cancelEdit(cell, originalContent);
+        // If no change, just cancel
+        if (newValue === originalValue) {
+            console.log('[DEBUG] No change detected, canceling edit');
+            this.cancelEdit();
             return;
         }
 
@@ -319,8 +341,12 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
+                console.log('[DEBUG] Server update successful');
+                
+                // Update the data attribute
                 cell.setAttribute('data-value', newValue);
                 
+                // Update the cell display
                 if (fieldType === 'amount') {
                     cell.innerHTML = `$${parseFloat(newValue).toFixed(2)}`;
                 } else if (fieldType === 'description' && !newValue) {
@@ -329,25 +355,44 @@ class SettlementManager {
                     cell.innerHTML = newValue;
                 }
                 
+                // Clean up editing state
+                cell.classList.remove('editing');
+                this.isEditing = false;
+                this.editingCell = null;
+                
                 this.showTableMessage('Settlement updated successfully', 'success');
                 
-                // Reload balances after edit
-                if (window.balanceManager) {
-                    await window.balanceManager.refresh();
-                }
+                // Refresh balances and settlement suggestions after edit
+                await this.refreshBalancesOnly();
+                
             } else {
                 throw new Error(data.error || 'Update failed');
             }
         } catch (error) {
-            console.error('Error updating settlement:', error);
-            this.cancelEdit(cell, originalContent);
+            console.error('[DEBUG] Error updating settlement:', error);
+            this.cancelEdit();
             this.showTableMessage('Failed to update settlement: ' + error.message, 'error');
         }
     }
 
-    cancelEdit(cell, originalContent) {
+    cancelEdit() {
+        if (!this.isEditing || !this.editingCell) {
+            console.log('[DEBUG] Not in editing mode, ignoring cancel');
+            return;
+        }
+
+        console.log('[DEBUG] Canceling edit');
+        
+        const cell = this.editingCell;
+        
+        // Restore original content
+        cell.innerHTML = this.originalContent;
         cell.classList.remove('editing');
-        cell.innerHTML = originalContent;
+        
+        // Clean up state
+        this.isEditing = false;
+        this.editingCell = null;
+        this.originalContent = null;
     }
 
     async deleteSettlement(settlementId) {
@@ -366,11 +411,8 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
-                // Reload settlements and balances
-                await this.loadActualSettlements();
-                if (window.balanceManager) {
-                    await window.balanceManager.refresh();
-                }
+                // Refresh all data after deletion
+                await this.refreshAllData();
                 this.showSuccessMessage('Payment deleted successfully');
             } else {
                 this.showError(data.error || 'Failed to delete settlement');
@@ -378,6 +420,23 @@ class SettlementManager {
         } catch (error) {
             console.error('Error deleting settlement:', error);
             this.showError('Network error. Please try again.');
+        }
+    }
+
+    // Refresh both settlements and balances
+    async refreshAllData() {
+        console.log('[DEBUG] Refreshing all data (settlements + balances)');
+        await Promise.all([
+            this.loadActualSettlements(),
+            this.refreshBalancesOnly()
+        ]);
+    }
+
+    // Refresh only balances and settlement suggestions
+    async refreshBalancesOnly() {
+        console.log('[DEBUG] Refreshing balances only');
+        if (window.balanceManager) {
+            await window.balanceManager.refresh();
         }
     }
 
@@ -431,7 +490,9 @@ class SettlementManager {
         document.body.appendChild(successDiv);
         
         setTimeout(() => {
-            successDiv.remove();
+            if (successDiv.parentNode) {
+                successDiv.parentNode.removeChild(successDiv);
+            }
         }, 3000);
     }
 }
