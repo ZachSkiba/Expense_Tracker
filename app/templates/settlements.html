@@ -18,12 +18,12 @@
 <form method="POST" class="settlement-form">
     <div class="form-group">
         <label>Amount Paid</label>
-        <input type="number" step="0.01" min="0.01" name="amount" value="{{ amount or '' }}" required>
+        <input type="number" step="0.01" min="0.01" name="amount" value="{{ amount or '' }}" required autocomplete="off">
     </div>
 
     <div class="form-group">
         <label>Who Paid</label>
-        <select name="payer_id" required>
+        <select name="payer_id" required autocomplete="off">
             <option value="" disabled {% if not payer_id %}selected{% endif %}>Select payer</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if payer_id == user.id|string %}selected{% endif %}>
@@ -35,7 +35,7 @@
 
     <div class="form-group">
         <label>Who Received Payment</label>
-        <select name="receiver_id" required>
+        <select name="receiver_id" required autocomplete="off">
             <option value="" disabled {% if not receiver_id %}selected{% endif %}>Select receiver</option>
             {% for user in users %}
                 <option value="{{ user.id }}" {% if receiver_id == user.id|string %}selected{% endif %}>
@@ -47,12 +47,12 @@
 
     <div class="form-group">
         <label>Description (Optional)</label>
-        <input type="text" name="description" value="{{ description or '' }}" placeholder="e.g., Venmo payment, cash, etc.">
+        <input type="text" name="description" value="{{ description or '' }}" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
     </div>
 
     <div class="form-group">
         <label>Date</label>
-        <input type="date" name="date" value="{{ date or '' }}">
+        <input type="date" name="date" value="{{ date or '' }}" autocomplete="off">
     </div>
 
     <button type="submit" class="submit-btn">Record Payment</button>
@@ -78,11 +78,21 @@
     <tbody>
         {% for settlement in settlements %}
         <tr data-settlement-id="{{ settlement.id }}">
-            <td class="amount">${{ "%.2f"|format(settlement.amount) }}</td>
-            <td>{{ settlement.payer_name }}</td>
-            <td>{{ settlement.receiver_name }}</td>
-            <td>{{ settlement.description or '-' }}</td>
-            <td>{{ settlement.date }}</td>
+            <td class="editable amount" data-value="{{ "%.2f"|format(settlement.amount) }}">
+                ${{ "%.2f"|format(settlement.amount) }}
+            </td>
+            <td class="editable payer" data-value="{{ settlement.payer_name }}">
+                {{ settlement.payer_name }}
+            </td>
+            <td class="editable receiver" data-value="{{ settlement.receiver_name }}">
+                {{ settlement.receiver_name }}
+            </td>
+            <td class="editable description" data-value="{{ settlement.description or '' }}">
+                {{ settlement.description or '-' }}
+            </td>
+            <td class="editable date" data-value="{{ settlement.date }}">
+                {{ settlement.date }}
+            </td>
             <td style="font-size: 0.85rem; color: #666;">{{ settlement.created_at }}</td>
             <td>
                 <button class="delete-settlement-btn" data-settlement-id="{{ settlement.id }}">❌ Delete</button>
@@ -91,6 +101,8 @@
         {% endfor %}
     </tbody>
 </table>
+
+<script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
 
 <script>
 // Handle settlement deletion
@@ -119,6 +131,173 @@ document.querySelectorAll('.delete-settlement-btn').forEach(button => {
         }
     });
 });
+
+// Settlement table editing functionality
+class SettlementTableEditor {
+    constructor() {
+        this.usersData = JSON.parse(document.getElementById('users-data').textContent || '[]');
+        this.initializeEditing();
+    }
+
+    initializeEditing() {
+        const editableCells = document.querySelectorAll('.settlements-table .editable');
+        
+        editableCells.forEach(cell => {
+            cell.addEventListener('click', () => this.startEditing(cell));
+        });
+    }
+
+    startEditing(cell) {
+        if (cell.classList.contains('editing')) return;
+        
+        const currentValue = cell.getAttribute('data-value') || '';
+        const fieldType = this.getFieldType(cell);
+        
+        cell.classList.add('editing');
+        
+        let inputElement;
+        
+        if (fieldType === 'amount') {
+            inputElement = document.createElement('input');
+            inputElement.type = 'number';
+            inputElement.step = '0.01';
+            inputElement.min = '0.01';
+            inputElement.value = currentValue;
+        } else if (fieldType === 'date') {
+            inputElement = document.createElement('input');
+            inputElement.type = 'date';
+            inputElement.value = currentValue;
+        } else if (fieldType === 'payer' || fieldType === 'receiver') {
+            inputElement = document.createElement('select');
+            this.usersData.forEach(user => {
+                const option = document.createElement('option');
+                option.value = user.name;
+                option.textContent = user.name;
+                option.selected = user.name === currentValue;
+                inputElement.appendChild(option);
+            });
+        } else {
+            inputElement = document.createElement('input');
+            inputElement.type = 'text';
+            inputElement.value = currentValue;
+        }
+        
+        inputElement.style.width = '100%';
+        inputElement.style.border = '2px solid #3498db';
+        inputElement.style.padding = '4px';
+        inputElement.style.borderRadius = '4px';
+        
+        const originalContent = cell.innerHTML;
+        cell.innerHTML = '';
+        cell.appendChild(inputElement);
+        
+        inputElement.focus();
+        if (inputElement.type === 'text' || inputElement.type === 'number') {
+            inputElement.select();
+        }
+        
+        const saveEdit = () => this.saveEdit(cell, inputElement, originalContent);
+        const cancelEdit = () => this.cancelEdit(cell, originalContent);
+        
+        inputElement.addEventListener('blur', saveEdit);
+        inputElement.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveEdit();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit();
+            }
+        });
+    }
+
+    getFieldType(cell) {
+        if (cell.classList.contains('amount')) return 'amount';
+        if (cell.classList.contains('payer')) return 'payer';
+        if (cell.classList.contains('receiver')) return 'receiver';
+        if (cell.classList.contains('description')) return 'description';
+        if (cell.classList.contains('date')) return 'date';
+        return 'text';
+    }
+
+    async saveEdit(cell, inputElement, originalContent) {
+        const newValue = inputElement.value.trim();
+        const settlementId = cell.closest('tr').getAttribute('data-settlement-id');
+        const fieldType = this.getFieldType(cell);
+        
+        cell.classList.remove('editing');
+        
+        if (newValue === cell.getAttribute('data-value')) {
+            this.cancelEdit(cell, originalContent);
+            return;
+        }
+
+        try {
+            const updateData = {};
+            updateData[fieldType] = newValue;
+
+            const response = await fetch(`/edit_settlement/${settlementId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(updateData)
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                cell.setAttribute('data-value', newValue);
+                
+                if (fieldType === 'amount') {
+                    cell.innerHTML = `$${parseFloat(newValue).toFixed(2)}`;
+                } else if (fieldType === 'description' && !newValue) {
+                    cell.innerHTML = '-';
+                } else {
+                    cell.innerHTML = newValue;
+                }
+                
+                this.showSuccessMessage('Settlement updated successfully');
+            } else {
+                throw new Error(data.error || 'Update failed');
+            }
+        } catch (error) {
+            console.error('Error updating settlement:', error);
+            this.cancelEdit(cell, originalContent);
+            this.showError('Failed to update settlement: ' + error.message);
+        }
+    }
+
+    cancelEdit(cell, originalContent) {
+        cell.classList.remove('editing');
+        cell.innerHTML = originalContent;
+    }
+
+    showError(message) {
+        const errorDiv = document.getElementById('table-error');
+        if (errorDiv) {
+            errorDiv.innerHTML = `<div style="color: red; padding: 8px; background: #fee; border-radius: 4px;">${message}</div>`;
+            setTimeout(() => {
+                errorDiv.innerHTML = '';
+            }, 5000);
+        }
+    }
+
+    showSuccessMessage(message) {
+        const errorDiv = document.getElementById('table-error');
+        if (errorDiv) {
+            errorDiv.innerHTML = `<div style="color: green; padding: 8px; background: #efe; border-radius: 4px;">${message}</div>`;
+            setTimeout(() => {
+                errorDiv.innerHTML = '';
+            }, 3000);
+        }
+    }
+}
+
+// Initialize the settlement table editor
+document.addEventListener('DOMContentLoaded', function() {
+    new SettlementTableEditor();
+});
 </script>
 
 {% else %}
@@ -129,7 +308,6 @@ document.querySelectorAll('.delete-settlement-btn').forEach(button => {
     <a href="{{ url_for('expenses.add_expense') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">⬅ Back to Main</a>
     <a href="{{ url_for('balances.balances_page') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">💰 View Balances</a>
 </div>
-
 
 </body>
 </html>

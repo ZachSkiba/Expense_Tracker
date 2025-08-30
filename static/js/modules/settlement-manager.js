@@ -82,10 +82,10 @@ class SettlementManager {
                 // Close modal
                 closeModal('settleUpModal');
                 
-                // Reload settlements and balances
-                this.loadSettlements();
+                // Reload both settlement history and balance manager
+                await this.loadSettlements();
                 if (window.balanceManager) {
-                    window.balanceManager.loadBalances();
+                    await window.balanceManager.refresh();
                 }
                 
                 // Show success message
@@ -173,9 +173,9 @@ class SettlementManager {
 
             if (data.success) {
                 // Reload settlements and balances
-                this.loadSettlements();
+                await this.loadSettlements();
                 if (window.balanceManager) {
-                    window.balanceManager.loadBalances();
+                    await window.balanceManager.refresh();
                 }
                 this.showSuccessMessage('Payment deleted successfully');
             } else {

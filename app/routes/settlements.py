@@ -1,6 +1,8 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from app.services.settlement_service import SettlementService
 from app.services.user_service import UserService
+from models import db, Settlement, User
+from balance_service import BalanceService
 from datetime import datetime
 
 settlements_bp = Blueprint("settlements", __name__)
@@ -92,3 +94,54 @@ def delete_settlement(settlement_id):
         return jsonify({'success': True})
     else:
         return jsonify({'success': False, 'error': error})
+
+@settlements_bp.route("/edit_settlement/<int:settlement_id>", methods=["POST"])
+def edit_settlement(settlement_id):
+    """Edit settlement and recalculate balances as needed"""
+    data = request.get_json()
+
+    if not data:
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+    try:
+        settlement = Settlement.query.get_or_404(settlement_id)
+        
+        # Store old values for balance reversal
+        old_amount = settlement.amount
+        old_payer_id = settlement.payer_id
+        old_receiver_id = settlement.receiver_id
+        
+        # Reverse old balance changes
+        BalanceService._update_user_balance(old_payer_id, old_amount)
+        BalanceService._update_user_balance(old_receiver_id, -old_amount)
+        
+        # Update fields
+        if 'amount' in data:
+            settlement.amount = float(data['amount'])
+            
+        if 'payer' in data:
+            user = User.query.filter_by(name=data['payer']).first()
+            if user:
+                settlement.payer_id = user.id
+                
+        if 'receiver' in data:
+            user = User.query.filter_by(name=data['receiver']).first()
+            if user:
+                settlement.receiver_id = user.id
+                
+        if 'description' in data:
+            settlement.description = data['description'] if data['description'] else None
+            
+        if 'date' in data:
+            settlement.date = datetime.strptime(data['date'], '%Y-%m-%d').date()
+        
+        # Apply new balance changes
+        BalanceService._update_user_balance(settlement.payer_id, -settlement.amount)
+        BalanceService._update_user_balance(settlement.receiver_id, settlement.amount)
+        
+        db.session.commit()
+        return jsonify({'success': True})
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

@@ -126,12 +126,12 @@
                 <form id="settlement-form">
                     <div class="form-group">
                         <label>Amount Paid</label>
-                        <input type="number" step="0.01" min="0.01" id="settlement-amount" required>
+                        <input type="number" step="0.01" min="0.01" id="settlement-amount" required autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>Who Paid</label>
-                        <select id="settlement-payer" required>
+                        <select id="settlement-payer" required autocomplete="off">
                             <option value="" disabled selected>Select payer</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.name }}</option>
@@ -141,7 +141,7 @@
 
                     <div class="form-group">
                         <label>Who Received Payment</label>
-                        <select id="settlement-receiver" required>
+                        <select id="settlement-receiver" required autocomplete="off">
                             <option value="" disabled selected>Select receiver</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.name }}</option>
@@ -151,12 +151,12 @@
 
                     <div class="form-group">
                         <label>Description (Optional)</label>
-                        <input type="text" id="settlement-description" placeholder="e.g., Venmo payment, cash, etc.">
+                        <input type="text" id="settlement-description" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>Date</label>
-                        <input type="date" id="settlement-date">
+                        <input type="date" id="settlement-date" autocomplete="off">
                     </div>
 
                     <div id="settlement-error" class="error-message" style="display: none;"></div>

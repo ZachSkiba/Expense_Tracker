@@ -67,6 +67,19 @@
     color: #27ae60;
 }
 
+.settlements-table .editable {
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.settlements-table .editable:hover {
+    background-color: #e9ecef;
+}
+
+.settlements-table .editable.editing {
+    background-color: #fff3cd;
+}
+
 .delete-settlement-btn {
     background: #e74c3c;
     color: white;
