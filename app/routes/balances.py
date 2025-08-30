@@ -41,10 +41,9 @@ def add_expense_api():
 
 @balances_bp.route("/api/balances", methods=["GET"])
 def get_balances_api():
-    """API endpoint to get current balances"""
+    """API endpoint to get current balances - READ ONLY, no recalculation"""
     try:
-        # Always recalculate balances to ensure accuracy
-        BalanceService.recalculate_all_balances()
+        # Get balances WITHOUT recalculating (balances are calculated when data changes)
         balances = BalanceService.get_all_balances()
         return jsonify({'balances': balances}), 200
     except Exception as e:
@@ -52,10 +51,9 @@ def get_balances_api():
 
 @balances_bp.route("/api/settlement-suggestions", methods=["GET"])
 def get_settlement_suggestions_api():
-    """API endpoint to get settlement suggestions (who should pay whom)"""
+    """API endpoint to get settlement suggestions (who should pay whom) - READ ONLY"""
     try:
-        # Always recalculate balances first to ensure accuracy
-        BalanceService.recalculate_all_balances()
+        # Get suggestions WITHOUT recalculating (based on current balances)
         suggestions = BalanceService.get_settlement_suggestions()
         return jsonify({'suggestions': suggestions}), 200
     except Exception as e:
@@ -64,21 +62,37 @@ def get_settlement_suggestions_api():
 @balances_bp.route("/balances", methods=["GET"])
 def balances_page():
     """Web page to view balances"""
-    # Recalculate balances every time the page is loaded
-    BalanceService.recalculate_all_balances()
+    # Only recalculate if explicitly requested or if no balances exist
+    force_recalc = request.args.get('recalc') == '1'
+    
     balances = BalanceService.get_all_balances()
+    if force_recalc or not balances:
+        print("[DEBUG] Recalculating balances for page load")
+        BalanceService.recalculate_all_balances()
+        balances = BalanceService.get_all_balances()
+    
     settlements = BalanceService.get_settlement_suggestions()
     
     return render_template("balances.html", balances=balances, settlements=settlements)
 
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():
-    """Recalculate all balances from expenses and settlements (admin function)"""
+    """Manually recalculate all balances from expenses and settlements (admin function)"""
     try:
+        print("[DEBUG] Manual balance recalculation requested")
         success = BalanceService.recalculate_all_balances()
         if success:
             return jsonify({'message': 'Balances recalculated successfully'}), 200
         else:
             return jsonify({'error': 'Failed to recalculate balances'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@balances_bp.route("/api/balances/debug", methods=["GET"])
+def get_debug_info():
+    """Debug endpoint to see balance calculation details"""
+    try:
+        debug_info = BalanceService.get_debug_info()
+        return jsonify(debug_info), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

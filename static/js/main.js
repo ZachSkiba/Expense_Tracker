@@ -1,4 +1,4 @@
-// Main JavaScript initialization - FIXED VERSION
+// Main JavaScript initialization - FIXED VERSION (No Duplicate Loading)
 document.addEventListener('DOMContentLoaded', function() {
     // Get page context from body data attribute or URL
     const pageName = document.body.dataset.page || getPageFromURL();
@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize modules based on current page and available elements
     initializeForPage(pageName, urls);
+    
+    // Load data ONCE after everything is initialized
+    loadInitialData();
 });
 
 function getPageFromURL() {
@@ -67,6 +70,155 @@ function initializeForPage(pageName, urls) {
     }
 }
 
+// SINGLE data loading function called once after initialization
+async function loadInitialData() {
+    try {
+        // Only load balances data if we have the required containers
+        const balancesContainer = document.getElementById('balances-container');
+        const settlementsContainer = document.getElementById('settlements-container');
+        
+        if (balancesContainer || settlementsContainer) {
+            console.log('[DEBUG] Loading initial balance and settlement data...');
+            await loadBalancesData();
+        }
+        
+        // Initialize autocomplete for description input
+        const descInput = document.getElementById('category-description');
+        if (descInput && window.createAutocomplete && !descInput.dataset.autocompleteInitialized) {
+            window.createAutocomplete(descInput, 'suggestions-container');
+            descInput.dataset.autocompleteInitialized = 'true';
+        }
+        
+        // Initialize expense table manager if expenses exist and not already initialized
+        const expenseTable = document.querySelector('.recent-expenses table');
+        if (expenseTable && window.ExpenseTableManager && !window.expenseTableManager) {
+            window.expenseTableManager = new window.ExpenseTableManager({
+                tableSelector: '.recent-expenses table',
+                errorSelector: '.recent-expenses #table-error',
+                urls: window.urls
+            });
+        }
+        
+        // Initialize expense form manager if not already initialized
+        if (window.ExpenseFormManager && !window.expenseFormManager) {
+            const expenseForm = document.getElementById('expense-form');
+            if (expenseForm) {
+                window.expenseFormManager = new window.ExpenseFormManager({
+                    formSelector: '#expense-form',
+                    urls: window.urls
+                });
+            }
+        }
+        
+    } catch (error) {
+        console.error('[ERROR] Failed to load initial data:', error);
+    }
+}
+
+// Load balances data from API - SINGLE CALL VERSION
+async function loadBalancesData() {
+    try {
+        console.log('[DEBUG] Making API calls for balances and settlements...');
+        
+        const [balancesResponse, suggestionsResponse] = await Promise.all([
+            fetch('/api/balances'),
+            fetch('/api/settlement-suggestions')
+        ]);
+        
+        if (!balancesResponse.ok || !suggestionsResponse.ok) {
+            throw new Error('API responses not OK');
+        }
+        
+        const balancesData = await balancesResponse.json();
+        const suggestionsData = await suggestionsResponse.json();
+        
+        console.log('[DEBUG] Received balances:', balancesData.balances);
+        console.log('[DEBUG] Received suggestions:', suggestionsData.suggestions);
+        
+        updateBalancesDisplay(balancesData.balances);
+        updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
+        updateHeaderStatus(balancesData.balances);
+        
+    } catch (error) {
+        console.error('[ERROR] Error loading data:', error);
+        const container = document.getElementById('balances-container');
+        if (container) {
+            container.innerHTML = 
+                '<div style="text-align: center; padding: 20px; color: #e74c3c;">Error loading balances</div>';
+        }
+    }
+}
+
+function updateBalancesDisplay(balances) {
+    const container = document.getElementById('balances-container');
+    if (!container) return;
+    
+    if (!balances || balances.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #7f8c8d;">No users found</div>';
+        return;
+    }
+
+    const balanceItems = balances.map(balance => {
+        const initial = balance.user_name.charAt(0).toUpperCase();
+        const status = balance.balance > 0.01 ? 'positive' : balance.balance < -0.01 ? 'negative' : 'even';
+        const statusText = balance.balance > 0.01 ? 'owed' : balance.balance < -0.01 ? 'owes' : 'even';
+        const amount = Math.abs(balance.balance);
+
+        return `
+            <div class="balance-item ${status}">
+                <div class="user-info">
+                    <div class="user-avatar">${initial}</div>
+                    <div>
+                        <div class="user-name">${balance.user_name}</div>
+                    </div>
+                </div>
+                <div class="balance-amount">
+                    <div class="amount">$${amount.toFixed(2)}</div>
+                    <div class="status">${statusText}</div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    container.innerHTML = balanceItems;
+}
+
+function updateSettlementSuggestionsDisplay(suggestions) {
+    const container = document.getElementById('settlements-container');
+    if (!container) return;
+    
+    if (!suggestions || suggestions.length === 0) {
+        container.innerHTML = '<div class="no-settlements">🎉 All settled! No payments needed.</div>';
+        return;
+    }
+
+    const suggestionItems = suggestions.map(suggestion => `
+        <div class="settlement-item">
+            <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
+            <span class="settlement-amount">$${suggestion.amount.toFixed(2)}</span>
+        </div>
+    `).join('');
+
+    container.innerHTML = suggestionItems;
+}
+
+function updateHeaderStatus(balances) {
+    const statusIndicator = document.querySelector('.status-indicator');
+    if (!statusIndicator) return;
+
+    const hasImbalances = balances.some(b => Math.abs(b.balance) > 0.01);
+    
+    if (hasImbalances) {
+        statusIndicator.textContent = 'Pending Settlements';
+        statusIndicator.className = 'status-indicator pending';
+        statusIndicator.style.background = '#fff3cd';
+        statusIndicator.style.color = '#856404';
+    } else {
+        statusIndicator.textContent = 'All Even';
+        statusIndicator.className = 'status-indicator all-even';
+    }
+}
+
 // Global utility functions
 window.AppUtils = {
     showMessage: function(message, color = 'black', duration = 5000) {
@@ -115,6 +267,12 @@ window.AppUtils = {
             throw new Error(`${fieldName} must be a positive number`);
         }
         return num;
+    },
+    
+    // Function to manually refresh balances if needed
+    refreshBalances: async function() {
+        console.log('[DEBUG] Manually refreshing balances...');
+        await loadBalancesData();
     }
 };
 
@@ -197,7 +355,7 @@ function updateSplitPreview() {
     if (amount > 0 && participantCount > 0) {
         const sharePerPerson = amount / participantCount;
         
-        let detailsHtml = `<div>Total: $${amount.toFixed(2)} ÷ ${participantCount} people = $${sharePerPerson.toFixed(2)} per person</div>`;
+        let detailsHtml = `<div>Total: ${amount.toFixed(2)} ÷ ${participantCount} people = ${sharePerPerson.toFixed(2)} per person</div>`;
         detailsHtml += '<div style="margin-top: 8px; font-size: 0.85em;">Participants: ';
         
         const participantNames = [];
@@ -214,127 +372,5 @@ function updateSplitPreview() {
         splitPreview.style.display = 'block';
     } else {
         splitPreview.style.display = 'none';
-    }
-}
-
-// Load existing JavaScript functionality
-document.addEventListener('DOMContentLoaded', function() {
-    // Load balances and settlement suggestions data
-    loadBalancesData();
-    
-    // Initialize autocomplete
-    const descInput = document.getElementById('category-description');
-    if (descInput && window.createAutocomplete) {
-        window.createAutocomplete(descInput, 'suggestions-container');
-    }
-    
-    // Initialize expense table manager if expenses exist
-    const expenseTable = document.querySelector('.recent-expenses table');
-    if (expenseTable && window.ExpenseTableManager) {
-        new window.ExpenseTableManager({
-            tableSelector: '.recent-expenses table',
-            errorSelector: '.recent-expenses #table-error',
-            urls: window.urls
-        });
-    }
-    
-    // Initialize expense form manager
-    if (window.ExpenseFormManager) {
-        new window.ExpenseFormManager({
-            formSelector: '#expense-form',
-            urls: window.urls
-        });
-    }
-});
-
-// Load balances data from API - FIXED TO USE CORRECT ENDPOINTS
-async function loadBalancesData() {
-    try {
-        const [balancesResponse, suggestionsResponse] = await Promise.all([
-            fetch('/api/balances'),
-            fetch('/api/settlement-suggestions') // Use correct endpoint for suggestions
-        ]);
-        
-        const balancesData = await balancesResponse.json();
-        const suggestionsData = await suggestionsResponse.json();
-        
-        updateBalancesDisplay(balancesData.balances);
-        updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
-        updateHeaderStatus(balancesData.balances);
-        
-    } catch (error) {
-        console.error('Error loading data:', error);
-        const container = document.getElementById('balances-container');
-        if (container) {
-            container.innerHTML = 
-                '<div style="text-align: center; padding: 20px; color: #e74c3c;">Error loading balances</div>';
-        }
-    }
-}
-
-function updateBalancesDisplay(balances) {
-    const container = document.getElementById('balances-container');
-    if (!balances || balances.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 20px; color: #7f8c8d;">No users found</div>';
-        return;
-    }
-
-    const balanceItems = balances.map(balance => {
-        const initial = balance.user_name.charAt(0).toUpperCase();
-        const status = balance.balance > 0.01 ? 'positive' : balance.balance < -0.01 ? 'negative' : 'even';
-        const statusText = balance.balance > 0.01 ? 'owed' : balance.balance < -0.01 ? 'owes' : 'even';
-        const amount = Math.abs(balance.balance);
-
-        return `
-            <div class="balance-item ${status}">
-                <div class="user-info">
-                    <div class="user-avatar">${initial}</div>
-                    <div>
-                        <div class="user-name">${balance.user_name}</div>
-                    </div>
-                </div>
-                <div class="balance-amount">
-                    <div class="amount">$${amount.toFixed(2)}</div>
-                    <div class="status">${statusText}</div>
-                </div>
-            </div>
-        `;
-    }).join('');
-
-    container.innerHTML = balanceItems;
-}
-
-function updateSettlementSuggestionsDisplay(suggestions) {
-    const container = document.getElementById('settlements-container');
-    
-    if (!suggestions || suggestions.length === 0) {
-        container.innerHTML = '<div class="no-settlements">🎉 All settled! No payments needed.</div>';
-        return;
-    }
-
-    const suggestionItems = suggestions.map(suggestion => `
-        <div class="settlement-item">
-            <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
-            <span class="settlement-amount">$${suggestion.amount.toFixed(2)}</span>
-        </div>
-    `).join('');
-
-    container.innerHTML = suggestionItems;
-}
-
-function updateHeaderStatus(balances) {
-    const statusIndicator = document.querySelector('.status-indicator');
-    if (!statusIndicator) return;
-
-    const hasImbalances = balances.some(b => Math.abs(b.balance) > 0.01);
-    
-    if (hasImbalances) {
-        statusIndicator.textContent = 'Pending Settlements';
-        statusIndicator.className = 'status-indicator pending';
-        statusIndicator.style.background = '#fff3cd';
-        statusIndicator.style.color = '#856404';
-    } else {
-        statusIndicator.textContent = 'All Even';
-        statusIndicator.className = 'status-indicator all-even';
     }
 }

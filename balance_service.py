@@ -1,8 +1,12 @@
 from models import db, User, Expense, ExpenseParticipant, Balance, Settlement
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
+import threading
 
 class BalanceService:
+    # Thread lock to prevent concurrent balance recalculations
+    _lock = threading.Lock()
     
     @staticmethod
     def create_expense_with_participants(amount, payer_id, participant_ids, category_id, 
@@ -75,7 +79,7 @@ class BalanceService:
     
     @staticmethod
     def get_all_balances():
-        """Get current balances for all users"""
+        """Get current balances for all users - READ ONLY, no recalculation"""
         balances = db.session.query(
             User.id,
             User.name,
@@ -97,7 +101,10 @@ class BalanceService:
     
     @staticmethod
     def get_settlement_suggestions():
-        """Calculate optimal settlements to minimize transactions"""
+        """
+        Calculate optimal settlements to minimize transactions - READ ONLY
+        This returns WHO SHOULD PAY WHOM, not actual payment history
+        """
         balances = BalanceService.get_all_balances()
         
         # Separate creditors (positive balance) and debtors (negative balance)
@@ -139,57 +146,71 @@ class BalanceService:
     @staticmethod
     def recalculate_all_balances():
         """
-        Recalculate all balances from scratch including both expenses AND settlements
+        THREAD-SAFE: Recalculate all balances from scratch including both expenses AND settlements
         
-        FIXED: Correct settlement application logic
+        Balance Calculation Logic:
+        1. Start all balances at $0
+        2. For each expense: Payer gets +amount, each participant gets -their_share
+        3. For each settlement: Payer gets +amount (owes less), Receiver gets -amount (owed less)
         
         Example walkthrough:
         - Jake pays $100, Jake & Zach participate 50/50
         - After expense: Jake +$50, Zach -$50
         - Zach pays Jake $20
-        - After settlement: Jake +$30, Zach -$30
+        - After settlement: Jake +$30, Zach -$30 ✓
         """
-        try:
-            # Delete all existing balances
-            db.session.query(Balance).delete()
-            db.session.flush()
+        with BalanceService._lock:
+            try:
+                print(f"[DEBUG] Starting balance recalculation at {datetime.now()}")
+                
+                # Use a database transaction to ensure consistency
+                with db.session.begin():
+                    # Delete all existing balances
+                    db.session.query(Balance).delete()
+                    db.session.flush()
 
-            # Process all expenses first
-            expenses = db.session.query(Expense).all()
-            for expense in expenses:
-                participants = expense.participants
-                if not participants:
-                    continue
-                
-                # Credit the payer with the full amount they paid
-                BalanceService._update_user_balance(expense.user_id, expense.amount)
-                
-                # Debit each participant their share
-                for participant in participants:
-                    BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
-            
-            # Process all settlements - CORRECTED LOGIC
-            settlements = db.session.query(Settlement).all()
-            for settlement in settlements:
-                # CORRECT SETTLEMENT LOGIC:
-                # When Zach (payer) pays Jake (receiver) $20:
-                # - Zach's balance should increase by $20 (he owes less)
-                # - Jake's balance should decrease by $20 (he's owed less)
-                
-                # Example: Zach owes $50, pays Jake $20
-                # - Zach: -$50 + $20 = -$30 (now owes $30)
-                # - Jake: +$50 - $20 = +$30 (now owed $30)
-                
-                BalanceService._update_user_balance(settlement.payer_id, settlement.amount)   # Payer owes less
-                BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount) # Receiver owed less
+                    # Process all expenses first
+                    expenses = db.session.query(Expense).all()
+                    print(f"[DEBUG] Processing {len(expenses)} expenses")
+                    
+                    for expense in expenses:
+                        participants = expense.participants
+                        if not participants:
+                            print(f"[WARNING] Expense {expense.id} has no participants, skipping")
+                            continue
+                        
+                        # Credit the payer with the full amount they paid
+                        BalanceService._update_user_balance(expense.user_id, expense.amount)
+                        print(f"[DEBUG] Expense {expense.id}: Credited user {expense.user_id} with ${expense.amount}")
+                        
+                        # Debit each participant their share
+                        for participant in participants:
+                            BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
+                            print(f"[DEBUG] Expense {expense.id}: Debited user {participant.user_id} with ${participant.amount_owed}")
+                    
+                    # Process all settlements
+                    settlements = db.session.query(Settlement).all()
+                    print(f"[DEBUG] Processing {len(settlements)} settlements")
+                    
+                    for settlement in settlements:
+                        # SETTLEMENT LOGIC:
+                        # When Zach (payer_id) pays Jake (receiver_id) $20:
+                        # - Zach's balance increases by $20 (he owes $20 less)
+                        # - Jake's balance decreases by $20 (he is owed $20 less)
+                        
+                        BalanceService._update_user_balance(settlement.payer_id, settlement.amount)     # Payer owes less (+)
+                        BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount) # Receiver owed less (-)
+                        
+                        print(f"[DEBUG] Settlement {settlement.id}: Payer {settlement.payer_id} +${settlement.amount}, Receiver {settlement.receiver_id} -${settlement.amount}")
 
-            db.session.commit()
-            return True
+                # Transaction automatically commits here if no exceptions
+                print(f"[DEBUG] Balance recalculation completed successfully")
+                return True
 
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error recalculating balances: {e}")
-            return False
+            except Exception as e:
+                print(f"[ERROR] Error recalculating balances: {e}")
+                # Transaction automatically rolls back on exception
+                return False
         
     @staticmethod
     def reverse_balances_for_expense(expense):
@@ -200,3 +221,39 @@ class BalanceService:
         # This method is now simplified since we always do full recalculation
         # Just mark that we need to recalculate everything
         pass
+
+    @staticmethod
+    def get_debug_info():
+        """Get debug information about current balances and calculations"""
+        try:
+            # Get current balances
+            balances = BalanceService.get_all_balances()
+            
+            # Get total expenses per user
+            expense_totals = db.session.query(
+                User.name,
+                func.sum(Expense.amount).label('total_paid')
+            ).join(Expense, User.id == Expense.user_id)\
+             .group_by(User.id, User.name).all()
+            
+            # Get total owed per user (from expense participants)
+            owed_totals = db.session.query(
+                User.name,
+                func.sum(ExpenseParticipant.amount_owed).label('total_owed')
+            ).join(ExpenseParticipant, User.id == ExpenseParticipant.user_id)\
+             .group_by(User.id, User.name).all()
+            
+            # Get settlements
+            settlement_data = db.session.query(Settlement).all()
+            
+            debug_info = {
+                'current_balances': balances,
+                'expense_totals': [{'user': name, 'total_paid': float(total or 0)} for name, total in expense_totals],
+                'owed_totals': [{'user': name, 'total_owed': float(total or 0)} for name, total in owed_totals],
+                'settlements': [{'payer': s.payer.name, 'receiver': s.receiver.name, 'amount': s.amount, 'date': s.date.isoformat()} for s in settlement_data]
+            }
+            
+            return debug_info
+            
+        except Exception as e:
+            return {'error': str(e)}
