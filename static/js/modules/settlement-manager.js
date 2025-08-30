@@ -141,67 +141,67 @@ class SettlementManager {
     }
 
     renderSettlementsTable(settlements) {
-        const container = document.getElementById('settlements-table-container');
-        if (!container) {
-            console.warn('settlements-table-container not found');
-            return;
-        }
+    const container = document.getElementById('settlements-table-container');
+    if (!container) return;
 
-        if (!settlements || settlements.length === 0) {
-            container.innerHTML = `
-                <div class="no-settlements">
-                    💸 No recent payments
-                </div>
-            `;
-            return;
-        }
+    const isCompact = container.closest('.compact-mode') !== null;
 
-        // Create table with actual settlement data
-        const tableHTML = `
-            <div id="table-error" style="display: none;"></div>
-            <table class="settlements-table-main">
-                <thead>
-                    <tr>
-                        <th>Amount</th>
-                        <th>From</th>
-                        <th>To</th>
-                        <th>Description</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${settlements.map(settlement => `
-                        <tr data-settlement-id="${settlement.id}">
-                            <td class="editable amount" data-value="${settlement.amount}">
-                                $${parseFloat(settlement.amount).toFixed(2)}
-                            </td>
-                            <td class="editable payer" data-value="${settlement.payer_name}">
-                                ${settlement.payer_name}
-                            </td>
-                            <td class="editable receiver" data-value="${settlement.receiver_name}">
-                                ${settlement.receiver_name}
-                            </td>
-                            <td class="editable description" data-value="${settlement.description || ''}">
-                                ${settlement.description || '-'}
-                            </td>
-                            <td class="editable date settlement-date" data-value="${settlement.date}">
-                                ${settlement.date}
-                            </td>
-                            <td>
-                                <button class="delete-btn" data-settlement-id="${settlement.id}">❌</button>
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+    if (!settlements || settlements.length === 0) {
+        container.innerHTML = `
+            <div class="no-settlements">
+                💸 No recent payments
+            </div>
         `;
-
-        container.innerHTML = tableHTML;
-
-        // Add event listeners after rendering
-        this.attachEventListeners(container);
+        return;
     }
+
+    const tableHTML = `
+        <div id="table-error" style="display: none;"></div>
+        <table class="settlements-table-main">
+            <thead>
+                <tr>
+                    <th>Amount</th>
+                    <th>From</th>
+                    <th>To</th>
+                    ${!isCompact ? '<th>Description</th>' : ''}
+                    <th>Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${settlements.map(settlement => `
+                    <tr data-settlement-id="${settlement.id}">
+                        <td class="editable amount" data-value="${settlement.amount}">
+                            $${parseFloat(settlement.amount).toFixed(2)}
+                        </td>
+                        <td class="editable payer" data-value="${settlement.payer_name}">
+                            ${settlement.payer_name}
+                        </td>
+                        <td class="editable receiver" data-value="${settlement.receiver_name}">
+                            ${settlement.receiver_name}
+                        </td>
+                        ${!isCompact ? `
+                        <td class="editable description" data-value="${settlement.description || ''}">
+                            ${settlement.description || '-'}
+                        </td>` : ''}
+                        <td class="editable date settlement-date" data-value="${settlement.date}">
+                            ${settlement.date}
+                        </td>
+                        <td>
+                            <button class="delete-btn" data-settlement-id="${settlement.id}">❌</button>
+                        </td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = tableHTML;
+
+    // ✅ still attach event listeners for inline editing + delete
+    this.attachEventListeners(container);
+}
+
 
     attachEventListeners(container) {
         // Add delete event listeners
