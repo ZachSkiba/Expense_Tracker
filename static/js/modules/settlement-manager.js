@@ -219,7 +219,6 @@ class SettlementManager {
     startEditing(cell) {
         // Prevent multiple simultaneous edits
         if (this.isEditing) {
-            console.log('[DEBUG] Already editing, ignoring new edit request');
             return;
         }
 
@@ -229,7 +228,6 @@ class SettlementManager {
         const currentValue = cell.getAttribute('data-value') || '';
         const fieldType = cell.getAttribute('data-field');
         
-        console.log(`[DEBUG] Starting edit: ${fieldType} = "${currentValue}"`);
         
         cell.classList.add('editing');
         
@@ -280,12 +278,10 @@ class SettlementManager {
         
         // Set up event handlers with proper cleanup
         const handleSave = async () => {
-            console.log('[DEBUG] Save triggered');
             await this.saveEdit(inputElement);
         };
         
         const handleCancel = () => {
-            console.log('[DEBUG] Cancel triggered');
             this.cancelEdit();
         };
         
@@ -307,7 +303,6 @@ class SettlementManager {
 
     async saveEdit(inputElement) {
         if (!this.isEditing || !this.editingCell) {
-            console.log('[DEBUG] Not in editing mode, ignoring save');
             return;
         }
 
@@ -317,11 +312,9 @@ class SettlementManager {
         const fieldType = cell.getAttribute('data-field');
         const originalValue = cell.getAttribute('data-value') || '';
         
-        console.log(`[DEBUG] Saving edit: ${fieldType} = "${newValue}" (was "${originalValue}")`);
         
         // If no change, just cancel
         if (newValue === originalValue) {
-            console.log('[DEBUG] No change detected, canceling edit');
             this.cancelEdit();
             return;
         }
@@ -341,7 +334,6 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
-                console.log('[DEBUG] Server update successful');
                 
                 // Update the data attribute
                 cell.setAttribute('data-value', newValue);
@@ -369,7 +361,6 @@ class SettlementManager {
                 throw new Error(data.error || 'Update failed');
             }
         } catch (error) {
-            console.error('[DEBUG] Error updating settlement:', error);
             this.cancelEdit();
             this.showTableMessage('Failed to update settlement: ' + error.message, 'error');
         }
@@ -377,11 +368,9 @@ class SettlementManager {
 
     cancelEdit() {
         if (!this.isEditing || !this.editingCell) {
-            console.log('[DEBUG] Not in editing mode, ignoring cancel');
             return;
         }
 
-        console.log('[DEBUG] Canceling edit');
         
         const cell = this.editingCell;
         
@@ -425,7 +414,6 @@ class SettlementManager {
 
     // Refresh both settlements and balances
     async refreshAllData() {
-        console.log('[DEBUG] Refreshing all data (settlements + balances)');
         await Promise.all([
             this.loadActualSettlements(),
             this.refreshBalancesOnly()
@@ -434,7 +422,6 @@ class SettlementManager {
 
     // Refresh only balances and settlement suggestions
     async refreshBalancesOnly() {
-        console.log('[DEBUG] Refreshing balances only');
         if (window.balanceManager) {
             await window.balanceManager.refresh();
         }

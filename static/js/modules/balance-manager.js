@@ -7,11 +7,8 @@ class BalanceManager {
 
     async init() {
         if (this.isInitialized) {
-            console.log('[DEBUG] BalanceManager already initialized, skipping');
             return;
         }
-
-        console.log('[DEBUG] Initializing BalanceManager...');
         
         await this.loadBalances();
         await this.loadSettlementSuggestions();
@@ -30,7 +27,6 @@ class BalanceManager {
 
     async loadBalances() {
         try {
-            console.log('[DEBUG] BalanceManager: Loading balances...');
             
             // Use READ-ONLY API endpoint that doesn't trigger recalculation
             const response = await fetch('/api/balances');
@@ -56,7 +52,7 @@ class BalanceManager {
 
     async loadSettlementSuggestions() {
         try {
-            console.log('[DEBUG] BalanceManager: Loading settlement suggestions...');
+            
             
             // Use READ-ONLY API endpoint for settlement suggestions
             const response = await fetch('/api/settlement-suggestions');
@@ -82,7 +78,6 @@ class BalanceManager {
     renderBalances(balances) {
         const container = document.getElementById('balances-container');
         if (!container) {
-            console.log('[DEBUG] No balances-container found, skipping balance rendering');
             return;
         }
 
@@ -95,7 +90,7 @@ class BalanceManager {
             return;
         }
 
-        console.log('[DEBUG] Rendering balances for', balances.length, 'users');
+      
 
         const balanceHTML = balances.map(balance => {
             const initial = balance.user_name.charAt(0).toUpperCase();
@@ -125,7 +120,7 @@ class BalanceManager {
     renderSettlementSuggestions(suggestions) {
         const container = document.getElementById('settlements-container');
         if (!container) {
-            console.log('[DEBUG] No settlements-container found, skipping suggestions rendering');
+
             return;
         }
 
@@ -137,8 +132,6 @@ class BalanceManager {
             `;
             return;
         }
-
-        console.log('[DEBUG] Rendering', suggestions.length, 'settlement suggestions');
 
         const suggestionsHTML = suggestions.map(suggestion => `
             <div class="settlement-suggestion">
@@ -173,7 +166,6 @@ class BalanceManager {
 
     // Method to manually refresh both balances and settlement suggestions
     async refresh() {
-        console.log('[DEBUG] BalanceManager: Manual refresh requested');
         await Promise.all([
             this.loadBalances(),
             this.loadSettlementSuggestions()
@@ -183,7 +175,6 @@ class BalanceManager {
     // Method to force recalculation on the backend (admin function)
     async forceRecalculation() {
         try {
-            console.log('[DEBUG] BalanceManager: Forcing backend recalculation...');
             
             const response = await fetch('/api/balances/recalculate', {
                 method: 'POST',
@@ -193,7 +184,6 @@ class BalanceManager {
             });
 
             if (response.ok) {
-                console.log('[DEBUG] Backend recalculation successful');
                 // Refresh data after recalculation
                 await this.refresh();
                 return true;

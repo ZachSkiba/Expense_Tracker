@@ -78,7 +78,6 @@ async function loadInitialData() {
         const settlementsContainer = document.getElementById('settlements-container');
         
         if (balancesContainer || settlementsContainer) {
-            console.log('[DEBUG] Loading initial balance and settlement data...');
             await loadBalancesData();
         }
         
@@ -118,7 +117,6 @@ async function loadInitialData() {
 // Load balances data from API - SINGLE CALL VERSION
 async function loadBalancesData() {
     try {
-        console.log('[DEBUG] Making API calls for balances and settlements...');
         
         const [balancesResponse, suggestionsResponse] = await Promise.all([
             fetch('/api/balances'),
@@ -131,9 +129,7 @@ async function loadBalancesData() {
         
         const balancesData = await balancesResponse.json();
         const suggestionsData = await suggestionsResponse.json();
-        
-        console.log('[DEBUG] Received balances:', balancesData.balances);
-        console.log('[DEBUG] Received suggestions:', suggestionsData.suggestions);
+    
         
         updateBalancesDisplay(balancesData.balances);
         updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
@@ -271,7 +267,6 @@ window.AppUtils = {
     
     // Function to manually refresh balances if needed
     refreshBalances: async function() {
-        console.log('[DEBUG] Manually refreshing balances...');
         await loadBalancesData();
     }
 };
