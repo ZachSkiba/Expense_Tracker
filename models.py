@@ -18,6 +18,10 @@ class User(db.Model):
     
     # relationship to balances
     balances = db.relationship("Balance", back_populates="user", cascade="all, delete-orphan")
+    
+    # relationship to settlements (as payer and receiver)
+    settlements_made = db.relationship("Settlement", foreign_keys="Settlement.payer_id", back_populates="payer")
+    settlements_received = db.relationship("Settlement", foreign_keys="Settlement.receiver_id", back_populates="receiver")
 
     def get_net_balance(self):
         """Calculate net balance for this user"""
@@ -84,3 +88,26 @@ class Balance(db.Model):
 
     # relationship to user
     user = db.relationship("User", back_populates="balances")
+
+class Settlement(db.Model):
+    """Track settlements/payments between users"""
+    __tablename__ = "settlement"
+
+    id = db.Column(db.Integer, primary_key=True)
+    amount = db.Column(db.Float, nullable=False)
+    
+    # Who paid whom
+    payer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    receiver_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    
+    # When and optional description
+    date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    description = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    # relationships
+    payer = db.relationship("User", foreign_keys=[payer_id], back_populates="settlements_made")
+    receiver = db.relationship("User", foreign_keys=[receiver_id], back_populates="settlements_received")
+    
+    def __repr__(self):
+        return f'<Settlement {self.payer.name} -> {self.receiver.name}: ${self.amount}>'

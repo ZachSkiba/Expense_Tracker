@@ -1,0 +1,100 @@
+<!-- _settlements_table.html -->
+<div class="settlements-history">
+    <h3>Recent Payments</h3>
+    <div id="settlements-container">
+        <div style="text-align: center; padding: 20px; color: #7f8c8d;">
+            Loading settlements...
+        </div>
+    </div>
+</div>
+
+<style>
+.settlements-history {
+    margin-top: 30px;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.settlements-history h3 {
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-size: 1.2em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 8px;
+}
+
+.settlement-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #ecf0f1;
+}
+
+.settlement-item:last-child {
+    border-bottom: none;
+}
+
+.settlement-info {
+    flex-grow: 1;
+}
+
+.settlement-main {
+    font-size: 0.95em;
+    color: #2c3e50;
+    margin-bottom: 4px;
+}
+
+.settlement-details {
+    font-size: 0.8em;
+    color: #7f8c8d;
+}
+
+.settlement-amount {
+    font-weight: 600;
+    color: #27ae60;
+    font-size: 1em;
+}
+
+.settlement-date {
+    font-size: 0.75em;
+    color: #95a5a6;
+    margin-left: 10px;
+}
+
+.no-settlements {
+    text-align: center;
+    padding: 30px;
+    color: #7f8c8d;
+    font-style: italic;
+}
+
+.settlement-arrow {
+    color: #3498db;
+    margin: 0 8px;
+    font-weight: bold;
+}
+
+.delete-settlement-btn {
+    background: #e74c3c;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-left: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.settlement-item:hover .delete-settlement-btn {
+    opacity: 1;
+}
+
+.delete-settlement-btn:hover {
+    background: #c0392b;
+}
+</style>
