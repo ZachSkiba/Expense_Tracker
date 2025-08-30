@@ -73,6 +73,20 @@
     background: #c0392b;
 }
 
+.settlements-table-main .editable {
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;
+}
+
+.settlements-table-main .editable:hover {
+    background-color: #e9ecef;
+}
+
+.settlements-table-main .editable.editing {
+    background-color: #fff3cd;
+}
+
 .no-settlements {
     text-align: center;
     padding: 30px;
@@ -86,5 +100,24 @@
 .settlement-date {
     color: #7f8c8d;
     font-size: 0.85em;
+}
+
+#table-error {
+    margin: 8px 0;
+    padding: 8px;
+    border-radius: 4px;
+    display: none;
+}
+
+#table-error.error {
+    background: #fee;
+    border: 1px solid #fcc;
+    color: #c33;
+}
+
+#table-error.success {
+    background: #efe;
+    border: 1px solid #cfc;
+    color: #3c3;
 }
 </style>

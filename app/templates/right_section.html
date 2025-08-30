@@ -1,13 +1,64 @@
 <!-- right_section.html -->
 <div class="right-section">
-    <div class="quick-actions-card">
-        <h3>Quick Actions</h3>
-        <div class="action-buttons">
-            <button class="action-btn primary" onclick="openAddExpenseModal()">➕ Add Expense</button>
-            <button class="action-btn secondary" onclick="openSettleUpModal()">💰 Settle Up</button>
-        </div>
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <button class="add-expense-btn" onclick="openAddExpenseModal()">
+            ➕ Add Expense
+        </button>
+        <button class="settle-up-btn" onclick="openSettleUpModal()">
+            💰 Record Payment
+        </button>
     </div>
-
-    <!-- Include the settlements table -->
-    {% include "_settlements_table.html" %}
+    
+    <!-- Include the recent payments table -->
+    {% include '_settlements_table.html' %}
 </div>
+
+<style>
+.right-section {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    height: fit-content;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 30px;
+}
+
+.add-expense-btn, .settle-up-btn {
+    flex: 1;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.add-expense-btn {
+    background: linear-gradient(135deg, #3498db, #2980b9);
+    color: white;
+}
+
+.add-expense-btn:hover {
+    background: linear-gradient(135deg, #2980b9, #1f5f99);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.settle-up-btn {
+    background: linear-gradient(135deg, #27ae60, #219a52);
+    color: white;
+}
+
+.settle-up-btn:hover {
+    background: linear-gradient(135deg, #219a52, #1e8449);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+</style>

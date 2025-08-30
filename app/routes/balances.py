@@ -50,14 +50,14 @@ def get_balances_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@balances_bp.route("/api/settlements", methods=["GET"])
-def get_settlements_api():
-    """API endpoint to get settlement suggestions"""
+@balances_bp.route("/api/settlement-suggestions", methods=["GET"])
+def get_settlement_suggestions_api():
+    """API endpoint to get settlement suggestions (who should pay whom)"""
     try:
         # Always recalculate balances first to ensure accuracy
         BalanceService.recalculate_all_balances()
-        settlements = BalanceService.get_settlement_suggestions()
-        return jsonify({'settlements': settlements}), 200
+        suggestions = BalanceService.get_settlement_suggestions()
+        return jsonify({'suggestions': suggestions}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 

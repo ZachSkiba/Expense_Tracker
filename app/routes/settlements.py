@@ -36,7 +36,7 @@ def add_settlement_api():
 
 @settlements_bp.route("/api/settlements", methods=["GET"])
 def get_settlements_api():
-    """API endpoint to get recent settlements"""
+    """API endpoint to get recent settlements (ACTUAL PAYMENT HISTORY)"""
     try:
         limit = request.args.get('limit', 10, type=int)
         settlements = SettlementService.get_recent_settlements(limit)
