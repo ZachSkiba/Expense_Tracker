@@ -9,18 +9,6 @@ class BalanceService:
                                        category_description=None, date=None, split_type='equal'):
         """
         Create a new expense and recalculate all balances
-        
-        Args:
-            amount: Total expense amount
-            payer_id: ID of user who paid
-            participant_ids: List of user IDs who participated (including payer if they participated)
-            category_id: Category ID
-            category_description: Optional description
-            date: Expense date (defaults to today)
-            split_type: How to split the expense ('equal' or 'custom')
-        
-        Returns:
-            Expense object or None if error
         """
         try:
             # Validate inputs
@@ -152,14 +140,21 @@ class BalanceService:
     def recalculate_all_balances():
         """
         Recalculate all balances from scratch including both expenses AND settlements
-        This ensures complete accuracy by rebuilding all balance data
+        
+        FIXED: Correct settlement application logic
+        
+        Example walkthrough:
+        - Jake pays $100, Jake & Zach participate 50/50
+        - After expense: Jake +$50, Zach -$50
+        - Zach pays Jake $20
+        - After settlement: Jake +$30, Zach -$30
         """
         try:
             # Delete all existing balances
             db.session.query(Balance).delete()
             db.session.flush()
 
-            # Process all expenses
+            # Process all expenses first
             expenses = db.session.query(Expense).all()
             for expense in expenses:
                 participants = expense.participants
@@ -173,13 +168,20 @@ class BalanceService:
                 for participant in participants:
                     BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
             
-            # Process all settlements
+            # Process all settlements - CORRECTED LOGIC
             settlements = db.session.query(Settlement).all()
             for settlement in settlements:
-                # Payer's balance decreases (they paid money out)
-                BalanceService._update_user_balance(settlement.payer_id, -settlement.amount)
-                # Receiver's balance increases (they received money)
-                BalanceService._update_user_balance(settlement.receiver_id, settlement.amount)
+                # CORRECT SETTLEMENT LOGIC:
+                # When Zach (payer) pays Jake (receiver) $20:
+                # - Zach's balance should increase by $20 (he owes less)
+                # - Jake's balance should decrease by $20 (he's owed less)
+                
+                # Example: Zach owes $50, pays Jake $20
+                # - Zach: -$50 + $20 = -$30 (now owes $30)
+                # - Jake: +$50 - $20 = +$30 (now owed $30)
+                
+                BalanceService._update_user_balance(settlement.payer_id, settlement.amount)   # Payer owes less
+                BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount) # Receiver owed less
 
             db.session.commit()
             return True
