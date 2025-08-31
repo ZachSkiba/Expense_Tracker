@@ -186,10 +186,10 @@
 }
 
 /* ========================
-   Sidebar Specific Adjustments (restored original card look)
+   Sidebar Specific Adjustments (single card)
 ======================== */
 .sidebar-settlements {
-    background: white;
+    background: white; /* the whole sidebar card */
     border-radius: 12px;
     padding: 20px;
     box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -199,4 +199,12 @@
     overflow-x: auto;
 }
 
+/* Remove extra white box for table inside sidebar */
+.sidebar-settlements .settlements-history {
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+    padding: 0;
+    margin-top: 0;
+}
 /* Table inside sidebar uses same table styles, no extra shrinking */
