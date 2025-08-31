@@ -1,0 +1,23 @@
+# Ignore Python compiled files
+__pycache__/
+*.pyc
+
+# Ignore virtual environment folder
+venv/
+env/
+
+# Ignore environment variable files (never commit secrets)
+.env
+.env.dev
+
+# Ignore database backups / SQLite files
+*.sqlite3
+*.sql
+*.db
+
+# Ignore logs
+*.log
+
+# Ignore IDE/editor specific files
+.vscode/
+*.idea/
