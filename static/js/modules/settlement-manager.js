@@ -1,4 +1,4 @@
-// settlement-manager.js - FIXED VERSION (DOM conflicts resolved + auto refresh)
+// settlement-manager.js - UPDATED VERSION (Immediate balance updates after edits)
 class SettlementManager {
     constructor() {
         this.usersData = this.loadUsersData();
@@ -104,8 +104,8 @@ class SettlementManager {
                     closeModal('settleUpModal');
                 }
                 
-                // Reload settlement history and refresh balances
-                await this.refreshAllData();
+                // Refresh all data immediately
+                await this.refreshAllDataImmediate();
                 
                 // Show success message
                 this.showSuccessMessage('Payment recorded successfully!');
@@ -228,7 +228,6 @@ class SettlementManager {
         const currentValue = cell.getAttribute('data-value') || '';
         const fieldType = cell.getAttribute('data-field');
         
-        
         cell.classList.add('editing');
         
         let inputElement;
@@ -312,6 +311,7 @@ class SettlementManager {
         const fieldType = cell.getAttribute('data-field');
         const originalValue = cell.getAttribute('data-value') || '';
         
+    
         
         // If no change, just cancel
         if (newValue === originalValue) {
@@ -335,6 +335,7 @@ class SettlementManager {
 
             if (data.success) {
                 
+                
                 // Update the data attribute
                 cell.setAttribute('data-value', newValue);
                 
@@ -354,13 +355,17 @@ class SettlementManager {
                 
                 this.showTableMessage('Settlement updated successfully', 'success');
                 
-                // Refresh balances and settlement suggestions after edit
-                await this.refreshBalancesOnly();
+                // **KEY FIX**: Force immediate balance refresh with a small delay to ensure backend processing
+                
+                setTimeout(async () => {
+                    await this.refreshBalancesImmediately();
+                }, 100); // Small delay to ensure backend has processed the change
                 
             } else {
                 throw new Error(data.error || 'Update failed');
             }
         } catch (error) {
+            console.error('Error saving settlement edit:', error);
             this.cancelEdit();
             this.showTableMessage('Failed to update settlement: ' + error.message, 'error');
         }
@@ -400,8 +405,9 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
+                
                 // Refresh all data after deletion
-                await this.refreshAllData();
+                await this.refreshAllDataImmediate();
                 this.showSuccessMessage('Payment deleted successfully');
             } else {
                 this.showError(data.error || 'Failed to delete settlement');
@@ -412,19 +418,169 @@ class SettlementManager {
         }
     }
 
-    // Refresh both settlements and balances
-    async refreshAllData() {
-        await Promise.all([
-            this.loadActualSettlements(),
-            this.refreshBalancesOnly()
-        ]);
+    // **NEW METHOD**: Immediate balance refresh with better error handling
+    async refreshBalancesImmediately() {
+        try {
+            
+            
+            // First, force backend recalculation to ensure accuracy
+            const recalcResponse = await fetch('/api/balances/recalculate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            
+            if (!recalcResponse.ok) {
+                console.warn('[WARNING] Balance recalculation request failed, continuing with normal refresh');
+            } else {
+               
+            }
+            
+            // Now refresh the displayed data
+            if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
+                
+                await window.balanceManager.refresh();
+                
+            } else {
+                console.warn('[WARNING] BalanceManager not available, loading data manually');
+                await this.loadBalancesDataDirectly();
+            }
+            
+        } catch (error) {
+            console.error('[ERROR] Failed to refresh balances immediately:', error);
+            // Fallback: try to refresh without forced recalculation
+            if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
+                await window.balanceManager.refresh();
+            }
+        }
     }
 
-    // Refresh only balances and settlement suggestions
-    async refreshBalancesOnly() {
-        if (window.balanceManager) {
-            await window.balanceManager.refresh();
+    // **NEW METHOD**: Direct balance loading as fallback
+    async loadBalancesDataDirectly() {
+        try {
+            const [balancesResponse, suggestionsResponse] = await Promise.all([
+                fetch('/api/balances'),
+                fetch('/api/settlement-suggestions')
+            ]);
+            
+            if (balancesResponse.ok && suggestionsResponse.ok) {
+                const balancesData = await balancesResponse.json();
+                const suggestionsData = await suggestionsResponse.json();
+                
+                // Update displays if containers exist
+                this.updateBalancesDisplay(balancesData.balances);
+                this.updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
+                this.updateHeaderStatus(balancesData.balances);
+                
+                
+            }
+        } catch (error) {
+            console.error('[ERROR] Direct balance loading failed:', error);
         }
+    }
+
+    // **NEW METHODS**: Direct display update methods (fallback for when BalanceManager isn't available)
+    updateBalancesDisplay(balances) {
+        const container = document.getElementById('balances-container');
+        if (!container || !balances) return;
+
+        if (balances.length === 0) {
+            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #7f8c8d;">No users found</div>';
+            return;
+        }
+
+        const balanceHTML = balances.map(balance => {
+            const initial = balance.user_name.charAt(0).toUpperCase();
+            const status = balance.balance > 0.01 ? 'positive' : balance.balance < -0.01 ? 'negative' : 'even';
+            const statusText = balance.balance > 0.01 ? 'owed' : balance.balance < -0.01 ? 'owes' : 'even';
+            const amount = Math.abs(balance.balance);
+
+            return `
+                <div class="balance-item ${status}">
+                    <div class="user-info">
+                        <div class="user-avatar">${initial}</div>
+                        <div>
+                            <div class="user-name">${balance.user_name}</div>
+                        </div>
+                    </div>
+                    <div class="balance-amount">
+                        <div class="amount">$${amount.toFixed(2)}</div>
+                        <div class="status">${statusText}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.innerHTML = balanceHTML;
+    }
+
+    updateSettlementSuggestionsDisplay(suggestions) {
+        const container = document.getElementById('settlements-container');
+        if (!container) return;
+        
+        if (!suggestions || suggestions.length === 0) {
+            container.innerHTML = '<div class="no-settlements">🎉 All settled! No payments needed.</div>';
+            return;
+        }
+
+        const suggestionsHTML = suggestions.map(suggestion => `
+            <div class="settlement-suggestion">
+                <span class="settlement-from">${suggestion.from}</span> 
+                <span class="settlement-arrow">→</span> 
+                <span class="settlement-to">${suggestion.to}</span>
+                <span class="settlement-amount">$${suggestion.amount.toFixed(2)}</span>
+            </div>
+        `).join('');
+
+        container.innerHTML = suggestionsHTML;
+    }
+
+    updateHeaderStatus(balances) {
+        const statusIndicator = document.querySelector('.status-indicator');
+        if (!statusIndicator || !balances) return;
+
+        const hasImbalances = balances.some(b => Math.abs(b.balance) > 0.01);
+        
+        if (hasImbalances) {
+            statusIndicator.textContent = 'Pending Settlements';
+            statusIndicator.className = 'status-indicator pending';
+            statusIndicator.style.background = '#fff3cd';
+            statusIndicator.style.color = '#856404';
+        } else {
+            statusIndicator.textContent = 'All Even';
+            statusIndicator.className = 'status-indicator all-even';
+            statusIndicator.style.background = '#e8f5e8';
+            statusIndicator.style.color = '#2d5a2d';
+        }
+    }
+
+    // **UPDATED METHOD**: Enhanced refresh for immediate updates
+    async refreshAllDataImmediate() {
+       
+        
+        try {
+            // Refresh settlements table first
+            await this.loadActualSettlements();
+       
+            
+            // Then refresh balances immediately
+            await this.refreshBalancesImmediately();
+            
+            
+        } catch (error) {
+            console.error('[ERROR] Failed to refresh all data immediately:', error);
+        }
+    }
+
+    // Legacy method for backward compatibility
+    async refreshAllData() {
+        return this.refreshAllDataImmediate();
+    }
+
+    // Legacy method for backward compatibility
+    async refreshBalancesOnly() {
+        return this.refreshBalancesImmediately();
     }
 
     showTableMessage(message, type = 'error') {
@@ -487,6 +643,7 @@ class SettlementManager {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     if (!window.settlementManager) {
+        
         window.settlementManager = new SettlementManager();
     }
 });
