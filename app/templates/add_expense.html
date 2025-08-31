@@ -5,16 +5,31 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/balance-styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/roommate-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settlements-table.css') }}">
+
 </head>
 <body>
     <!-- Header -->
     <div class="header">
+    <div class="header-left">
         <h1>
             🏠 403 Expense Tracker
-            <span class="version">v2.0</span>
         </h1>
+    </div>
+
+    <div class="header-center">
+        <nav class="header-nav">
+            <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
+            <a href="{{ url_for('balances.balances_page') }}">💰 View Balances</a>
+            <a href="{{ url_for('settlements.manage_settlements') }}">💸 Manage Settlements</a>
+            <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
+        </nav>
+    </div>
+
+    <div class="header-right">
         <div class="status-indicator all-even">All Even</div>
     </div>
+</div>
 
     {% if error %}
         <div class="error-message">{{ error }}</div>
@@ -167,13 +182,7 @@
         </div>
     </div>
 
-    <!-- Navigation Links -->
-    <div style="margin-top: 30px; text-align: center; color: #7f8c8d;">
-        <a href="{{ url_for('expenses.expenses') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">📊 View All Expenses</a>
-        <a href="{{ url_for('balances.balances_page') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">💰 View Balances</a>
-        <a href="{{ url_for('settlements.manage_settlements') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">💸 Manage Settlements</a>
-        <a href="{{ url_for('manage.management') }}" style="color: #3498db; text-decoration: none; margin: 0 15px;">⚙️ Settings</a>
-    </div>
+      
 
     <!-- JavaScript -->
     <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
