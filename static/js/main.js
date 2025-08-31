@@ -1,4 +1,4 @@
-// Main JavaScript initialization - FIXED VERSION (No Duplicate Loading)
+// Main JavaScript initialization - UPDATED VERSION (Consistent styling fixes)
 document.addEventListener('DOMContentLoaded', function() {
     // Get page context from body data attribute or URL
     const pageName = document.body.dataset.page || getPageFromURL();
@@ -188,6 +188,7 @@ function updateSettlementSuggestionsDisplay(suggestions) {
         return;
     }
 
+    // **FIXED**: Use consistent styling that matches the original format
     const suggestionItems = suggestions.map(suggestion => `
         <div class="settlement-item">
             <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
@@ -369,3 +370,22 @@ function updateSplitPreview() {
         splitPreview.style.display = 'none';
     }
 }
+
+// **UPDATED**: Global settlement refresh function that settlement manager can call
+window.globalRefreshBalances = async function() {
+    try {
+        console.log('[DEBUG] Global balance refresh triggered...');
+        
+        // Use the same load function that main.js uses initially
+        await loadBalancesData();
+        
+        // If balance manager exists, also refresh it
+        if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
+            await window.balanceManager.refresh();
+        }
+        
+        console.log('[DEBUG] Global balance refresh completed');
+    } catch (error) {
+        console.error('[ERROR] Global balance refresh failed:', error);
+    }
+};
