@@ -4,24 +4,22 @@ import sys
 
 def detect_environment():
     """Detect environment with proper priority order"""
-    print(f"[DEBUG] sys.argv: {sys.argv}")
-    
-    # 1. Check command line arguments first (highest priority)
+    # Check for Render environment first
+    if os.environ.get('RENDER'):
+        return 'production'
+        
+    # Check command line arguments
     if '--dev' in sys.argv or '--development' in sys.argv:
-        print("[DEBUG] Found --dev or --development in sys.argv")
         return 'development'
     elif '--prod' in sys.argv or '--production' in sys.argv:
-        print("[DEBUG] Found --prod or --production in sys.argv")
         return 'production'
     
-    # 2. Check ENVIRONMENT variable (set by run.py)
+    # Check ENVIRONMENT variable
     env_var = os.environ.get('ENVIRONMENT')
-    print(f"[DEBUG] ENVIRONMENT variable: {env_var}")
     if env_var in ['development', 'production']:
         return env_var
     
-    # 3. Default to development
-    print("[DEBUG] Defaulting to development")
+    # Default to development
     return 'development'
 
 def load_environment_config():
@@ -29,26 +27,17 @@ def load_environment_config():
     current_env = detect_environment()
     is_development = (current_env == 'development')
     
-    # Use .env.dev for development, .env for production
-    env_file = '.env.dev' if is_development else '.env'
-    
-    print(f"[DEBUG] Current env: {current_env}")
-    print(f"[DEBUG] Is development: {is_development}")
-    print(f"[DEBUG] Loading env file: {env_file}")
-    print(f"[DEBUG] Env file exists: {os.path.exists(env_file)}")
-    
-    # Load the environment file
-    result = load_dotenv(dotenv_path=env_file)
-    print(f"[DEBUG] load_dotenv result: {result}")
-    
-    # Check what DATABASE_URL is after loading
-    database_url_after_load = os.getenv('DATABASE_URL')
-    print(f"[DEBUG] DATABASE_URL after load_dotenv: {database_url_after_load}")
+    # Only load .env files in development (Render uses environment variables)
+    if is_development:
+        env_file = '.env.dev'
+        if os.path.exists(env_file):
+            load_dotenv(dotenv_path=env_file)
+    else:
+        env_file = 'render-environment-variables'
     
     return current_env, is_development, env_file
 
-# Load environment immediately when module is imported
-print("[DEBUG] Starting config.py import...")
+# Load environment
 _current_env, _is_development, _env_file = load_environment_config()
 
 class Config:
@@ -57,26 +46,33 @@ class Config:
     IS_DEVELOPMENT = _is_development
     ENV_FILE = _env_file
     
-    print(f"[DEBUG] Setting up Config class...")
-    print(f"[DEBUG] IS_DEVELOPMENT = {IS_DEVELOPMENT}")
-    
-    # Database configuration based on environment
+    # Database configuration
     if IS_DEVELOPMENT:
-        default_db = 'postgresql://postgres:1234@localhost/expense_tracker_dev'
-        SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', default_db)
-        print(f"🔧 DEV: Using database -> {SQLALCHEMY_DATABASE_URI}")
+        # Development: Use local database
+        SQLALCHEMY_DATABASE_URI = os.getenv(
+            'DATABASE_URL', 
+            'postgresql://postgres:1234@localhost/expense_tracker_dev'
+        )
     else:
-        default_db = 'postgresql://postgres:1234@localhost/expense_tracker'
-        SQLALCHEMY_DATABASE_URI = os.getenv('DATABASE_URL', default_db)
-        print(f"🚀 PROD: Using database -> {SQLALCHEMY_DATABASE_URI}")
+        # Production: Use Render's DATABASE_URL
+        database_url = os.environ.get('DATABASE_URL')
+        if database_url:
+            # Fix postgres:// to postgresql:// if needed (common issue)
+            if database_url.startswith('postgres://'):
+                database_url = database_url.replace('postgres://', 'postgresql://', 1)
+            SQLALCHEMY_DATABASE_URI = database_url
+        else:
+            # Fallback (shouldn't happen on Render)
+            SQLALCHEMY_DATABASE_URI = 'postgresql://postgres:1234@localhost/expense_tracker'
     
-    # Other Flask config
+    # Other configuration
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key')
+    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
     
-    print(f"[DEBUG] Final SQLALCHEMY_DATABASE_URI: {SQLALCHEMY_DATABASE_URI}")
-    print(f"[DEBUG] Config setup complete")
+    # Force DEBUG off in production
+    if not IS_DEVELOPMENT:
+        DEBUG = False
     
     @classmethod
     def get_db_info(cls):
