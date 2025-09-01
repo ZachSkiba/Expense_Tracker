@@ -53,6 +53,9 @@ class Config:
             'DATABASE_URL', 
             'postgresql://postgres:1234@localhost/expense_tracker_dev'
         )
+        if SQLALCHEMY_DATABASE_URI.startswith('postgresql://') and '+psycopg' not in SQLALCHEMY_DATABASE_URI:
+            SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgresql://', 'postgresql+psycopg://', 1)
+
     else:
         # Production: Use Neon database with psycopg3
         database_url = os.environ.get('DATABASE_URL')
