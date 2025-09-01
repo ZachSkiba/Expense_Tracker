@@ -13,6 +13,7 @@ def authenticate(password):
     """Authenticate with shared password"""
     if password == SHARED_PASSWORD:
         session['authenticated'] = True
+        session.permanent = False  # Session expires on browser close
         return True
     return False
 
