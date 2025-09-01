@@ -12,7 +12,7 @@ def create_app():
     app.config['SESSION_COOKIE_SECURE'] = not app.config['IS_DEVELOPMENT']  # HTTPS only in production
     app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
-    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour timeout
+    app.config['SESSION_PERMANENT'] = False
     
     # Make sessions expire when browser closes
     app.config['SESSION_COOKIE_NAME'] = 'roommate_session'
