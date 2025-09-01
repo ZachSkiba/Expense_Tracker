@@ -7,6 +7,16 @@ from config import Config
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
     app.config.from_object(Config)
+    
+    # Configure session security
+    app.config['SESSION_COOKIE_SECURE'] = not app.config['IS_DEVELOPMENT']  # HTTPS only in production
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # CSRF protection
+    app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour timeout
+    
+    # Make sessions expire when browser closes
+    app.config['SESSION_COOKIE_NAME'] = 'roommate_session'
+    # Don't set SESSION_PERMANENT = True (this makes it expire on browser close)
 
     # Initialize extensions
     db.init_app(app)
