@@ -1,9 +1,8 @@
 # 3. Update your app/__init__.py to include authentication:
 
-from flask import Flask
+from flask import Flask, request, session, redirect, url_for, render_template_string
 from models import db
 from config import Config
-from app.auth import auth  # Add this import
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -11,6 +10,9 @@ def create_app():
 
     # Initialize extensions
     db.init_app(app)
+
+    # Import auth functions
+    from app.auth import check_auth, authenticate, require_auth, LOGIN_TEMPLATE, SHARED_PASSWORD
 
     # Security headers
     @app.after_request
@@ -26,15 +28,32 @@ def create_app():
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
-    # Apply authentication to all routes
-    from app.auth import auth
-    
+    # Authentication check for all routes
     @app.before_request
-    def require_auth():
-        from flask import request
-        if request.endpoint and request.endpoint.startswith('static'):
-            return
-        return auth.login_required(lambda: None)()
+    def check_authentication():
+        return require_auth()
+
+    # Login route
+    @app.route('/login', methods=['GET', 'POST'])
+    def login():
+        if request.method == 'POST':
+            password = request.form.get('password', '')
+            if authenticate(password):
+                return redirect(url_for('expenses.add_expense'))
+            else:
+                return render_template_string(LOGIN_TEMPLATE, error="Incorrect password")
+        
+        # If already authenticated, redirect to main app
+        if check_auth():
+            return redirect(url_for('expenses.add_expense'))
+            
+        return render_template_string(LOGIN_TEMPLATE)
+
+    # Logout route
+    @app.route('/logout')
+    def logout():
+        session.pop('authenticated', None)
+        return redirect(url_for('login'))
 
     # Register blueprints (unchanged)
     from app.routes.expenses import expenses_bp

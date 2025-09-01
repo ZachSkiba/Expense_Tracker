@@ -1,38 +1,95 @@
-# 1. First, add these to your requirements.txt:
-# Flask-HTTPAuth==4.8.0
-
-# 2. Create a new file: app/auth.py
-from flask_httpauth import HTTPBasicAuth
-from werkzeug.security import check_password_hash, generate_password_hash
+# Simple session-based authentication for roommates
+from flask import session, request, redirect, url_for, render_template_string
 import os
 
-auth = HTTPBasicAuth()
+# Simple shared password
+SHARED_PASSWORD = os.getenv('SHARED_PASSWORD', '403')
 
-# In production, this should come from environment variables
-# For now, you can set a simple shared password
-SHARED_PASSWORD = os.getenv('SHARED_PASSWORD', '403')  # Change this!
+def check_auth():
+    """Check if user is authenticated"""
+    return session.get('authenticated') == True
 
-# Generate the hash once (you can run this in Python to get the hash)
-# from werkzeug.security import generate_password_hash
-# print(generate_password_hash('roommates2024!'))
-PASSWORD_HASH = generate_password_hash(SHARED_PASSWORD)
+def authenticate(password):
+    """Authenticate with shared password"""
+    if password == SHARED_PASSWORD:
+        session['authenticated'] = True
+        return True
+    return False
 
-@auth.verify_password
-def verify_password(username, password):
-    # For simplicity, any username works, just need correct password
-    if username == 'roommate' and check_password_hash(PASSWORD_HASH, password):
-        return username
+def require_auth():
+    """Decorator/function to require authentication"""
+    if request.endpoint == 'static':
+        return None
+        
+    if request.endpoint == 'login':
+        return None
+        
+    if not check_auth():
+        return redirect(url_for('login'))
+    
     return None
 
-@auth.error_handler
-def auth_error():
-    return '''
-    <html>
-    <head><title>Access Required</title></head>
-    <body style="font-family: Arial; text-align: center; margin-top: 100px;">
+# Login page template
+LOGIN_TEMPLATE = '''
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Roommate Expense Tracker - Login</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+        }
+        .login-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 300px;
+        }
+        .error { color: red; margin-bottom: 1rem; }
+        input[type="password"] {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 1rem 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            padding: 0.75rem 2rem;
+            border: none;
+            border-radius: 5px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        button:hover { background: #5a6fd8; }
+    </style>
+</head>
+<body>
+    <div class="login-box">
         <h2>🏠 Roommate Expense Tracker</h2>
-        <p>Please enter the shared password to access the app.</p>
-        <p><em>Username: roommate</em></p>
-    </body>
-    </html>
-    ''', 401
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="post">
+            <div>
+                <input type="password" name="password" placeholder="Enter shared password" required autofocus>
+            </div>
+            <button type="submit">Access App</button>
+        </form>
+        <p style="margin-top: 1rem; color: #666; font-size: 0.9rem;">
+            Ask your roommates for the shared password
+        </p>
+    </div>
+</body>
+</html>
+'''
