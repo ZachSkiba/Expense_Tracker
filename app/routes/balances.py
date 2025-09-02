@@ -65,18 +65,8 @@ def get_settlement_suggestions_api():
 
 @balances_bp.route("/balances", methods=["GET"])
 def balances_page():
-    """Web page to view balances"""
-    # Only recalculate if explicitly requested or if no balances exist
-    force_recalc = request.args.get('recalc') == '1'
-    
-    balances = BalanceService.get_all_balances()
-    if force_recalc or not balances:
-        BalanceService.recalculate_all_balances()
-        balances = BalanceService.get_all_balances()
-    
-    settlements = BalanceService.get_settlement_suggestions()
-    
-    return render_template("balances.html", balances=balances, settlements=settlements)
+    """Web page to view balances - redirect to combined page"""
+    return redirect(url_for('balances.combined_balances_settlements'))
 
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():

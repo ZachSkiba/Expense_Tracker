@@ -56,7 +56,7 @@ class UserService:
         # Check if user has non-zero balance
         net_balance = user.get_net_balance()
         if abs(net_balance) > 0.01:  # Not zero (accounting for floating point)
-            balance_url = url_for('balances.balances_page')
+            balance_url = url_for('balances.combined_balances_settlements')
             if net_balance > 0:
                 reasons.append(
                     f"{user.name} is owed <strong>${net_balance:.2f}</strong> "
