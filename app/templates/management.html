@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manage Users & Categories</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/users-category-management.css') }}">
+</head>
+<body>
+    <div class="management-container">
+        <h1>🛠️ Manage Users & Categories</h1>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        {% if error %}
+            <div class="alert alert-error">{{ error|safe }}</div>
+        {% endif %}
+        
+        {% if success %}
+            <div class="alert alert-success">{{ success }}</div>
+        {% endif %}
+        
+        <div class="management-grid">
+            <!-- Users Section -->
+            <div class="management-section">
+                <h2>👥 Users</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="user_name" placeholder="Enter new user name" required>
+                        <input type="hidden" name="action" value="add_user">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add User</button>
+                    </form>
+                </div>
+                
+                <div class="items-list">
+                    {% if users %}
+                        {% for user in users %}
+                            <div class="item">
+                                <span class="item-name">{{ user.name }}</span>
+                                <a href="{{ url_for('management.delete_user', user_id=user.id) }}" 
+                                   class="delete-btn" 
+                                   onclick="return confirm('Are you sure you want to delete {{ user.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No users yet. Add your first user above!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Categories Section -->
+            <div class="management-section">
+                <h2>📂 Categories</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="category_name" placeholder="Enter new category name" required>
+                        <input type="hidden" name="action" value="add_category">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add Category</button>
+                    </form>
+                </div>
+                
+                <div class="items-list">
+                    {% if categories %}
+                        {% for category in categories %}
+                            <div class="item">
+                                <span class="item-name">{{ category.name }}</span>
+                                <a href="{{ url_for('management.delete_category', cat_id=category.id) }}" 
+                                   class="delete-btn"
+                                   onclick="return confirm('Are you sure you want to delete {{ category.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No categories yet. Add your first category above!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <a href="{{ url_for('expenses.add_expense') }}" class="back-link">⬅ Back to Add Expense</a>
+    </div>
+</body>
+</html>

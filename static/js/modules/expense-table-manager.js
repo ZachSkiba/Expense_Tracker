@@ -360,11 +360,6 @@ class ExpenseTableManager {
             select.appendChild(option);
         });
         
-        // Manage option
-        const manageOpt = document.createElement('option');
-        manageOpt.value = 'manage';
-        manageOpt.textContent = `➕ Add/Remove ${type.charAt(0).toUpperCase() + type.slice(1)}s`;
-        select.appendChild(manageOpt);
     }
     
     async saveEdit(cell, input, type, originalHTML, autocomplete) {

@@ -72,6 +72,7 @@ def create_app():
     from app.routes.manage import manage_bp
     from app.routes.balances import balances_bp
     from app.routes.settlements import settlements_bp
+    from app.routes.management import management_bp
 
     app.register_blueprint(manage_bp)
     app.register_blueprint(expenses_bp)
@@ -79,5 +80,6 @@ def create_app():
     app.register_blueprint(categories_bp)
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
+    app.register_blueprint(management_bp)
 
     return app
