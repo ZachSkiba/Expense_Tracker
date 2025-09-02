@@ -20,8 +20,7 @@
     <div class="header-center">
         <nav class="header-nav">
             <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
-            <a href="{{ url_for('balances.balances_page') }}">💰 View Balances</a>
-            <a href="{{ url_for('settlements.manage_settlements') }}">💸 Manage Settlements</a>
+            <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Payments</a>
             <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
         </nav>
     </div>
