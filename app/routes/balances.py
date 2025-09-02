@@ -1,6 +1,10 @@
-from flask import Blueprint, request, jsonify, render_template
+# Add these imports to your balances.py file if not already present
+from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from balance_service import BalanceService
+from app.services.settlement_service import SettlementService
+from app.services.user_service import UserService
 from models import db, User, Category
+from datetime import datetime
 
 balances_bp = Blueprint("balances", __name__)
 
@@ -96,3 +100,55 @@ def get_debug_info():
         return jsonify(debug_info), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+
+@balances_bp.route("/balances-settlements", methods=["GET", "POST"])
+def combined_balances_settlements():
+    """Combined balances and settlements management page"""
+    # Always recalculate balances when page loads
+    BalanceService.recalculate_all_balances()
+    
+    error = None
+    users_data = UserService.get_all_data()
+    
+    # Handle settlement form submission
+    if request.method == "POST":
+        settlement_data = {
+            'amount': request.form.get('amount'),
+            'payer_id': request.form.get('payer_id'),
+            'receiver_id': request.form.get('receiver_id'),
+            'description': request.form.get('description'),
+            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d')
+        }
+
+        # Use service to create settlement (which will recalculate balances)
+        settlement, errors = SettlementService.create_settlement(settlement_data)
+        
+        if settlement:
+            return redirect(url_for("balances.combined_balances_settlements"))
+        else:
+            # Handle errors
+            error = "; ".join(errors)
+            # Continue to render page with error and preserved form data
+    
+    # Get current balances
+    balances = BalanceService.get_all_balances()
+    
+    # Get settlement suggestions
+    settlements = BalanceService.get_settlement_suggestions()
+    
+    # Get recent settlements for the payments history table
+    settlements_data = SettlementService.get_settlement_data()
+    
+    return render_template("combined_balances_settlements.html", 
+                         error=error,
+                         users=users_data,
+                         balances=balances,
+                         settlements=settlements,  # Settlement suggestions
+                         settlements_data=settlements_data,  # Actual payment history
+                         # Preserve form data on error
+                         amount=request.form.get('amount') if error else None,
+                         payer_id=request.form.get('payer_id') if error else None,
+                         receiver_id=request.form.get('receiver_id') if error else None,
+                         description=request.form.get('description') if error else None,
+                         date=request.form.get('date') if error else None)
