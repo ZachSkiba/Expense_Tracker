@@ -63,10 +63,10 @@ def get_settlement_suggestions_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@balances_bp.route("/balances", methods=["GET"])
+@balances_bp.route("/balances")
 def balances_page():
-    """Web page to view balances - redirect to combined page"""
-    return redirect(url_for('balances.combined_balances_settlements'))
+    """Web page to view balances - render redirect template"""
+    return render_template("balances.html")
 
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():

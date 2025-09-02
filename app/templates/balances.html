@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Redirecting...</title>
+    <meta http-equiv="refresh" content="0; url={{ url_for('balances.combined_balances_settlements') }}">
+</head>
+<body>
+    <p>Redirecting to <a href="{{ url_for('balances.combined_balances_settlements') }}">Balances & Payments</a>...</p>
+    <script>
+        window.location.href = "{{ url_for('balances.combined_balances_settlements') }}";
+    </script>
+</body>
+</html>
