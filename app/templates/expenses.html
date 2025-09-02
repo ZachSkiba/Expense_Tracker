@@ -1,36 +1,90 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>All Expenses</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+    /* Header container */
+    .header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        background: #e6e6e9; /* light neutral */
+        padding: 12px 20px;
+        border-radius: 0 0 12px 12px;
+        color: #1e1e2f; /* dark text for light background */
+        gap: 12px; /* smaller gap so buttons sit close to title */
+        box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    }
+
+    .header h1 {
+        margin: 0;
+        font-size: 24px;
+        font-weight: 700;
+        letter-spacing: 0.3px;
+        color: #1e1e2f;
+    }
+
+    .header-nav {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-nav {
+        background: #ffffff;
+        color: #1e1e2f;
+        padding: 6px 12px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 600;
+        text-decoration: none;
+        border: 1px solid rgba(0,0,0,0.06);
+        box-shadow: 0 1px 0 rgba(255,255,255,0.6) inset;
+    }
+    .btn-nav:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+
+    /* Make the page content centered and not full width */
+    .page-content {
+    margin: 0 0 18px 20px; /* left-aligned, keep some padding */
+    padding: 0 0 0 0;
+}
+    </style>
 </head>
 <body>
 
-<h1>Expense Tracker</h1>
+  <!-- Main header (title + buttons) -->
+  <div class="header">
+      <h1>💰 Expense Tracker</h1>
+      <nav class="header-nav">
+          <a href="{{ url_for('expenses.add_expense') }}" class="btn-nav">⬅ Main Page</a>
+          <a href="{{ url_for('manage.management') }}" class="btn-nav">⚙️ Settings</a>
+      </nav>
+  </div>
 
+  <!-- Page content (table area) -->
+  <div class="page-content">
+      {% include "_expenses_table.html" %}
+  </div>
 
+  <!-- Data scripts -->
+  <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
+  <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
 
-{% include "_expenses_table.html" %}
+  <script>
+      window.urls = {
+          addExpense: "{{ url_for('expenses.add_expense') }}",
+          manageCategories: "{{ url_for('categories.manage_categories') }}",
+          manageUsers: "{{ url_for('users.manage_users') }}"
+      };
+  </script>
 
-<br>
-<a href="{{ url_for('expenses.add_expense') }}">➕ Add Another Expense</a><br>
-<a href="{{ url_for('manage.management') }}">⬅ Back to Management</a>
-
-<script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
-<script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
-
-<script>
-    window.urls = {
-        addExpense: "{{ url_for('expenses.add_expense') }}",
-        manageCategories: "{{ url_for('categories.manage_categories') }}",
-        manageUsers: "{{ url_for('users.manage_users') }}"
-    };
-</script>
-
-
-<script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
-<script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
-<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 </body>
 </html>
