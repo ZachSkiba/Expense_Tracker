@@ -374,8 +374,6 @@ function updateSplitPreview() {
 // **UPDATED**: Global settlement refresh function that settlement manager can call
 window.globalRefreshBalances = async function() {
     try {
-        console.log('[DEBUG] Global balance refresh triggered...');
-        
         // Use the same load function that main.js uses initially
         await loadBalancesData();
         
@@ -384,7 +382,7 @@ window.globalRefreshBalances = async function() {
             await window.balanceManager.refresh();
         }
         
-        console.log('[DEBUG] Global balance refresh completed');
+    
     } catch (error) {
         console.error('[ERROR] Global balance refresh failed:', error);
     }

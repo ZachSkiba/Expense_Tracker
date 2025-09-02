@@ -161,7 +161,7 @@ class BalanceService:
         """
         with BalanceService._lock:
             try:
-                print(f"[DEBUG] Starting balance recalculation at {datetime.now()}")
+                
                 
                 # Use a database transaction to ensure consistency
                 with db.session.begin():
@@ -171,26 +171,22 @@ class BalanceService:
 
                     # Process all expenses first
                     expenses = db.session.query(Expense).all()
-                    print(f"[DEBUG] Processing {len(expenses)} expenses")
+                    
                     
                     for expense in expenses:
                         participants = expense.participants
                         if not participants:
-                            print(f"[WARNING] Expense {expense.id} has no participants, skipping")
                             continue
                         
                         # Credit the payer with the full amount they paid
                         BalanceService._update_user_balance(expense.user_id, expense.amount)
-                        print(f"[DEBUG] Expense {expense.id}: Credited user {expense.user_id} with ${expense.amount}")
                         
                         # Debit each participant their share
                         for participant in participants:
                             BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
-                            print(f"[DEBUG] Expense {expense.id}: Debited user {participant.user_id} with ${participant.amount_owed}")
-                    
+                            
                     # Process all settlements
                     settlements = db.session.query(Settlement).all()
-                    print(f"[DEBUG] Processing {len(settlements)} settlements")
                     
                     for settlement in settlements:
                         # SETTLEMENT LOGIC:
@@ -201,10 +197,7 @@ class BalanceService:
                         BalanceService._update_user_balance(settlement.payer_id, settlement.amount)     # Payer owes less (+)
                         BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount) # Receiver owed less (-)
                         
-                        print(f"[DEBUG] Settlement {settlement.id}: Payer {settlement.payer_id} +${settlement.amount}, Receiver {settlement.receiver_id} -${settlement.amount}")
-
                 # Transaction automatically commits here if no exceptions
-                print(f"[DEBUG] Balance recalculation completed successfully")
                 return True
 
             except Exception as e:

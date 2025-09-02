@@ -105,7 +105,6 @@ class SettlementManager {
                 }
                 
                 // **KEY FIX**: Refresh all data immediately after new settlement
-                console.log('[DEBUG] New settlement created, refreshing all data...');
                 await this.refreshAllDataImmediate();
                 
                 // Show success message
@@ -229,7 +228,6 @@ class SettlementManager {
         const currentValue = cell.getAttribute('data-value') || '';
         const fieldType = cell.getAttribute('data-field');
         
-        console.log(`[DEBUG] Starting edit for ${fieldType}: ${currentValue}`);
         cell.classList.add('editing');
         
         let inputElement;
@@ -313,7 +311,6 @@ class SettlementManager {
         const fieldType = cell.getAttribute('data-field');
         const originalValue = cell.getAttribute('data-value') || '';
         
-        console.log(`[DEBUG] Saving edit for ${fieldType}: ${originalValue} -> ${newValue}`);
         
         // If no change, just cancel
         if (newValue === originalValue) {
@@ -336,7 +333,6 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
-                console.log(`[DEBUG] Settlement edit successful for ${fieldType}`);
                 
                 // Update the data attribute
                 cell.setAttribute('data-value', newValue);
@@ -358,7 +354,6 @@ class SettlementManager {
                 this.showTableMessage('Settlement updated successfully', 'success');
                 
                 // **KEY FIX**: Force immediate balance refresh with a small delay to ensure backend processing
-                console.log('[DEBUG] Refreshing balances after settlement edit...');
                 setTimeout(async () => {
                     await this.refreshBalancesImmediately();
                 }, 100); // Small delay to ensure backend has processed the change
@@ -378,7 +373,6 @@ class SettlementManager {
             return;
         }
 
-        console.log('[DEBUG] Canceling edit');
         const cell = this.editingCell;
         
         // Restore original content
@@ -407,7 +401,6 @@ class SettlementManager {
             const data = await response.json();
 
             if (data.success) {
-                console.log('[DEBUG] Settlement deleted, refreshing all data...');
                 // Refresh all data after deletion
                 await this.refreshAllDataImmediate();
                 this.showSuccessMessage('Payment deleted successfully');
@@ -423,8 +416,6 @@ class SettlementManager {
     // **NEW METHOD**: Immediate balance refresh with better error handling
     async refreshBalancesImmediately() {
         try {
-            console.log('[DEBUG] Starting immediate balance refresh...');
-            
             // First, force backend recalculation to ensure accuracy
             const recalcResponse = await fetch('/api/balances/recalculate', {
                 method: 'POST',
@@ -436,14 +427,11 @@ class SettlementManager {
             if (!recalcResponse.ok) {
                 console.warn('[WARNING] Balance recalculation request failed, continuing with normal refresh');
             } else {
-                console.log('[DEBUG] Backend balance recalculation completed');
             }
             
             // Now refresh the displayed data
             if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
-                console.log('[DEBUG] Refreshing balance manager...');
                 await window.balanceManager.refresh();
-                console.log('[DEBUG] Balance manager refresh completed');
             } else {
                 console.warn('[WARNING] BalanceManager not available, loading data manually');
                 await this.loadBalancesDataDirectly();
@@ -474,8 +462,7 @@ class SettlementManager {
                 this.updateBalancesDisplay(balancesData.balances);
                 this.updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
                 this.updateHeaderStatus(balancesData.balances);
-                
-                console.log('[DEBUG] Direct balance loading completed');
+            
             }
         } catch (error) {
             console.error('[ERROR] Direct balance loading failed:', error);
@@ -558,16 +545,13 @@ class SettlementManager {
 
     // **UPDATED METHOD**: Enhanced refresh for immediate updates
     async refreshAllDataImmediate() {
-        console.log('[DEBUG] Starting immediate refresh of all data...');
         
         try {
             // Refresh settlements table first
             await this.loadActualSettlements();
-            console.log('[DEBUG] Settlements table refreshed');
             
             // Then refresh balances immediately
             await this.refreshBalancesImmediately();
-            console.log('[DEBUG] All data refresh completed');
             
         } catch (error) {
             console.error('[ERROR] Failed to refresh all data immediately:', error);
@@ -644,7 +628,6 @@ class SettlementManager {
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {
     if (!window.settlementManager) {
-        console.log('[DEBUG] Initializing SettlementManager...');
         window.settlementManager = new SettlementManager();
     }
 });
