@@ -71,7 +71,6 @@ def balances_page():
     
     balances = BalanceService.get_all_balances()
     if force_recalc or not balances:
-        print("[DEBUG] Recalculating balances for page load")
         BalanceService.recalculate_all_balances()
         balances = BalanceService.get_all_balances()
     
@@ -83,7 +82,6 @@ def balances_page():
 def recalculate_balances():
     """Manually recalculate all balances from expenses and settlements (admin function)"""
     try:
-        print("[DEBUG] Manual balance recalculation requested")
         success = BalanceService.recalculate_all_balances()
         if success:
             return jsonify({'message': 'Balances recalculated successfully'}), 200
@@ -92,16 +90,7 @@ def recalculate_balances():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@balances_bp.route("/api/balances/debug", methods=["GET"])
-def get_debug_info():
-    """Debug endpoint to see balance calculation details"""
-    try:
-        debug_info = BalanceService.get_debug_info()
-        return jsonify(debug_info), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
     
-
 @balances_bp.route("/balances-settlements", methods=["GET", "POST"])
 def combined_balances_settlements():
     """Combined balances and settlements management page"""
