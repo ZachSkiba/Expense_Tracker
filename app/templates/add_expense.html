@@ -21,6 +21,7 @@
         <nav class="header-nav">
             <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
             <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Payments</a>
+            <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
             <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
         </nav>
     </div>
@@ -70,7 +71,6 @@
                                 {{ cat.name }}
                             </option>
                         {% endfor %}
-                        <option value="manage">➕ Add/Remove Categories</option>
                     </select>
                 </div>
 
@@ -89,7 +89,6 @@
                                 {{ user.name }}
                             </option>
                         {% endfor %}
-                        <option value="manage">➕ Add/Remove Users</option>
                     </select>
                 </div>
 
@@ -190,8 +189,7 @@
     <script>
         window.urls = {
             addExpense: "{{ url_for('expenses.add_expense') }}",
-            manageCategories: "{{ url_for('categories.manage_categories') }}",
-            manageUsers: "{{ url_for('users.manage_users') }}",
+            management: "{{ url_for('management.manage_data') }}",
             settlementsApi: "{{ url_for('settlements.add_settlement_api') }}",
             getSettlementsApi: "{{ url_for('settlements.get_settlements_api') }}"
         };

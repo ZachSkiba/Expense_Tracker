@@ -53,10 +53,6 @@ class ExpenseFormManager {
         if (!this.categorySelect) return;
         
         this.categorySelect.addEventListener('change', (e) => {
-            if (e.target.value === 'manage') {
-                this.redirectToManage('categories');
-                return;
-            }
             this.updateCategoryDescriptionVisibility();
         });
     }
@@ -65,10 +61,6 @@ class ExpenseFormManager {
         if (!this.userSelect) return;
         
         this.userSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'manage') {
-                this.redirectToManage('users');
-                return;
-            }
             this.autoSelectPayerAsParticipant(e.target.value);
         });
     }
@@ -87,17 +79,6 @@ class ExpenseFormManager {
     
     setupFormValidation() {
         this.form.addEventListener('submit', (e) => {
-            // Check for manage selections
-            if (this.categorySelect && this.categorySelect.value === 'manage') {
-                e.preventDefault();
-                return false;
-            }
-            
-            if (this.userSelect && this.userSelect.value === 'manage') {
-                e.preventDefault();
-                return false;
-            }
-            
             // Check participants
             const participantCheckboxes = document.querySelectorAll('input[name="participant_ids"]:checked');
             if (participantCheckboxes.length === 0) {
@@ -117,7 +98,7 @@ class ExpenseFormManager {
     updateCategoryDescriptionVisibility() {
         if (!this.categorySelect || !this.descContainer) return;
         
-        if (this.categorySelect.value && this.categorySelect.value !== 'manage') {
+        if (this.categorySelect.value) {
             this.descContainer.style.display = 'block';
         } else {
             this.descContainer.style.display = 'none';
@@ -167,16 +148,6 @@ class ExpenseFormManager {
         }
     }
     
-    redirectToManage(type) {
-        // Remove required attributes to prevent validation
-        document.querySelectorAll('input[required], select[required]').forEach(el => {
-            el.removeAttribute('required');
-        });
-        
-        const nextUrl = encodeURIComponent(window.location.href);
-        const dest = type === 'categories' ? this.urls.manageCategories : this.urls.manageUsers;
-        window.location.href = `${dest}?next=${nextUrl}`;
-    }
 }
 
 // Export for use

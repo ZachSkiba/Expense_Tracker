@@ -63,20 +63,10 @@ def get_settlement_suggestions_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@balances_bp.route("/balances", methods=["GET"])
+@balances_bp.route("/balances")
 def balances_page():
-    """Web page to view balances"""
-    # Only recalculate if explicitly requested or if no balances exist
-    force_recalc = request.args.get('recalc') == '1'
-    
-    balances = BalanceService.get_all_balances()
-    if force_recalc or not balances:
-        BalanceService.recalculate_all_balances()
-        balances = BalanceService.get_all_balances()
-    
-    settlements = BalanceService.get_settlement_suggestions()
-    
-    return render_template("balances.html", balances=balances, settlements=settlements)
+    """Web page to view balances - render redirect template"""
+    return render_template("balances.html")
 
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():
