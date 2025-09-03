@@ -39,10 +39,10 @@ body {
     font-weight: normal;
 }
 
-/* Layout styles - Made left section narrower */
+/* Layout styles - Balanced proportions */
 .main-layout {
     display: grid;
-    grid-template-columns: 0.6fr 1.4fr; /* Changed from .8fr 1.2fr to make left section narrower */
+    grid-template-columns: 1.4fr .6fr; /* More balanced */
     gap: 30px;
     margin-bottom: 30px;
 }
@@ -254,12 +254,15 @@ body {
     border-radius: 8px;
 }
 
-/* Expenses section */
+/* Expenses section styles - Align with right edge */
 .expenses-section {
     background: white;
     border-radius: 12px;
     padding: 25px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
 }
 
 .expenses-section h3 {
@@ -277,6 +280,8 @@ body {
     border: 1px solid #ddd;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    width: fit-content;
+    max-width: 100%;
 }
 
 table {
