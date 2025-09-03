@@ -35,12 +35,54 @@ class ExpenseTableManager {
     }
     
     showMessage(message, color = 'black') {
+        // Try to find the error element if not already cached
+        if (!this.errorElement) {
+            this.errorElement = document.querySelector('#table-error');
+        }
+        
         if (this.errorElement) {
             this.errorElement.style.color = color;
             this.errorElement.innerHTML = message;
+            this.errorElement.style.display = 'block';
+            
+            // Update background color based on message type
+            if (color === 'green') {
+                this.errorElement.style.backgroundColor = '#d5f4e6';
+                this.errorElement.style.borderLeftColor = '#27ae60';
+            } else if (color === 'red') {
+                this.errorElement.style.backgroundColor = '#ffeaea';
+                this.errorElement.style.borderLeftColor = '#e74c3c';
+            }
+            
             setTimeout(() => {
                 this.errorElement.innerHTML = '';
-            }, 8000);
+                this.errorElement.style.display = 'none';
+            }, 5000);
+        } else {
+            // Fallback: create a temporary floating message
+            const tempMessage = document.createElement('div');
+            tempMessage.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: ${color === 'green' ? '#d5f4e6' : '#ffeaea'};
+                color: ${color};
+                padding: 12px 16px;
+                border-radius: 6px;
+                border-left: 4px solid ${color === 'green' ? '#27ae60' : '#e74c3c'};
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                z-index: 10000;
+                font-weight: 500;
+                max-width: 300px;
+            `;
+            tempMessage.textContent = message;
+            document.body.appendChild(tempMessage);
+            
+            setTimeout(() => {
+                if (tempMessage.parentNode) {
+                    tempMessage.parentNode.removeChild(tempMessage);
+                }
+            }, 5000);
         }
     }
     
@@ -96,6 +138,8 @@ class ExpenseTableManager {
             if (result.success) {
                 row.remove();
                 this.showMessage('Expense deleted successfully!', 'green');
+                // Update expense count after deletion
+                if (window.updateExpenseCount) window.updateExpenseCount();
                 if (window.loadBalancesData) window.loadBalancesData();
             } else {
                 this.showMessage(result.error || 'Error deleting expense', 'red');
@@ -444,7 +488,8 @@ class ExpenseTableManager {
                     cell.setAttribute('data-value', newValue);
                 }
                 this.showMessage('Updated successfully!', 'green');
-
+                // Update expense count after edit
+                if (window.updateExpenseCount) window.updateExpenseCount();
                 if (window.loadBalancesData) window.loadBalancesData();
             } else {
                 this.showMessage(result.error || 'Update failed', 'red');
@@ -494,6 +539,8 @@ class ExpenseTableManager {
             
             if (result.success) {
                 this.showMessage('Participants updated successfully!', 'green');
+                // Update expense count after participant edit
+                if (window.updateExpenseCount) window.updateExpenseCount();
                 // Refresh the page to show updated participant info
                 setTimeout(() => {
                     window.location.reload();

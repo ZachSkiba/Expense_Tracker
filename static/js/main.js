@@ -25,12 +25,12 @@ function getPageFromURL() {
 
 function initializeForPage(pageName, urls) {
     // Initialize expense table if it exists
-    const expenseTable = document.querySelector('table');
+    const expenseTable = document.querySelector('.expenses-table');
     const hasExpenseData = document.getElementById('categories-data') || document.getElementById('users-data');
     
     if (expenseTable && hasExpenseData) {
-        new window.ExpenseTableManager({
-            tableSelector: 'table',
+        window.expenseTableManager = new window.ExpenseTableManager({
+            tableSelector: '.expenses-table',
             errorSelector: '#table-error',
             urls: urls
         });
@@ -97,6 +97,9 @@ async function loadInitialData() {
                 urls: window.urls
             });
         }
+        
+        // Update expense count display
+        updateExpenseCount();
         
         // Initialize expense form manager if not already initialized
         if (window.ExpenseFormManager && !window.expenseFormManager) {
@@ -213,6 +216,17 @@ function updateHeaderStatus(balances) {
     } else {
         statusIndicator.textContent = 'All Even';
         statusIndicator.className = 'status-indicator all-even';
+    }
+}
+
+// Update expense count display
+function updateExpenseCount() {
+    const expenseRows = document.querySelectorAll('table tbody tr[data-expense-id]');
+    const countElement = document.getElementById('expenses-count');
+    if (countElement) {
+        const count = expenseRows.length;
+        countElement.textContent = count === 1 ? '1 expense' : `${count} expenses`;
+        countElement.style.display = count > 0 ? 'block' : 'none';
     }
 }
 
