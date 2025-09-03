@@ -139,12 +139,12 @@
                 <form id="settlement-form">
                     <div class="form-group">
                         <label>Amount Paid</label>
-                        <input type="number" step="0.01" min="0.01" id="settlement-amount" required autocomplete="off">
+                        <input type="number" step="0.01" min="0.01" name="amount" required autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>From</label>
-                        <select id="settlement-payer" required autocomplete="off">
+                        <select name="payer_id" required autocomplete="off">
                             <option value="" disabled selected>Select payer</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.name }}</option>
@@ -154,7 +154,7 @@
 
                     <div class="form-group">
                         <label>To</label>
-                        <select id="settlement-receiver" required autocomplete="off">
+                        <select name="receiver_id" required autocomplete="off">
                             <option value="" disabled selected>Select receiver</option>
                             {% for user in users %}
                                 <option value="{{ user.id }}">{{ user.name }}</option>
@@ -164,12 +164,12 @@
 
                     <div class="form-group">
                         <label>Description (Optional)</label>
-                        <input type="text" id="settlement-description" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
+                        <input type="text" name="description" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
                     </div>
 
                     <div class="form-group">
                         <label>Date</label>
-                        <input type="date" id="settlement-date" autocomplete="off">
+                        <input type="date" name="date" autocomplete="off">
                     </div>
 
                     <div id="settlement-error" class="error-message" style="display: none;"></div>

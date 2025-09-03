@@ -56,8 +56,8 @@ class CombinedPageManager {
     // ==========================================
 
     initializeFormHandling() {
-        // Handle settlement form submission
-        const settlementForm = document.querySelector('.settlement-form');
+        // Handle settlement form submission - check both class and ID selectors
+        const settlementForm = document.querySelector('.settlement-form') || document.querySelector('#settlement-form');
         if (settlementForm) {
             settlementForm.addEventListener('submit', (e) => this.handleFormSubmit(e));
             console.log('[DEBUG] Form handler attached');
@@ -127,6 +127,12 @@ class CombinedPageManager {
                 // Clear form
                 e.target.reset();
                 this.setDefaultDate();
+                
+                // Close modal if it exists
+                const modal = document.getElementById('settleUpModal');
+                if (modal) {
+                    modal.style.display = 'none';
+                }
                 
                 // Refresh all data
                 await this.refreshAllDataImmediate();
@@ -442,8 +448,8 @@ class CombinedPageManager {
     renderSidebarSettlementsIfNeeded() {
         const sidebarContainer = document.getElementById('settlements-table-container');
         
-        // Only render if container exists and has loading text (indicating it needs JS rendering)
-        if (sidebarContainer && sidebarContainer.innerHTML.includes('Loading payments')) {
+        // Render if container exists (either loading or needs refresh)
+        if (sidebarContainer) {
             console.log('[DEBUG] Rendering sidebar settlements table');
             this.renderSettlementsTable(this.settlementsData || []);
         }
@@ -538,14 +544,31 @@ class CombinedPageManager {
             // Reload settlements data first
             await this.loadActualSettlements();
             
-            // Check if we're on the combined page or main page
+            // Check if we're on the combined page (has .settlement-form class) or main page (has modal)
             const isCombinedPage = document.querySelector('.settlement-form') !== null;
+            const isMainPage = document.getElementById('settleUpModal') !== null;
             
             if (isCombinedPage) {
                 // For combined page, do full page reload to refresh all server-side data
                 window.location.reload();
+            } else if (isMainPage) {
+                // For main page, refresh balances and settlements data
+                console.log('[DEBUG] Refreshing main page data...');
+                
+                // First reload the settlements data
+                await this.loadActualSettlements();
+                
+                // Use the global refresh function from main.js
+                if (window.globalRefreshBalances) {
+                    await window.globalRefreshBalances();
+                } else if (window.AppUtils && window.AppUtils.refreshBalances) {
+                    await window.AppUtils.refreshBalances();
+                }
+                
+                // Force refresh the sidebar settlements table
+                this.renderSidebarSettlementsIfNeeded();
             } else {
-                // For main page with sidebar, just refresh the sidebar table
+                // Fallback: just refresh the sidebar table
                 this.renderSidebarSettlementsIfNeeded();
                 
                 // Also refresh balances if balance manager is available
