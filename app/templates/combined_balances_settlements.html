@@ -130,7 +130,13 @@
         </form>
 
         <div class="payments-section">
-            <h3 style="color: #2c3e50; margin-bottom: 15px; font-size: 1.1rem;">📋 Recent Payments</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <h3 style="color: #2c3e50; margin: 0; font-size: 1.1rem;">📋 Recent Payments</h3>
+                <div class="totals-card payments-totals-card" style="margin: 0;">
+                    <div class="totals-label">Total Payments</div>
+                    <div class="totals-amount" id="payments-total">$0.00</div>
+                </div>
+            </div>
             
             {% if settlements_data %}
             <div id="table-error" style="margin: 8px 0; display: none;"></div>
@@ -182,6 +188,13 @@
 
 <!-- Load the complete settlement manager script -->
 <script src="{{ url_for('static', filename='js/modules/settlement-manager.js') }}"></script>
+<script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
+<script>
+// Initialize totals calculator for balances page
+document.addEventListener('DOMContentLoaded', function() {
+    new TotalsCalculator();
+});
+</script>
 
 </body>
 </html>
