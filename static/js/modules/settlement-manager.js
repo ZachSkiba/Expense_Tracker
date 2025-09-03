@@ -162,12 +162,14 @@ class CombinedPageManager {
         const editableCells = document.querySelectorAll('.settlements-table .editable, .settlements-table-main .editable');
         
         editableCells.forEach(cell => {
-            // Remove existing listeners to prevent duplicates
-            cell.removeEventListener('click', this.handleCellClick);
-            // Add new listener
-            cell.addEventListener('click', (e) => {
+            // Clone the cell to remove all existing event listeners
+            const newCell = cell.cloneNode(true);
+            cell.parentNode.replaceChild(newCell, cell);
+            
+            // Add new listener to the cloned cell
+            newCell.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.startEditing(cell);
+                this.startEditing(newCell);
             });
         });
         
@@ -364,20 +366,23 @@ class CombinedPageManager {
     }
 
     attachDeleteEventListeners() {
-        const deleteButtons = document.querySelectorAll('.delete-settlement-btn, .delete-btn');
+        // Only select delete buttons that are specifically for settlements
+        const deleteButtons = document.querySelectorAll('.settlements-table .delete-btn, .settlements-table-main .delete-btn, .delete-settlement-btn');
         
         deleteButtons.forEach(button => {
-            // Remove existing listeners to prevent duplicates
-            button.removeEventListener('click', this.handleDeleteClick);
-            // Add new listener
-            button.addEventListener('click', (e) => {
+            // Clone the button to remove all existing event listeners
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            // Add new listener to the cloned button
+            newButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const settlementId = button.getAttribute('data-settlement-id');
+                const settlementId = newButton.getAttribute('data-settlement-id');
                 this.deleteSettlement(settlementId);
             });
         });
         
-        console.log(`[DEBUG] Attached delete listeners to ${deleteButtons.length} buttons`);
+        console.log(`[DEBUG] Attached delete listeners to ${deleteButtons.length} settlement buttons`);
     }
 
     async deleteSettlement(settlementId) {
@@ -521,18 +526,26 @@ class CombinedPageManager {
     attachEventListenersToContainer(container) {
         // Add delete event listeners
         container.querySelectorAll('.delete-btn').forEach(button => {
-            button.addEventListener('click', (e) => {
+            // Clone the button to remove all existing event listeners
+            const newButton = button.cloneNode(true);
+            button.parentNode.replaceChild(newButton, button);
+            
+            newButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const settlementId = button.getAttribute('data-settlement-id');
+                const settlementId = newButton.getAttribute('data-settlement-id');
                 this.deleteSettlement(settlementId);
             });
         });
 
         // Add editing event listeners
         container.querySelectorAll('.editable').forEach(cell => {
-            cell.addEventListener('click', (e) => {
+            // Clone the cell to remove all existing event listeners
+            const newCell = cell.cloneNode(true);
+            cell.parentNode.replaceChild(newCell, cell);
+            
+            newCell.addEventListener('click', (e) => {
                 e.stopPropagation();
-                this.startEditing(cell);
+                this.startEditing(newCell);
             });
         });
     }
