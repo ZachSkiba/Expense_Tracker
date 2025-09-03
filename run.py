@@ -2,6 +2,7 @@ from app import create_app
 from models import db
 import os
 import sys
+from flask_migrate import Migrate
 
 # Set environment based on command line args BEFORE importing config
 if '--dev' in sys.argv or '--development' in sys.argv:
@@ -26,6 +27,9 @@ else:
 
 # Create the app
 app = create_app()
+
+# 🔑 Setup Flask-Migrate
+migrate = Migrate(app, db)
 
 if __name__ == "__main__":
     with app.app_context():
