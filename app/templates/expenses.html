@@ -83,7 +83,14 @@
 
   <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
   <script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  <script>
+    // Initialize totals calculator for expenses page
+    document.addEventListener('DOMContentLoaded', function() {
+        new TotalsCalculator();
+    });
+  </script>
 
 </body>
 </html>

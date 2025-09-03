@@ -1,9 +1,14 @@
 {# templates/_expenses_table.html #}
-<div class="expenses-header">
-    <h3>All Expenses</h3>
-    <div class="expenses-count" id="expenses-count"></div>
+<div class="table-header">
+    <div class="header-top">
+        <h3>All Expenses <span class="expense-count">({{ expenses|length }})</span></h3>
+        <div class="totals-card">
+            <div class="totals-label">Total Expenses</div>
+            <div class="totals-amount" id="expenses-total">$0.00</div>
+        </div>
+    </div>
+    <div id="table-error" style="display: none;"></div>
 </div>
-<div id="table-error" style="margin: 8px 0; display: none; padding: 10px; border-radius: 4px; font-weight: 500;"></div>
 <div class="table-wrapper">
     <table class="expenses-table">
         <thead>
@@ -69,20 +74,48 @@
 
 <style>
 /* Enhanced Expenses Table Styling */
-.expenses-header {
+.table-header {
+    margin-bottom: 20px;
+}
+
+.header-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #e9ecef;
+    margin-bottom: 10px;
 }
 
-.expenses-header h3 {
+.table-header h3 {
     margin: 0;
     color: #2c3e50;
     font-size: 1.4rem;
-    font-weight: 600;
+    font-weight: 700;
+}
+
+/* Totals card styles */
+.totals-card {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+    padding: 5px 7px;
+    border-radius: 8px;
+    box-shadow: 0 3px 8px rgba(39, 174, 96, 0.3);
+    text-align: center;
+    min-width: 120px;
+}
+
+.totals-label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    opacity: 0.9;
+    margin-bottom: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.totals-amount {
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
 .expenses-count {

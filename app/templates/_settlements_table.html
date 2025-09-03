@@ -1,10 +1,15 @@
 <!-- _settlements_table.html -->
 <div class="settlements-history compact-mode">
-    <div class="settlements-header">
-        <h3>Recent Payments</h3>
-        <div class="settlements-count" id="settlements-count"></div>
+    <div class="settlements-table-header">
+        <div class="header-top">
+            <h3>Recent Payments <span class="settlements-count">({{ settlements|length }})</span></h3>
+            <div class="totals-card payments-totals">
+                <div class="totals-label">Total Payments</div>
+                <div class="totals-amount" id="payments-total">$0.00</div>
+            </div>
+        </div>
+        <div id="settlements-table-error" style="display: none; padding: 10px; margin: 10px 0; border-radius: 4px;"></div>
     </div>
-    <div id="settlements-table-error" style="margin: 8px 0; display: none; padding: 10px; border-radius: 4px; font-weight: 500;"></div>
     <div id="settlements-table-container">
         <!-- JS will render the table here -->
         <div style="text-align: center; padding: 20px; color: #7f8c8d;">
