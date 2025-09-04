@@ -325,34 +325,6 @@ class ExpenseFilterManager {
         });
     }
 
-    getFilteredData() {
-        const { year, month } = this.filters.dateFilter;
-        let dateRange = { start: null, end: null };
-
-        if (year) {
-            const startYear = year;
-            const endYear = year;
-            let startMonth = 0; // January
-            let endMonth = 11; // December
-
-            if (month) {
-                startMonth = month - 1;
-                endMonth = month - 1;
-            }
-
-            dateRange.start = new Date(startYear, startMonth, 1);
-            dateRange.end = new Date(endYear, endMonth + 1, 0); // Last day of the month
-        }
-
-        return {
-            expenses: this.filteredRows.map(row => row.data),
-            totalAmount: this.filteredRows.reduce((sum, row) => sum + row.data.amount, 0),
-            count: this.filteredRows.length,
-            dateFilter: this.filters.dateFilter,
-            dateRange: dateRange, // Add date range for external use
-            isCleared: false // Default value
-        };
-    }
 
     applyFilters() {
         let filtered = [...this.originalRows];
@@ -372,22 +344,7 @@ class ExpenseFilterManager {
             filtered = filtered.filter(row => this.filters.description.includes(row.data.description));
         }
 
-        // Set date range for filtering balances and settlements
-        this.filters.dateRange.start = null;
-        this.filters.dateRange.end = null;
-        if (this.filters.dateFilter.year) {
-            const year = this.filters.dateFilter.year;
-            if (this.filters.dateFilter.month) {
-                const month = this.filters.dateFilter.month;
-                // Exact month filter - not cumulative
-                this.filters.dateRange.start = new Date(year, month - 1, 1);
-                this.filters.dateRange.end = new Date(year, month, 0, 23, 59, 59, 999);
-            } else {
-                // Exact year filter - not cumulative
-                this.filters.dateRange.start = new Date(year, 0, 1);
-                this.filters.dateRange.end = new Date(year, 11, 31, 23, 59, 59, 999);
-            }
-        }
+    
 
         // Apply date filter
         if (this.filters.dateFilter.year || this.filters.dateFilter.month) {
@@ -425,7 +382,6 @@ class ExpenseFilterManager {
         this.filteredRows = filtered;
         this.updateTableDisplay();
         this.updateFilterStats();
-        this.onFilterChange(this.getFilteredData());
     }
 
     updateTableDisplay() {
@@ -496,12 +452,6 @@ class ExpenseFilterManager {
         this.applyFilters();
         
         // Trigger callback to reload original data
-        this.onFilterChange({ 
-            expenses: this.originalRows.map(row => row.data), 
-            totalAmount: this.originalRows.reduce((sum, row) => sum + row.data.amount, 0), 
-            count: this.originalRows.length,
-            isCleared: true 
-        });
     }
 
     // Public method to refresh filters when data changes
