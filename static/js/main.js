@@ -34,6 +34,13 @@ function initializeForPage(pageName, urls) {
             errorSelector: '#table-error',
             urls: urls
         });
+        
+        // Initialize expense filter integration
+        if (window.ExpenseFilterIntegration) {
+            window.expenseFilterIntegration = new window.ExpenseFilterIntegration({
+                urls: urls
+            });
+        }
     }
     
     // Initialize expense form if it exists
@@ -96,6 +103,13 @@ async function loadInitialData() {
                 errorSelector: '.recent-expenses #table-error',
                 urls: window.urls
             });
+            
+            // Initialize expense filter integration for recent expenses table
+            if (window.ExpenseFilterIntegration && !window.expenseFilterIntegration) {
+                window.expenseFilterIntegration = new window.ExpenseFilterIntegration({
+                    urls: window.urls
+                });
+            }
         }
         
         // Update expense count display

@@ -63,6 +63,15 @@ def get_settlement_suggestions_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@balances_bp.route("/api/settlements", methods=["GET"])
+def get_settlements_api():
+    """API endpoint to get all settlements/payments data"""
+    try:
+        settlements = SettlementService.get_settlement_data()
+        return jsonify({'settlements': settlements}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @balances_bp.route("/balances")
 def balances_page():
     """Web page to view balances - render redirect template"""

@@ -1,0 +1,357 @@
+/* Updated Expense Filter Styling with Combined Date Filter */
+.expense-filters {
+    background: white;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.filter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f1f3f4;
+}
+
+.filter-header h4 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.clear-filters-btn {
+    background: linear-gradient(135deg, #6c757d, #5a6268);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+.clear-filters-btn:hover {
+    background: linear-gradient(135deg, #5a6268, #495057);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    align-items: end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.filter-select {
+    padding: 10px 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    color: #495057;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.filter-select:hover {
+    border-color: #dee2e6;
+}
+
+.filter-select:disabled {
+    background-color: #f8f9fa;
+    color: #6c757d;
+    cursor: not-allowed;
+    border-color: #e9ecef;
+}
+
+/* Combined Date Filter Styling */
+.date-filter-group {
+    grid-column: span 2;
+    min-width: 300px;
+}
+
+.date-filter-container {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.date-filter-container .filter-select {
+    flex: 1;
+    min-width: 120px;
+}
+
+.date-year {
+    border-color: #e74c3c;
+}
+
+.date-month {
+    border-color: #f39c12;
+}
+
+.date-year:focus {
+    border-color: #c0392b;
+    box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.1);
+}
+
+.date-month:focus {
+    border-color: #d68910;
+    box-shadow: 0 0 0 3px rgba(243, 156, 18, 0.1);
+}
+
+/* Multi-select dropdown styling */
+.multi-select-container {
+    position: relative;
+}
+
+.multi-select-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    background: white;
+    color: #495057;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
+}
+
+.multi-select-btn:hover {
+    border-color: #dee2e6;
+}
+
+.multi-select-btn:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+}
+
+.multi-select-btn .selected-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.multi-select-btn .arrow {
+    margin-left: 8px;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+}
+
+.multi-select-btn:focus .arrow,
+.multi-select-btn:hover .arrow {
+    transform: rotate(180deg);
+}
+
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    margin-top: 2px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    padding: 10px 12px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border-bottom: 1px solid #f8f9fa;
+}
+
+.checkbox-item:last-child {
+    border-bottom: none;
+}
+
+.checkbox-item:hover {
+    background-color: #f8f9fa;
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: pointer;
+    accent-color: #3498db;
+}
+
+.checkbox-item span {
+    font-size: 0.9rem;
+    color: #495057;
+    flex: 1;
+}
+
+/* Filter stats styling */
+.expense-count {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-left: 8px;
+}
+
+/* Active filter indicators */
+.filter-select:not([value=""]) {
+    border-color: #3498db;
+    background-color: #e3f2fd;
+}
+
+.multi-select-btn.has-selection {
+    border-color: #3498db;
+    background-color: #e3f2fd;
+}
+
+/* Filter indicators for balances and settlements */
+.filter-indicator {
+    text-align: center;
+    font-weight: 600;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    padding: 10px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+    .date-filter-group {
+        grid-column: span 1;
+        min-width: auto;
+    }
+    
+    .date-filter-container {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .date-filter-container .filter-select {
+        width: 100%;
+    }
+}
+
+@media (max-width: 768px) {
+    .filter-row {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .date-filter-group {
+        grid-column: span 1;
+    }
+    
+    .filter-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .clear-filters-btn {
+        align-self: stretch;
+        text-align: center;
+    }
+    
+    .multi-select-dropdown {
+        max-height: 150px;
+    }
+}
+
+@media (max-width: 480px) {
+    .expense-filters {
+        padding: 16px;
+        margin-bottom: 16px;
+    }
+    
+    .filter-group label {
+        font-size: 0.8rem;
+    }
+    
+    .filter-select,
+    .multi-select-btn {
+        padding: 8px 10px;
+        font-size: 0.85rem;
+    }
+    
+    .checkbox-item {
+        padding: 8px 10px;
+    }
+    
+    .checkbox-item span {
+        font-size: 0.85rem;
+    }
+}
+
+/* Animation for dropdown */
+.multi-select-dropdown {
+    animation: fadeIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Scrollbar styling for dropdown */
+.multi-select-dropdown::-webkit-scrollbar {
+    width: 6px;
+}
+
+.multi-select-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.multi-select-dropdown::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.multi-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
