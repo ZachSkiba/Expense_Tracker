@@ -134,8 +134,24 @@ class ExpenseFilterIntegration {
 
     async updateBalancesFromFilteredData(filteredData, settlementsData = []) {
         try {
+            // CRITICAL DEBUG: Let's see what's actually in filteredData
+            console.log('[DEBUG] === UPDATEBALANCESFROMFILTEREDDATA START ===');
+            console.log('[DEBUG] Full filteredData object:', filteredData);
+            console.log('[DEBUG] filteredData.expenses:', filteredData.expenses);
+            console.log('[DEBUG] settlementsData:', settlementsData);
+            
+            // Check if expenses exist and have the right structure
+            if (!filteredData.expenses) {
+                console.error('[ERROR] filteredData.expenses is undefined or null!');
+                console.log('[DEBUG] Available properties in filteredData:', Object.keys(filteredData));
+            } else if (filteredData.expenses.length === 0) {
+                console.warn('[WARN] filteredData.expenses is empty array!');
+            } else {
+                console.log('[DEBUG] First expense sample:', filteredData.expenses[0]);
+            }
+            
             // FIXED: Use proper balance calculation that includes ALL participants
-            const calculatedBalances = this.calculateBalancesFromExpensesAndSettlements(filteredData.expenses, settlementsData);
+            const calculatedBalances = this.calculateBalancesFromFilteredData(filteredData.expenses, settlementsData);
             
             // Update balances display
             this.updateBalancesDisplay(calculatedBalances, filteredData.dateFilter);
@@ -151,7 +167,7 @@ class ExpenseFilterIntegration {
     async updateSettlementsFromFilteredData(filteredData, settlementsData = []) {
         try {
             // Calculate balances first (including settlements)
-            const balances = this.calculateBalancesFromExpensesAndSettlements(filteredData.expenses, settlementsData);
+            const balances = this.calculateBalancesFromFilteredData(filteredData.expenses, settlementsData);
             
             // Calculate settlement suggestions from the net balances
             const suggestions = this.calculateSettlementSuggestions(balances);
@@ -165,21 +181,29 @@ class ExpenseFilterIntegration {
     }
 
     // FIXED: Proper balance calculation that includes ALL participants like Aaron
-    calculateBalancesFromExpensesAndSettlements(expenses, settlements = []) {
+    calculateBalancesFromFilteredData(expenses, settlements = []) {
+        console.log('[DEBUG] === CALCULATEBALANCESFROMFILTEREDDATA START ===');
+        console.log('[DEBUG] Input expenses:', expenses);
+        console.log('[DEBUG] Input settlements:', settlements);
+        
         const balances = {};
 
         // FIXED: Initialize balances for ALL users from users data (like settlement-manager does)
         // This ensures users like Aaron appear even if they don't pay expenses in filtered period
+        console.log('[DEBUG] Initializing balances for all users from usersData:', this.usersData);
         this.usersData.forEach(user => {
             balances[user.name] = { user_name: user.name, balance: 0 };
+            console.log('[DEBUG] Initialized balance for user:', user.name);
         });
 
         // Also get any additional participants from expense data
         if (this.filterManager && this.filterManager.originalRows) {
+            console.log('[DEBUG] Adding participants from original rows...');
             this.filterManager.originalRows.forEach(row => {
                 // Add payer
                 if (!balances[row.data.paidBy]) {
                     balances[row.data.paidBy] = { user_name: row.data.paidBy, balance: 0 };
+                    console.log('[DEBUG] Added payer from original rows:', row.data.paidBy);
                 }
 
                 // Add all participants
@@ -188,16 +212,24 @@ class ExpenseFilterIntegration {
                         const participantName = participant.trim();
                         if (participantName && !balances[participantName]) {
                             balances[participantName] = { user_name: participantName, balance: 0 };
+                            console.log('[DEBUG] Added participant from original rows:', participantName);
                         }
                     });
                 }
             });
         }
 
+        console.log('[DEBUG] Initial balances after user initialization:', balances);
+
         // Calculate balances from filtered expenses
-        expenses.forEach(expense => {
+        console.log('[DEBUG] Processing', expenses.length, 'filtered expenses...');
+        expenses.forEach((expense, index) => {
+            console.log(`[DEBUG] Processing expense ${index + 1}:`, expense);
+            
             const paidBy = expense.paidBy;
             const amount = expense.amount;
+
+            console.log(`[DEBUG] Expense ${index + 1}: ${paidBy} paid ${amount}`);
 
             // FIXED: Get participants properly
             let participants = [];
@@ -205,58 +237,92 @@ class ExpenseFilterIntegration {
                 participants = expense.participants.split(',').map(p => p.trim()).filter(p => p);
             }
 
+            console.log(`[DEBUG] Expense ${index + 1}: Raw participants:`, expense.participants);
+            console.log(`[DEBUG] Expense ${index + 1}: Parsed participants:`, participants);
+
             // If no participants, assume the payer is the only participant
             if (participants.length === 0) {
                 participants = [paidBy];
+                console.log(`[DEBUG] Expense ${index + 1}: No participants found, using payer only:`, participants);
             }
 
             // FIXED: Ensure payer is included in participants (critical for correct balance calculation)
             if (!participants.includes(paidBy)) {
                 participants.push(paidBy);
+                console.log(`[DEBUG] Expense ${index + 1}: Added payer to participants:`, participants);
             }
 
             const sharePerPerson = amount / participants.length;
+            console.log(`[DEBUG] Expense ${index + 1}: Share per person: ${sharePerPerson} (${participants.length} participants)`);
 
             // Initialize balances if somehow not exists (safety check)
             if (!balances[paidBy]) {
                 balances[paidBy] = { user_name: paidBy, balance: 0 };
+                console.log(`[DEBUG] Expense ${index + 1}: Initialized balance for payer:`, paidBy);
             }
 
             participants.forEach(participant => {
                 if (!balances[participant]) {
                     balances[participant] = { user_name: participant, balance: 0 };
+                    console.log(`[DEBUG] Expense ${index + 1}: Initialized balance for participant:`, participant);
                 }
             });
 
             // Payer gets credited the full amount
+            const oldPayerBalance = balances[paidBy].balance;
             balances[paidBy].balance += amount;
+            console.log(`[DEBUG] Expense ${index + 1}: ${paidBy} balance: ${oldPayerBalance} + ${amount} = ${balances[paidBy].balance}`);
 
-    // Each participant (including payer) gets debited their share
-    participants.forEach(participant => {
-        balances[participant].balance -= sharePerPerson;
-    });
-});
+            // Each participant (including payer) gets debited their share
+            participants.forEach(participant => {
+                const oldBalance = balances[participant].balance;
+                balances[participant].balance -= sharePerPerson;
+                console.log(`[DEBUG] Expense ${index + 1}: ${participant} balance: ${oldBalance} - ${sharePerPerson} = ${balances[participant].balance}`);
+            });
 
-// Process settlements (payments) - same logic as settlement-manager
-settlements.forEach(settlement => {
-    const payerName = settlement.payer_name;
-    const receiverName = settlement.receiver_name;
-    const amount = settlement.amount;
+            console.log(`[DEBUG] Expense ${index + 1}: Balances after processing:`, Object.fromEntries(Object.entries(balances).map(([k, v]) => [k, v.balance])));
+        });
 
-    // Initialize balances if not exists (safety check)
-    if (!balances[payerName]) {
-        balances[payerName] = { user_name: payerName, balance: 0 };
-    }
-    if (!balances[receiverName]) {
-        balances[receiverName] = { user_name: receiverName, balance: 0 };
-    }
+        console.log('[DEBUG] Balances after all expenses processed:', balances);
 
-    // Settlement logic: payer owes less (+), receiver is owed less (-)
-    balances[payerName].balance += amount;
-    balances[receiverName].balance -= amount;
-});
+        // Process settlements (payments) - same logic as settlement-manager
+        console.log('[DEBUG] Processing', settlements.length, 'settlements...');
+        settlements.forEach((settlement, index) => {
+            console.log(`[DEBUG] Processing settlement ${index + 1}:`, settlement);
+            
+            const payerName = settlement.payer_name;
+            const receiverName = settlement.receiver_name;
+            const amount = settlement.amount;
+
+            console.log(`[DEBUG] Settlement ${index + 1}: ${payerName} paid ${receiverName} ${amount}`);
+
+            // Initialize balances if not exists (safety check)
+            if (!balances[payerName]) {
+                balances[payerName] = { user_name: payerName, balance: 0 };
+                console.log(`[DEBUG] Settlement ${index + 1}: Initialized balance for payer:`, payerName);
+            }
+            if (!balances[receiverName]) {
+                balances[receiverName] = { user_name: receiverName, balance: 0 };
+                console.log(`[DEBUG] Settlement ${index + 1}: Initialized balance for receiver:`, receiverName);
+            }
+
+            // Settlement logic: payer owes less (+), receiver is owed less (-)
+            const oldPayerBalance = balances[payerName].balance;
+            const oldReceiverBalance = balances[receiverName].balance;
+            
+            balances[payerName].balance += amount;
+            balances[receiverName].balance -= amount;
+            
+            console.log(`[DEBUG] Settlement ${index + 1}: ${payerName} balance: ${oldPayerBalance} + ${amount} = ${balances[payerName].balance}`);
+            console.log(`[DEBUG] Settlement ${index + 1}: ${receiverName} balance: ${oldReceiverBalance} - ${amount} = ${balances[receiverName].balance}`);
+        });
+
+        console.log('[DEBUG] Final balances after settlements:', balances);
 
         const result = Object.values(balances);
+        console.log('[DEBUG] Returning balance array:', result);
+        console.log('[DEBUG] === CALCULATEBALANCESFROMFILTEREDDATA END ===');
+        
         return result;
     }
 
@@ -595,6 +661,8 @@ settlements.forEach(settlement => {
             console.error('[ERROR] Failed to load original balances and settlements:', error);
         }
     }
+    
+    // Add this method to the ExpenseFilterIntegration class
 }
 
 // Export for use in other modules

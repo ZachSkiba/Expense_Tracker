@@ -1,3 +1,4 @@
+
 class ExpenseFilterManager {
     constructor(options = {}) {
         this.tableSelector = options.tableSelector || '.expenses-table';
@@ -38,37 +39,25 @@ class ExpenseFilterManager {
     }
 
     extractRowData(row) {
-        const participantsElement = row.querySelector('.participants');
-        let participantIds = '';
-        let participantNames = '';
+        const cells = row.querySelectorAll('td');
         
-        if (participantsElement) {
-            participantIds = participantsElement.dataset.participantIds || '';
-            participantNames = participantsElement.dataset.value || '';
+        // Get participants from data-value attribute, not text content
+        const participantsCell = row.querySelector('td.participants');
+        let participants = '';
+        if (participantsCell) {
+            // Use data-value attribute which contains the comma-separated participant names
+            participants = participantsCell.getAttribute('data-value') || '';
+            console.log('[DEBUG] Extracted participants from data-value:', participants);
         }
-        
-        // If no participants column exists or no participants data, 
-        // assume the payer is the only participant
-        if (!participantNames || participantNames.trim() === '') {
-            participantNames = row.querySelector('.user').dataset.value;
-        }
-        
-        console.log('[DEBUG] Extracted row data:', {
-            id: row.dataset.expenseId,
-            paidBy: row.querySelector('.user').dataset.value,
-            participants: participantNames,
-            participantIds: participantIds
-        });
         
         return {
             id: row.dataset.expenseId,
-            amount: parseFloat(row.querySelector('.amount').dataset.value),
-            category: row.querySelector('.category').dataset.value,
-            description: row.querySelector('.description').dataset.value,
-            paidBy: row.querySelector('.user').dataset.value,
-            date: row.querySelector('.date').dataset.value,
-            participants: participantNames,
-            participantIds: participantIds
+            amount: parseFloat(cells[0]?.dataset.value || cells[0]?.textContent.replace('$', '') || 0),
+            category: cells[1]?.dataset.value || cells[1]?.textContent.trim() || '',
+            description: cells[2]?.dataset.value || cells[2]?.textContent.trim() || '',
+            paidBy: cells[3]?.dataset.value || cells[3]?.textContent.trim() || '',
+            participants: participants, // Now correctly extracted from data-value
+            date: cells[participantsCell ? 5 : 4]?.dataset.value || cells[participantsCell ? 5 : 4]?.textContent.trim() || ''
         };
     }
 
