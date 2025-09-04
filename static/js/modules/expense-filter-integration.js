@@ -1,4 +1,4 @@
-// Expense Filter Integration Module
+// Updated Expense Filter Integration Module - FIXED VERSION
 // This module integrates the expense filter with the existing expense table and balance systems
 
 class ExpenseFilterIntegration {
@@ -6,6 +6,7 @@ class ExpenseFilterIntegration {
         this.filterManager = null;
         this.onFilterChange = options.onFilterChange || this.handleFilterChange.bind(this);
         this.urls = options.urls || window.urls || {};
+        this.usersData = this.loadUsersData();
         
         this.init();
     }
@@ -17,6 +18,19 @@ class ExpenseFilterIntegration {
         } else {
             this.initializeFilter();
         }
+    }
+
+    loadUsersData() {
+        const usersScript = document.getElementById('users-data');
+        if (usersScript) {
+            try {
+                return JSON.parse(usersScript.textContent || '[]');
+            } catch (e) {
+                console.error('Error parsing users data:', e);
+                return [];
+            }
+        }
+        return [];
     }
 
     initializeFilter() {
@@ -49,44 +63,45 @@ class ExpenseFilterIntegration {
 
     async handleFilterChange(filteredData) {
         try {
-            console.log('[DEBUG] Filter change triggered with data:', filteredData);
-            
             // If filters were cleared, reload original data
             if (filteredData.isCleared) {
                 await this.loadOriginalBalancesAndSettlements();
                 return;
             }
-            
+
             // Always update total expenses card and count
             this.updateTotalExpensesCard(filteredData);
             this.updateExpenseCount(filteredData);
-            
-            // Only update balances and settlements if date filter is applied
-            const dateRange = this.getFilteredDateRange();
-            if (dateRange && (dateRange.year || dateRange.month)) {
-                console.log('[DEBUG] Date filter detected, updating balances and settlements for period:', dateRange);
-                
-                // Fetch settlements data for the filtered period
-                const settlementsData = await this.fetchSettlementsData(dateRange);
-                
-                // Recalculate and update balances based on filtered expenses AND settlements
+
+            // FIXED: Update balances and settlements if YEAR or MONTH filter is applied
+            if (filteredData.dateFilter && (filteredData.dateFilter.year || filteredData.dateFilter.month)) {
+                // Fetch settlements data for the exact filtered period only
+                const settlementsData = await this.fetchSettlementsData(filteredData.dateFilter);
+
+                // Update recent payments table with settlements from exact period only
+                this.updateRecentPaymentsTable(settlementsData);
+
+                // Recalculate and update balances based on filtered expenses AND settlements from exact period
                 await this.updateBalancesFromFilteredData(filteredData, settlementsData);
-                
-                // Update settlements based on new balances
-                await this.updateSettlementsFromFilteredData(filteredData);
-            } else {
-                console.log('[DEBUG] No date filter applied, keeping original balances and settlements');
+
+                // Update settlements based on new balances from exact period
+                await this.updateSettlementsFromFilteredData(filteredData, settlementsData);
             }
-            
+
         } catch (error) {
             console.error('[ERROR] Failed to update data after filter change:', error);
         }
     }
 
+    hasMonthFilter(dateFilter) {
+        // FIXED: Return true if month is specifically selected (not just year)
+        return dateFilter && dateFilter.month;
+    }
+
     updateTotalExpensesCard(filteredData) {
         const totalElement = document.getElementById('expenses-total');
         if (totalElement) {
-            totalElement.textContent = `$${filteredData.totalAmount.toFixed(2)}`;
+            totalElement.textContent = `${filteredData.totalAmount.toFixed(2)}`;
             
             // Add visual indicator that this is filtered data
             if (filteredData.count < this.filterManager.originalRows.length) {
@@ -119,11 +134,11 @@ class ExpenseFilterIntegration {
 
     async updateBalancesFromFilteredData(filteredData, settlementsData = []) {
         try {
-            // Calculate balances based on filtered expenses AND settlements
+            // FIXED: Use proper balance calculation that includes ALL participants
             const calculatedBalances = this.calculateBalancesFromExpensesAndSettlements(filteredData.expenses, settlementsData);
             
             // Update balances display
-            this.updateBalancesDisplay(calculatedBalances);
+            this.updateBalancesDisplay(calculatedBalances, filteredData.dateFilter);
             
             // Update header status
             this.updateHeaderStatus(calculatedBalances);
@@ -133,85 +148,120 @@ class ExpenseFilterIntegration {
         }
     }
 
+    async updateSettlementsFromFilteredData(filteredData, settlementsData = []) {
+        try {
+            // Calculate balances first (including settlements)
+            const balances = this.calculateBalancesFromExpensesAndSettlements(filteredData.expenses, settlementsData);
+            
+            // Calculate settlement suggestions from the net balances
+            const suggestions = this.calculateSettlementSuggestions(balances);
+            
+            // Update settlements display
+            this.updateSettlementsDisplay(suggestions, filteredData.dateFilter);
+            
+        } catch (error) {
+            console.error('[ERROR] Failed to update settlements from filtered data:', error);
+        }
+    }
+
+    // FIXED: Proper balance calculation that includes ALL participants like Aaron
     calculateBalancesFromExpensesAndSettlements(expenses, settlements = []) {
-        console.log('[DEBUG] Calculating balances from expenses and settlements:', { expenses, settlements });
         const balances = {};
-        
-        // Initialize balances for all users
+
+        // FIXED: Initialize balances for ALL users from users data (like settlement-manager does)
+        // This ensures users like Aaron appear even if they don't pay expenses in filtered period
+        this.usersData.forEach(user => {
+            balances[user.name] = { user_name: user.name, balance: 0 };
+        });
+
+        // Also get any additional participants from expense data
         if (this.filterManager && this.filterManager.originalRows) {
-            const allUsers = [...new Set(this.filterManager.originalRows.map(row => row.data.paidBy))];
-            allUsers.forEach(user => {
-                balances[user] = { user_name: user, balance: 0 };
+            this.filterManager.originalRows.forEach(row => {
+                // Add payer
+                if (!balances[row.data.paidBy]) {
+                    balances[row.data.paidBy] = { user_name: row.data.paidBy, balance: 0 };
+                }
+
+                // Add all participants
+                if (row.data.participants && row.data.participants.trim()) {
+                    row.data.participants.split(',').forEach(participant => {
+                        const participantName = participant.trim();
+                        if (participantName && !balances[participantName]) {
+                            balances[participantName] = { user_name: participantName, balance: 0 };
+                        }
+                    });
+                }
             });
         }
 
         // Calculate balances from filtered expenses
         expenses.forEach(expense => {
-            console.log('[DEBUG] Processing expense:', expense);
             const paidBy = expense.paidBy;
             const amount = expense.amount;
-            
-            // Get participants - handle both participant names and IDs
+
+            // FIXED: Get participants properly
             let participants = [];
             if (expense.participants && expense.participants.trim()) {
                 participants = expense.participants.split(',').map(p => p.trim()).filter(p => p);
             }
-            
+
             // If no participants, assume the payer is the only participant
             if (participants.length === 0) {
                 participants = [paidBy];
             }
-            
-            console.log('[DEBUG] Participants for expense:', participants);
-            
+
+            // FIXED: Ensure payer is included in participants (critical for correct balance calculation)
+            if (!participants.includes(paidBy)) {
+                participants.push(paidBy);
+            }
+
             const sharePerPerson = amount / participants.length;
-            
-            // Initialize balances if not exists
+
+            // Initialize balances if somehow not exists (safety check)
             if (!balances[paidBy]) {
                 balances[paidBy] = { user_name: paidBy, balance: 0 };
             }
-            
+
             participants.forEach(participant => {
                 if (!balances[participant]) {
                     balances[participant] = { user_name: participant, balance: 0 };
                 }
             });
-            
+
             // Payer gets credited the full amount
             balances[paidBy].balance += amount;
-            
-            // Each participant (including payer) gets debited their share
-            participants.forEach(participant => {
-                balances[participant].balance -= sharePerPerson;
-            });
-        });
 
-        // Process settlements (payments)
-        settlements.forEach(settlement => {
-            console.log('[DEBUG] Processing settlement:', settlement);
-            const payerName = settlement.payer_name;
-            const receiverName = settlement.receiver_name;
-            const amount = settlement.amount;
-            
-            // Initialize balances if not exists
-            if (!balances[payerName]) {
-                balances[payerName] = { user_name: payerName, balance: 0 };
-            }
-            if (!balances[receiverName]) {
-                balances[receiverName] = { user_name: receiverName, balance: 0 };
-            }
-            
-            // Settlement logic: payer owes less (+), receiver is owed less (-)
-            balances[payerName].balance += amount;
-            balances[receiverName].balance -= amount;
-        });
+    // Each participant (including payer) gets debited their share
+    participants.forEach(participant => {
+        balances[participant].balance -= sharePerPerson;
+    });
+});
+
+// Process settlements (payments) - same logic as settlement-manager
+settlements.forEach(settlement => {
+    const payerName = settlement.payer_name;
+    const receiverName = settlement.receiver_name;
+    const amount = settlement.amount;
+
+    // Initialize balances if not exists (safety check)
+    if (!balances[payerName]) {
+        balances[payerName] = { user_name: payerName, balance: 0 };
+    }
+    if (!balances[receiverName]) {
+        balances[receiverName] = { user_name: receiverName, balance: 0 };
+    }
+
+    // Settlement logic: payer owes less (+), receiver is owed less (-)
+    balances[payerName].balance += amount;
+    balances[receiverName].balance -= amount;
+});
 
         const result = Object.values(balances);
-        console.log('[DEBUG] Final calculated balances with settlements:', result);
         return result;
     }
 
-    updateBalancesDisplay(balances) {
+    // Use same logic as balance-manager for rendering
+    updateBalancesDisplay(balances, dateFilter) {
         console.log('[DEBUG] Updating balances display with:', balances);
         const container = document.getElementById('balances-container');
         if (!container) {
@@ -224,28 +274,40 @@ class ExpenseFilterIntegration {
             return;
         }
 
-        // Add filtered indicator first
-        const isFiltered = this.filterManager && 
-                          this.filterManager.filteredRows.length < this.filterManager.originalRows.length;
-        
+        // Add filtered indicator ONLY for month filters (not year-only)
         let indicatorHTML = '';
-        if (isFiltered) {
+        if (this.hasMonthFilter(dateFilter)) {
+            const months = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            
+            let periodText = '';
+            if (dateFilter.year && dateFilter.month) {
+                periodText = `${months[dateFilter.month - 1]} ${dateFilter.year}`;
+            } else if (dateFilter.month) {
+                periodText = `${months[dateFilter.month - 1]}`;
+            }
+            
             indicatorHTML = `
                 <div class="filter-indicator" style="
-                    background: #fff3cd;
-                    color: #856404;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                    margin-bottom: 12px;
+                    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+                    color: #1565c0;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    margin-bottom: 16px;
                     text-align: center;
-                    border: 1px solid #ffeaa7;
+                    border: 1px solid #90caf9;
+                    box-shadow: 0 2px 4px rgba(21, 101, 192, 0.1);
                 ">
-                    📊 Showing balances for filtered expenses only
+                    📅 Balances for ${periodText}
                 </div>
             `;
         }
 
+        // Use same rendering logic as balance-manager
         const balanceItems = balances.map(balance => {
             const initial = balance.user_name.charAt(0).toUpperCase();
             const status = balance.balance > 0.01 ? 'positive' : balance.balance < -0.01 ? 'negative' : 'even';
@@ -261,7 +323,7 @@ class ExpenseFilterIntegration {
                         </div>
                     </div>
                     <div class="balance-amount">
-                        <div class="amount">$${amount.toFixed(2)}</div>
+                        <div class="amount">${amount.toFixed(2)}</div>
                         <div class="status">${statusText}</div>
                     </div>
                 </div>
@@ -289,22 +351,7 @@ class ExpenseFilterIntegration {
         }
     }
 
-    async updateSettlementsFromFilteredData(filteredData) {
-        try {
-            // Calculate balances first
-            const balances = this.calculateBalancesFromExpenses(filteredData.expenses);
-            
-            // Calculate settlement suggestions
-            const suggestions = this.calculateSettlementSuggestions(balances);
-            
-            // Update settlements display
-            this.updateSettlementsDisplay(suggestions);
-            
-        } catch (error) {
-            console.error('[ERROR] Failed to update settlements from filtered data:', error);
-        }
-    }
-
+    // Use same settlement calculation logic as settlement-manager
     calculateSettlementSuggestions(balances) {
         const suggestions = [];
         
@@ -344,7 +391,7 @@ class ExpenseFilterIntegration {
         return suggestions;
     }
 
-    updateSettlementsDisplay(suggestions) {
+    updateSettlementsDisplay(suggestions, dateFilter) {
         console.log('[DEBUG] Updating settlements display with:', suggestions);
         const container = document.getElementById('settlements-container');
         if (!container) {
@@ -352,24 +399,35 @@ class ExpenseFilterIntegration {
             return;
         }
         
-        // Add filtered indicator first
-        const isFiltered = this.filterManager && 
-                          this.filterManager.filteredRows.length < this.filterManager.originalRows.length;
-        
+        // Add filtered indicator ONLY for month filters (not year-only)
         let indicatorHTML = '';
-        if (isFiltered) {
+        if (this.hasMonthFilter(dateFilter)) {
+            const months = [
+                'January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            
+            let periodText = '';
+            if (dateFilter.year && dateFilter.month) {
+                periodText = `${months[dateFilter.month - 1]} ${dateFilter.year}`;
+            } else if (dateFilter.month) {
+                periodText = `${months[dateFilter.month - 1]}`;
+            }
+            
             indicatorHTML = `
                 <div class="filter-indicator" style="
-                    background: #fff3cd;
-                    color: #856404;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    font-size: 0.85rem;
-                    margin-bottom: 12px;
+                    background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
+                    color: #2e7d32;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    margin-bottom: 16px;
                     text-align: center;
-                    border: 1px solid #ffeaa7;
+                    border: 1px solid #a5d6a7;
+                    box-shadow: 0 2px 4px rgba(46, 125, 50, 0.1);
                 ">
-                    📊 Showing settlements for filtered expenses only
+                    💰 Settlements for ${periodText}
                 </div>
             `;
         }
@@ -382,12 +440,57 @@ class ExpenseFilterIntegration {
         const suggestionItems = suggestions.map(suggestion => `
             <div class="settlement-item">
                 <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
-                <span class="settlement-amount">$${suggestion.amount.toFixed(2)}</span>
+                <span class="settlement-amount">${suggestion.amount.toFixed(2)}</span>
             </div>
         `).join('');
 
         container.innerHTML = indicatorHTML + suggestionItems;
         console.log('[DEBUG] Settlements display updated');
+    }
+
+    // FIXED: Update recent payments table with filtered data
+    updateRecentPaymentsTable(settlementsData) {
+        console.log('[DEBUG] Updating recent payments table with:', settlementsData);
+        
+        // Find the recent payments table - try multiple selectors
+        const paymentsTable = document.querySelector(
+            '.settlements-history table tbody, .recent-payments table tbody, .payments-history table tbody, .settlements-table tbody'
+        );
+        
+        if (!paymentsTable) {
+            console.log('[DEBUG] No recent payments table found');
+            return;
+        }
+
+        if (!settlementsData || settlementsData.length === 0) {
+            paymentsTable.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #888; padding: 20px;">
+                        No payments found for this period
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        // Sort settlements by date (newest first)
+        const sortedSettlements = settlementsData.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        const rows = sortedSettlements.map(settlement => {
+            const date = new Date(settlement.date).toLocaleDateString();
+            return `
+                <tr>
+                    <td>${date}</td>
+                    <td>${settlement.payer_name}</td>
+                    <td>${settlement.receiver_name}</td>
+                    <td>${settlement.amount.toFixed(2)}</td>
+                    <td>${settlement.description || '-'}</td>
+                </tr>
+            `;
+        }).join('');
+
+        paymentsTable.innerHTML = rows;
+        console.log('[DEBUG] Recent payments table updated with filtered data');
     }
 
     // Public method to get current filter state
@@ -411,18 +514,8 @@ class ExpenseFilterIntegration {
         }
     }
 
-    // Get filtered date range for settlements
-    getFilteredDateRange() {
-        if (!this.filterManager || !this.filterManager.filters.dateFilter) {
-            return null;
-        }
-        
-        const { year, month } = this.filterManager.filters.dateFilter;
-        return { year, month };
-    }
-
-    // Fetch settlements data for filtered period
-    async fetchSettlementsData(dateRange) {
+    // FIXED: Fetch settlements data for filtered period (exact period only, not cumulative)
+    async fetchSettlementsData(dateFilter) {
         try {
             // Fetch all settlements from the API
             const response = await fetch('/api/settlements');
@@ -434,29 +527,30 @@ class ExpenseFilterIntegration {
             const data = await response.json();
             let settlements = data.settlements || [];
 
-            // Filter settlements by date range if specified
-            if (dateRange && (dateRange.year || dateRange.month)) {
+            // Filter settlements for the exact filtered period only
+            if (dateFilter && (dateFilter.year || dateFilter.month)) {
                 settlements = settlements.filter(settlement => {
                     const settlementDate = new Date(settlement.date);
                     const settlementYear = settlementDate.getFullYear();
                     const settlementMonth = settlementDate.getMonth() + 1;
 
-                    let yearMatch = true;
-                    let monthMatch = true;
+                    const filterYear = parseInt(dateFilter.year);
+                    const filterMonth = parseInt(dateFilter.month);
 
-                    if (dateRange.year) {
-                        yearMatch = settlementYear === parseInt(dateRange.year);
+                    // Filter for exact period match only
+                    if (dateFilter.year && dateFilter.month) {
+                        // Both year and month specified: exact month match
+                        return settlementYear === filterYear && settlementMonth === filterMonth;
+                    } else if (dateFilter.year && !dateFilter.month) {
+                        // Only year specified: all months in that year
+                        return settlementYear === filterYear;
                     }
 
-                    if (dateRange.month) {
-                        monthMatch = settlementMonth === parseInt(dateRange.month);
-                    }
-
-                    return yearMatch && monthMatch;
+                    return true;
                 });
             }
 
-            console.log('[DEBUG] Filtered settlements for date range:', dateRange, settlements);
+            console.log('[DEBUG] Filtered settlements for exact period only:', dateFilter, settlements);
             return settlements;
 
         } catch (error) {
@@ -470,9 +564,11 @@ class ExpenseFilterIntegration {
         try {
             console.log('[DEBUG] Loading original balances and settlements');
             
-            // Use the same function from main.js to load balances
+            // Use the global refresh function if available
             if (window.globalRefreshBalances) {
                 await window.globalRefreshBalances();
+            } else if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
+                await window.balanceManager.refresh();
             } else {
                 // Fallback: fetch balances and settlements directly
                 const [balancesResponse, suggestionsResponse] = await Promise.all([
@@ -484,18 +580,16 @@ class ExpenseFilterIntegration {
                     const balancesData = await balancesResponse.json();
                     const suggestionsData = await suggestionsResponse.json();
                     
-                    // Update displays using the functions from main.js
-                    if (window.updateBalancesDisplay) {
-                        window.updateBalancesDisplay(balancesData.balances);
-                    }
-                    if (window.updateSettlementSuggestionsDisplay) {
-                        window.updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
-                    }
-                    if (window.updateHeaderStatus) {
-                        window.updateHeaderStatus(balancesData.balances);
-                    }
+                    // Update displays
+                    this.updateBalancesDisplay(balancesData.balances, null);
+                    this.updateSettlementsDisplay(suggestionsData.suggestions, null);
+                    this.updateHeaderStatus(balancesData.balances);
                 }
             }
+
+            // Also restore original payments table
+            const allSettlements = await this.fetchSettlementsData(null); // Get all settlements
+            this.updateRecentPaymentsTable(allSettlements);
             
         } catch (error) {
             console.error('[ERROR] Failed to load original balances and settlements:', error);

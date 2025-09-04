@@ -1,4 +1,3 @@
-// Expense Table Filter Manager
 class ExpenseFilterManager {
     constructor(options = {}) {
         this.tableSelector = options.tableSelector || '.expenses-table';
@@ -10,7 +9,8 @@ class ExpenseFilterManager {
             category: [],
             description: [],
             amountSort: null, // 'asc' or 'desc'
-            dateFilter: { year: null, month: null }
+            dateFilter: { year: null, month: null },
+            dateRange: { start: null, end: null }
         };
         
         this.originalRows = [];
@@ -156,20 +156,18 @@ class ExpenseFilterManager {
                     </select>
                 </div>
                 
-                <div class="filter-group">
-                    <label>Year</label>
-                    <select class="filter-select" data-filter="year">
-                        <option value="">All Years</option>
-                        ${uniqueYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Month</label>
-                    <select class="filter-select" data-filter="month">
-                        <option value="">All Months</option>
-                        ${months.map((month, index) => `<option value="${index + 1}">${month}</option>`).join('')}
-                    </select>
+                <div class="filter-group date-filter-group">
+                    <label>Date Period</label>
+                    <div class="date-filter-container">
+                        <select class="filter-select date-year" data-filter="year">
+                            <option value="">All Years</option>
+                            ${uniqueYears.map(year => `<option value="${year}">${year}</option>`).join('')}
+                        </select>
+                        <select class="filter-select date-month" data-filter="month" disabled>
+                            <option value="">All Months</option>
+                            ${months.map((month, index) => `<option value="${index + 1}">${month}</option>`).join('')}
+                        </select>
+                    </div>
                 </div>
             </div>
         `;
@@ -230,6 +228,7 @@ class ExpenseFilterManager {
                 break;
             case 'year':
                 this.filters.dateFilter.year = value ? parseInt(value) : null;
+                this.handleYearChange(value);
                 break;
             case 'month':
                 this.filters.dateFilter.month = value ? parseInt(value) : null;
@@ -237,6 +236,57 @@ class ExpenseFilterManager {
         }
 
         this.applyFilters();
+    }
+
+    handleYearChange(yearValue) {
+        const monthSelect = document.querySelector('.date-month');
+        if (!monthSelect) return;
+
+        if (yearValue) {
+            // Enable month selector and populate with available months for the selected year
+            monthSelect.disabled = false;
+            this.populateAvailableMonths(parseInt(yearValue));
+        } else {
+            // Disable month selector and reset
+            monthSelect.disabled = true;
+            monthSelect.value = '';
+            this.filters.dateFilter.month = null;
+        }
+    }
+
+    populateAvailableMonths(selectedYear) {
+        const monthSelect = document.querySelector('.date-month');
+        if (!monthSelect) return;
+
+        // Get months that have expenses for the selected year
+        const availableMonths = new Set();
+        this.originalRows.forEach(row => {
+            const date = new Date(row.data.date);
+            if (date.getFullYear() === selectedYear) {
+                availableMonths.add(date.getMonth() + 1);
+            }
+        });
+
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        // Clear and repopulate month options
+        monthSelect.innerHTML = '<option value="">All Months</option>';
+        
+        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
+            const option = document.createElement('option');
+            option.value = monthNum;
+            option.textContent = months[monthNum - 1];
+            monthSelect.appendChild(option);
+        });
+
+        // If current month filter is not available for this year, reset it
+        if (this.filters.dateFilter.month && !availableMonths.has(this.filters.dateFilter.month)) {
+            this.filters.dateFilter.month = null;
+            monthSelect.value = '';
+        }
     }
 
     handleMultiSelectFilter(checkbox) {
@@ -286,6 +336,35 @@ class ExpenseFilterManager {
         });
     }
 
+    getFilteredData() {
+        const { year, month } = this.filters.dateFilter;
+        let dateRange = { start: null, end: null };
+
+        if (year) {
+            const startYear = year;
+            const endYear = year;
+            let startMonth = 0; // January
+            let endMonth = 11; // December
+
+            if (month) {
+                startMonth = month - 1;
+                endMonth = month - 1;
+            }
+
+            dateRange.start = new Date(startYear, startMonth, 1);
+            dateRange.end = new Date(endYear, endMonth + 1, 0); // Last day of the month
+        }
+
+        return {
+            expenses: this.filteredRows.map(row => row.data),
+            totalAmount: this.filteredRows.reduce((sum, row) => sum + row.data.amount, 0),
+            count: this.filteredRows.length,
+            dateFilter: this.filters.dateFilter,
+            dateRange: dateRange, // Add date range for external use
+            isCleared: false // Default value
+        };
+    }
+
     applyFilters() {
         let filtered = [...this.originalRows];
 
@@ -302,6 +381,23 @@ class ExpenseFilterManager {
         // Apply description filter
         if (this.filters.description.length > 0) {
             filtered = filtered.filter(row => this.filters.description.includes(row.data.description));
+        }
+
+        // Set date range for filtering balances and settlements
+        this.filters.dateRange.start = null;
+        this.filters.dateRange.end = null;
+        if (this.filters.dateFilter.year) {
+            const year = this.filters.dateFilter.year;
+            if (this.filters.dateFilter.month) {
+                const month = this.filters.dateFilter.month;
+                // Exact month filter - not cumulative
+                this.filters.dateRange.start = new Date(year, month - 1, 1);
+                this.filters.dateRange.end = new Date(year, month, 0, 23, 59, 59, 999);
+            } else {
+                // Exact year filter - not cumulative
+                this.filters.dateRange.start = new Date(year, 0, 1);
+                this.filters.dateRange.end = new Date(year, 11, 31, 23, 59, 59, 999);
+            }
         }
 
         // Apply date filter
@@ -380,14 +476,6 @@ class ExpenseFilterManager {
         }
     }
 
-    getFilteredData() {
-        return {
-            expenses: this.filteredRows.map(row => row.data),
-            totalAmount: this.filteredRows.reduce((sum, row) => sum + row.data.amount, 0),
-            count: this.filteredRows.length
-        };
-    }
-
     clearAllFilters() {
         // Reset filter state
         this.filters = {
@@ -395,12 +483,16 @@ class ExpenseFilterManager {
             category: [],
             description: [],
             amountSort: null,
-            dateFilter: { year: null, month: null }
+            dateFilter: { year: null, month: null },
+            dateRange: { start: null, end: null }
         };
 
         // Reset UI
         document.querySelectorAll('.filter-select').forEach(select => {
             select.value = '';
+            if (select.classList.contains('date-month')) {
+                select.disabled = true;
+            }
         });
 
         document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
