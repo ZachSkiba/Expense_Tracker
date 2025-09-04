@@ -1,4 +1,4 @@
-// Updated Expense Filter Integration Module - FIXED VERSION
+// FIXED: Updated Expense Filter Integration Module
 // This module integrates the expense filter with the existing expense table and balance systems
 
 class ExpenseFilterIntegration {
@@ -63,6 +63,9 @@ class ExpenseFilterIntegration {
 
     async handleFilterChange(filteredData) {
         try {
+            console.log('[DEBUG] === HANDLEFILTERCHANGE START ===');
+            console.log('[DEBUG] filteredData:', filteredData);
+            
             // If filters were cleared, reload original data
             if (filteredData.isCleared) {
                 await this.loadOriginalBalancesAndSettlements();
@@ -75,17 +78,27 @@ class ExpenseFilterIntegration {
 
             // FIXED: Update balances and settlements if YEAR or MONTH filter is applied
             if (filteredData.dateFilter && (filteredData.dateFilter.year || filteredData.dateFilter.month)) {
+                // CRITICAL FIX: Get proper expense data with participants from the DOM table
+                const correctedExpenses = this.extractProperExpenseData(filteredData);
+                console.log('[DEBUG] Corrected expenses with participants:', correctedExpenses);
+                
+                // Create corrected filteredData object
+                const correctedFilteredData = {
+                    ...filteredData,
+                    expenses: correctedExpenses
+                };
+                
                 // Fetch settlements data for the exact filtered period only
                 const settlementsData = await this.fetchSettlementsData(filteredData.dateFilter);
 
                 // Update recent payments table with settlements from exact period only
                 this.updateRecentPaymentsTable(settlementsData);
 
-                // Recalculate and update balances based on filtered expenses AND settlements from exact period
-                await this.updateBalancesFromFilteredData(filteredData, settlementsData);
+                // Recalculate and update balances based on corrected expenses AND settlements from exact period
+                await this.updateBalancesFromFilteredData(correctedFilteredData, settlementsData);
 
                 // Update settlements based on new balances from exact period
-                await this.updateSettlementsFromFilteredData(filteredData, settlementsData);
+                await this.updateSettlementsFromFilteredData(correctedFilteredData, settlementsData);
             }
 
         } catch (error) {
@@ -93,8 +106,122 @@ class ExpenseFilterIntegration {
         }
     }
 
+    // NEW METHOD: Extract proper expense data with participants from DOM table
+    extractProperExpenseData(filteredData) {
+        console.log('[DEBUG] === EXTRACTPROPEREXPENSEDATA START ===');
+        
+        if (!this.filterManager || !this.filterManager.filteredRows) {
+            console.error('[ERROR] No filter manager or filtered rows available');
+            return filteredData.expenses || [];
+        }
+        
+        const correctedExpenses = [];
+        
+        this.filterManager.filteredRows.forEach((row, index) => {
+            console.log(`[DEBUG] Processing filtered row ${index + 1}:`, row);
+            
+            // Get the actual DOM element to extract participants properly
+            const rowElement = row.element;
+            
+            // Extract participants from the DOM element using multiple methods
+            let participants = '';
+            
+            // Method 1: Try to get from data-value attribute on participants cell
+            const participantsCell = rowElement.querySelector('td.participants');
+            if (participantsCell) {
+                participants = participantsCell.getAttribute('data-value') || '';
+                console.log(`[DEBUG] Row ${index + 1}: participants from data-value:`, participants);
+            }
+            
+            // Method 2: If no participants cell or empty, try to get from text content
+            if (!participants && participantsCell) {
+                participants = participantsCell.textContent.trim();
+                console.log(`[DEBUG] Row ${index + 1}: participants from textContent:`, participants);
+            }
+            
+            // Method 3: If still empty, check all cells for participants data
+            if (!participants) {
+                const allCells = rowElement.querySelectorAll('td');
+                allCells.forEach((cell, cellIndex) => {
+                    const cellValue = cell.getAttribute('data-value') || cell.textContent.trim();
+                    if (cellValue && cellValue.includes(',') && cellValue.split(',').length > 1) {
+                        // Looks like participants (comma-separated names)
+                        const possibleParticipants = cellValue.split(',').map(p => p.trim());
+                        if (possibleParticipants.every(p => this.isValidUserName(p))) {
+                            participants = cellValue;
+                            console.log(`[DEBUG] Row ${index + 1}: participants from cell ${cellIndex}:`, participants);
+                        }
+                    }
+                });
+            }
+            
+            // Method 4: If still no participants found, use row data but verify
+            if (!participants && row.data && row.data.participants) {
+                participants = row.data.participants;
+                console.log(`[DEBUG] Row ${index + 1}: participants from row.data:`, participants);
+            }
+            
+            // Method 5: If still no participants, get from original expense table data
+            if (!participants) {
+                const expenseId = rowElement.getAttribute('data-expense-id');
+                if (expenseId) {
+                    const originalRow = document.querySelector(`tr[data-expense-id="${expenseId}"]`);
+                    if (originalRow) {
+                        const originalParticipantsCell = originalRow.querySelector('td.participants');
+                        if (originalParticipantsCell) {
+                            participants = originalParticipantsCell.getAttribute('data-value') || 
+                                         originalParticipantsCell.textContent.trim();
+                            console.log(`[DEBUG] Row ${index + 1}: participants from original DOM:`, participants);
+                        }
+                    }
+                }
+            }
+            
+            console.log(`[DEBUG] Row ${index + 1}: FINAL participants:`, participants);
+            
+            // Create corrected expense object
+            const correctedExpense = {
+                id: row.data.id,
+                amount: row.data.amount,
+                category: row.data.category,
+                description: row.data.description,
+                paidBy: row.data.paidBy,
+                participants: participants, // Use corrected participants
+                date: row.data.date
+            };
+            
+            correctedExpenses.push(correctedExpense);
+            console.log(`[DEBUG] Row ${index + 1}: Corrected expense:`, correctedExpense);
+        });
+        
+        console.log('[DEBUG] === EXTRACTPROPEREXPENSEDATA END ===');
+        console.log('[DEBUG] All corrected expenses:', correctedExpenses);
+        
+        return correctedExpenses;
+    }
+
+    // Helper method to validate if a name is a valid user name
+    isValidUserName(name) {
+        if (!name || typeof name !== 'string') return false;
+        
+        // Check if it's in our users data
+        const isInUsersData = this.usersData.some(user => 
+            user.name.toLowerCase() === name.toLowerCase()
+        );
+        
+        if (isInUsersData) return true;
+        
+        // Also check against any names we've seen in the expense table
+        if (this.filterManager && this.filterManager.originalRows) {
+            const allPayers = this.filterManager.originalRows.map(row => row.data.paidBy);
+            if (allPayers.includes(name)) return true;
+        }
+        
+        return false;
+    }
+
     hasMonthFilter(dateFilter) {
-        // FIXED: Return true if month is specifically selected (not just year)
+        // Return true if month is specifically selected (not just year)
         return dateFilter && dateFilter.month;
     }
 
@@ -134,23 +261,23 @@ class ExpenseFilterIntegration {
 
     async updateBalancesFromFilteredData(filteredData, settlementsData = []) {
         try {
-            // CRITICAL DEBUG: Let's see what's actually in filteredData
             console.log('[DEBUG] === UPDATEBALANCESFROMFILTEREDDATA START ===');
             console.log('[DEBUG] Full filteredData object:', filteredData);
             console.log('[DEBUG] filteredData.expenses:', filteredData.expenses);
             console.log('[DEBUG] settlementsData:', settlementsData);
             
-            // Check if expenses exist and have the right structure
-            if (!filteredData.expenses) {
-                console.error('[ERROR] filteredData.expenses is undefined or null!');
-                console.log('[DEBUG] Available properties in filteredData:', Object.keys(filteredData));
-            } else if (filteredData.expenses.length === 0) {
-                console.warn('[WARN] filteredData.expenses is empty array!');
-            } else {
-                console.log('[DEBUG] First expense sample:', filteredData.expenses[0]);
-            }
+            // Verify expenses have participants
+            filteredData.expenses.forEach((expense, index) => {
+                console.log(`[DEBUG] Expense ${index + 1}:`, {
+                    id: expense.id,
+                    amount: expense.amount,
+                    paidBy: expense.paidBy,
+                    participants: expense.participants,
+                    participantsLength: expense.participants ? expense.participants.length : 0
+                });
+            });
             
-            // FIXED: Use proper balance calculation that includes ALL participants
+            // Calculate balances with corrected expense data
             const calculatedBalances = this.calculateBalancesFromFilteredData(filteredData.expenses, settlementsData);
             
             // Update balances display
@@ -180,7 +307,7 @@ class ExpenseFilterIntegration {
         }
     }
 
-    // FIXED: Proper balance calculation that includes ALL participants like Aaron
+    // FIXED: Proper balance calculation that includes ALL participants
     calculateBalancesFromFilteredData(expenses, settlements = []) {
         console.log('[DEBUG] === CALCULATEBALANCESFROMFILTEREDDATA START ===');
         console.log('[DEBUG] Input expenses:', expenses);
@@ -188,8 +315,7 @@ class ExpenseFilterIntegration {
         
         const balances = {};
 
-        // FIXED: Initialize balances for ALL users from users data (like settlement-manager does)
-        // This ensures users like Aaron appear even if they don't pay expenses in filtered period
+        // Initialize balances for ALL users from users data
         console.log('[DEBUG] Initializing balances for all users from usersData:', this.usersData);
         this.usersData.forEach(user => {
             balances[user.name] = { user_name: user.name, balance: 0 };
@@ -231,7 +357,7 @@ class ExpenseFilterIntegration {
 
             console.log(`[DEBUG] Expense ${index + 1}: ${paidBy} paid ${amount}`);
 
-            // FIXED: Get participants properly
+            // Get participants properly
             let participants = [];
             if (expense.participants && expense.participants.trim()) {
                 participants = expense.participants.split(',').map(p => p.trim()).filter(p => p);
@@ -240,13 +366,31 @@ class ExpenseFilterIntegration {
             console.log(`[DEBUG] Expense ${index + 1}: Raw participants:`, expense.participants);
             console.log(`[DEBUG] Expense ${index + 1}: Parsed participants:`, participants);
 
-            // If no participants, assume the payer is the only participant
+            // If no participants, this is a critical error - let's try to get them from DOM
             if (participants.length === 0) {
-                participants = [paidBy];
-                console.log(`[DEBUG] Expense ${index + 1}: No participants found, using payer only:`, participants);
+                console.error(`[ERROR] Expense ${index + 1}: NO PARTICIPANTS FOUND! Attempting emergency lookup...`);
+                
+                // Emergency: try to find participants from DOM
+                const expenseElement = document.querySelector(`tr[data-expense-id="${expense.id}"]`);
+                if (expenseElement) {
+                    const participantsCell = expenseElement.querySelector('td.participants');
+                    if (participantsCell) {
+                        const domParticipants = participantsCell.getAttribute('data-value') || participantsCell.textContent.trim();
+                        if (domParticipants) {
+                            participants = domParticipants.split(',').map(p => p.trim()).filter(p => p);
+                            console.log(`[DEBUG] Expense ${index + 1}: Emergency participants from DOM:`, participants);
+                        }
+                    }
+                }
+                
+                // If still no participants, assume the payer is the only participant
+                if (participants.length === 0) {
+                    participants = [paidBy];
+                    console.log(`[DEBUG] Expense ${index + 1}: Using payer only as fallback:`, participants);
+                }
             }
 
-            // FIXED: Ensure payer is included in participants (critical for correct balance calculation)
+            // Ensure payer is included in participants
             if (!participants.includes(paidBy)) {
                 participants.push(paidBy);
                 console.log(`[DEBUG] Expense ${index + 1}: Added payer to participants:`, participants);
@@ -580,7 +724,7 @@ class ExpenseFilterIntegration {
         }
     }
 
-    // FIXED: Fetch settlements data for filtered period (exact period only, not cumulative)
+    // Fetch settlements data for filtered period (exact period only, not cumulative)
     async fetchSettlementsData(dateFilter) {
         try {
             // Fetch all settlements from the API
@@ -661,8 +805,6 @@ class ExpenseFilterIntegration {
             console.error('[ERROR] Failed to load original balances and settlements:', error);
         }
     }
-    
-    // Add this method to the ExpenseFilterIntegration class
 }
 
 // Export for use in other modules
