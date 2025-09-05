@@ -4,6 +4,66 @@ class ExpenseFilterManager {
         this.containerSelector = options.containerSelector || '.table-wrapper';
         this.onFilterChange = options.onFilterChange || (() => {});
         
+        // Add search styles
+        const style = document.createElement('style');
+        style.textContent = `
+            .search-container {
+                padding: 8px;
+                border-bottom: 1px solid #ddd;
+                position: sticky;
+                top: 0;
+                background: white;
+                z-index: 1;
+            }
+            .description-search {
+                width: 100%;
+                padding: 6px;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            .description-search:focus {
+                outline: none;
+                border-color: #007bff;
+            }
+            .checkbox-list {
+                max-height: 200px;
+                overflow: auto;
+                scrollbar-width: thin;  /* For Firefox */
+            }
+            /* Make both vertical and horizontal scrollbars small */
+            .checkbox-list::-webkit-scrollbar,
+            .multi-select-dropdown::-webkit-scrollbar {
+                width: 4px;
+                height: 4px;
+            }
+            .checkbox-list::-webkit-scrollbar-track,
+            .multi-select-dropdown::-webkit-scrollbar-track {
+                background: #f1f1f1;
+                border-radius: 2px;
+            }
+            .checkbox-list::-webkit-scrollbar-thumb,
+            .multi-select-dropdown::-webkit-scrollbar-thumb {
+                background: #888;
+                border-radius: 2px;
+            }
+            .checkbox-list::-webkit-scrollbar-thumb:hover,
+            .multi-select-dropdown::-webkit-scrollbar-thumb:hover {
+                background: #555;
+            }
+            /* Corner where scrollbars meet */
+            .checkbox-list::-webkit-scrollbar-corner,
+            .multi-select-dropdown::-webkit-scrollbar-corner {
+                background: #f1f1f1;
+            }
+            .multi-select-dropdown {
+                max-height: none;
+                overflow: auto;
+                scrollbar-width: thin;  /* For Firefox */
+            }
+        `;
+        document.head.appendChild(style);
+        
         this.filters = {
             paidBy: null,
             category: [],
@@ -128,12 +188,17 @@ class ExpenseFilterManager {
                             <span class="arrow">▼</span>
                         </button>
                         <div class="multi-select-dropdown">
-                            ${uniqueDescriptions.map(desc => `
-                                <label class="checkbox-item">
-                                    <input type="checkbox" value="${desc}" data-filter="description">
-                                    <span>${desc}</span>
-                                </label>
-                            `).join('')}
+                            <div class="search-container">
+                                <input type="text" class="description-search" placeholder="Search descriptions...">
+                            </div>
+                            <div class="checkbox-list">
+                                ${uniqueDescriptions.map(desc => `
+                                    <label class="checkbox-item">
+                                        <input type="checkbox" value="${desc}" data-filter="description">
+                                        <span>${desc}</span>
+                                    </label>
+                                `).join('')}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -164,9 +229,38 @@ class ExpenseFilterManager {
         `;
     }
 
+    filterDescriptionOptions(searchText) {
+        const checkboxContainer = document.querySelector('.multi-select-dropdown .checkbox-list');
+        if (!checkboxContainer) return;
+
+        const items = checkboxContainer.querySelectorAll('.checkbox-item');
+        const searchLower = searchText.toLowerCase();
+
+        items.forEach(item => {
+            const description = item.querySelector('span').textContent.toLowerCase();
+            if (description.includes(searchLower)) {
+                item.style.display = '';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+    }
+
     attachEventListeners() {
         const filterContainer = document.querySelector('.expense-filters');
         if (!filterContainer) return;
+
+        // Description search
+        const searchInput = filterContainer.querySelector('.description-search');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => {
+                this.filterDescriptionOptions(e.target.value);
+            });
+            // Prevent dropdown from closing when clicking in search
+            searchInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+            });
+        }
 
         // Single select filters
         filterContainer.querySelectorAll('.filter-select').forEach(select => {
