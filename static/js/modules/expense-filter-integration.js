@@ -1,811 +1,507 @@
-// FIXED: Updated Expense Filter Integration Module
-// This module integrates the expense filter with the existing expense table and balance systems
-
-class ExpenseFilterIntegration {
+class ExpenseFilterManager {
     constructor(options = {}) {
-        this.filterManager = null;
-        this.onFilterChange = options.onFilterChange || this.handleFilterChange.bind(this);
-        this.urls = options.urls || window.urls || {};
-        this.usersData = this.loadUsersData();
+        this.tableSelector = options.tableSelector || '.expenses-table';
+        this.containerSelector = options.containerSelector || '.table-wrapper';
+        this.onFilterChange = options.onFilterChange || (() => {});
+        
+        this.filters = {
+            paidBy: null,
+            category: [],
+            description: [],
+            amountSort: null, // 'asc' or 'desc'
+            dateFilter: { year: null, month: null },
+            dateRange: { start: null, end: null }
+        };
+        
+        this.originalRows = [];
+        this.filteredRows = [];
         
         this.init();
     }
 
     init() {
-        // Wait for DOM to be ready and other managers to be initialized
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', () => this.initializeFilter());
-        } else {
-            this.initializeFilter();
-        }
+        this.cacheOriginalRows();
+        this.createFilterUI();
+        this.attachEventListeners();
     }
 
-    loadUsersData() {
-        const usersScript = document.getElementById('users-data');
-        if (usersScript) {
-            try {
-                return JSON.parse(usersScript.textContent || '[]');
-            } catch (e) {
-                console.error('Error parsing users data:', e);
-                return [];
-            }
-        }
-        return [];
+    cacheOriginalRows() {
+        const table = document.querySelector(this.tableSelector);
+        if (!table) return;
+        
+        const rows = table.querySelectorAll('tbody tr[data-expense-id]');
+        this.originalRows = Array.from(rows).map(row => ({
+            element: row.cloneNode(true),
+            data: this.extractRowData(row)
+        }));
+        this.filteredRows = [...this.originalRows];
     }
 
-    initializeFilter() {
-        // Initialize the filter manager
-        this.filterManager = new window.ExpenseFilterManager({
-            tableSelector: '.expenses-table',
-            containerSelector: '.table-wrapper',
-            onFilterChange: this.onFilterChange
+    extractRowData(row) {
+        const cells = row.querySelectorAll('td');
+        
+        // Get participants from data-value attribute, not text content
+        const participantsCell = row.querySelector('td.participants');
+        let participants = '';
+        if (participantsCell) {
+            // Use data-value attribute which contains the comma-separated participant names
+            participants = participantsCell.getAttribute('data-value') || '';
+            console.log('[DEBUG] Extracted participants from data-value:', participants);
+        }
+        
+        return {
+            id: row.dataset.expenseId,
+            amount: parseFloat(cells[0]?.dataset.value || cells[0]?.textContent.replace('$', '') || 0),
+            category: cells[1]?.dataset.value || cells[1]?.textContent.trim() || '',
+            description: cells[2]?.dataset.value || cells[2]?.textContent.trim() || '',
+            paidBy: cells[3]?.dataset.value || cells[3]?.textContent.trim() || '',
+            participants: participants, // Now correctly extracted from data-value
+            date: cells[participantsCell ? 5 : 4]?.dataset.value || cells[participantsCell ? 5 : 4]?.textContent.trim() || ''
+        };
+    }
+
+    createFilterUI() {
+        const container = document.querySelector(this.containerSelector);
+        if (!container) return;
+
+        const filterContainer = document.createElement('div');
+        filterContainer.className = 'expense-filters';
+        filterContainer.innerHTML = this.generateFilterHTML();
+        
+        // Insert before the table
+        container.insertBefore(filterContainer, container.firstChild);
+    }
+
+    generateFilterHTML() {
+        const uniqueUsers = [...new Set(this.originalRows.map(row => row.data.paidBy))];
+        const uniqueCategories = [...new Set(this.originalRows.map(row => row.data.category))];
+        const uniqueDescriptions = [...new Set(this.originalRows.map(row => row.data.description).filter(d => d))];
+        
+        // Get unique years and months from dates (assuming YYYY-MM-DD format)
+        const dates = this.originalRows.map(row => {
+            const [year, month] = row.data.date.split('-').map(num => parseInt(num));
+            return { year, month };
         });
+        const uniqueYears = [...new Set(dates.map(d => d.year))].sort((a, b) => b - a);
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
 
-        // Set up integration with existing systems
-        this.setupIntegrations();
-    }
-
-    setupIntegrations() {
-        // Listen for expense table updates to refresh filters
-        document.addEventListener('expenseTableUpdated', () => {
-            if (this.filterManager) {
-                this.filterManager.refresh();
-            }
-        });
-
-        // Listen for new expenses added
-        document.addEventListener('expenseAdded', () => {
-            if (this.filterManager) {
-                this.filterManager.refresh();
-            }
-        });
-    }
-
-    async handleFilterChange(filteredData) {
-        try {
-            console.log('[DEBUG] === HANDLEFILTERCHANGE START ===');
-            console.log('[DEBUG] filteredData:', filteredData);
-            
-            // If filters were cleared, reload original data
-            if (filteredData.isCleared) {
-                await this.loadOriginalBalancesAndSettlements();
-                return;
-            }
-
-            // Always update total expenses card and count
-            this.updateTotalExpensesCard(filteredData);
-            this.updateExpenseCount(filteredData);
-
-            // FIXED: Update balances and settlements if YEAR or MONTH filter is applied
-            if (filteredData.dateFilter && (filteredData.dateFilter.year || filteredData.dateFilter.month)) {
-                // CRITICAL FIX: Get proper expense data with participants from the DOM table
-                const correctedExpenses = this.extractProperExpenseData(filteredData);
-                console.log('[DEBUG] Corrected expenses with participants:', correctedExpenses);
-                
-                // Create corrected filteredData object
-                const correctedFilteredData = {
-                    ...filteredData,
-                    expenses: correctedExpenses
-                };
-                
-                // Fetch settlements data for the exact filtered period only
-                const settlementsData = await this.fetchSettlementsData(filteredData.dateFilter);
-
-                // Update recent payments table with settlements from exact period only
-                this.updateRecentPaymentsTable(settlementsData);
-
-                // Recalculate and update balances based on corrected expenses AND settlements from exact period
-                await this.updateBalancesFromFilteredData(correctedFilteredData, settlementsData);
-
-                // Update settlements based on new balances from exact period
-                await this.updateSettlementsFromFilteredData(correctedFilteredData, settlementsData);
-            }
-
-        } catch (error) {
-            console.error('[ERROR] Failed to update data after filter change:', error);
-        }
-    }
-
-    // NEW METHOD: Extract proper expense data with participants from DOM table
-    extractProperExpenseData(filteredData) {
-        console.log('[DEBUG] === EXTRACTPROPEREXPENSEDATA START ===');
-        
-        if (!this.filterManager || !this.filterManager.filteredRows) {
-            console.error('[ERROR] No filter manager or filtered rows available');
-            return filteredData.expenses || [];
-        }
-        
-        const correctedExpenses = [];
-        
-        this.filterManager.filteredRows.forEach((row, index) => {
-            console.log(`[DEBUG] Processing filtered row ${index + 1}:`, row);
-            
-            // Get the actual DOM element to extract participants properly
-            const rowElement = row.element;
-            
-            // Extract participants from the DOM element using multiple methods
-            let participants = '';
-            
-            // Method 1: Try to get from data-value attribute on participants cell
-            const participantsCell = rowElement.querySelector('td.participants');
-            if (participantsCell) {
-                participants = participantsCell.getAttribute('data-value') || '';
-                console.log(`[DEBUG] Row ${index + 1}: participants from data-value:`, participants);
-            }
-            
-            // Method 2: If no participants cell or empty, try to get from text content
-            if (!participants && participantsCell) {
-                participants = participantsCell.textContent.trim();
-                console.log(`[DEBUG] Row ${index + 1}: participants from textContent:`, participants);
-            }
-            
-            // Method 3: If still empty, check all cells for participants data
-            if (!participants) {
-                const allCells = rowElement.querySelectorAll('td');
-                allCells.forEach((cell, cellIndex) => {
-                    const cellValue = cell.getAttribute('data-value') || cell.textContent.trim();
-                    if (cellValue && cellValue.includes(',') && cellValue.split(',').length > 1) {
-                        // Looks like participants (comma-separated names)
-                        const possibleParticipants = cellValue.split(',').map(p => p.trim());
-                        if (possibleParticipants.every(p => this.isValidUserName(p))) {
-                            participants = cellValue;
-                            console.log(`[DEBUG] Row ${index + 1}: participants from cell ${cellIndex}:`, participants);
-                        }
-                    }
-                });
-            }
-            
-            // Method 4: If still no participants found, use row data but verify
-            if (!participants && row.data && row.data.participants) {
-                participants = row.data.participants;
-                console.log(`[DEBUG] Row ${index + 1}: participants from row.data:`, participants);
-            }
-            
-            // Method 5: If still no participants, get from original expense table data
-            if (!participants) {
-                const expenseId = rowElement.getAttribute('data-expense-id');
-                if (expenseId) {
-                    const originalRow = document.querySelector(`tr[data-expense-id="${expenseId}"]`);
-                    if (originalRow) {
-                        const originalParticipantsCell = originalRow.querySelector('td.participants');
-                        if (originalParticipantsCell) {
-                            participants = originalParticipantsCell.getAttribute('data-value') || 
-                                         originalParticipantsCell.textContent.trim();
-                            console.log(`[DEBUG] Row ${index + 1}: participants from original DOM:`, participants);
-                        }
-                    }
-                }
-            }
-            
-            console.log(`[DEBUG] Row ${index + 1}: FINAL participants:`, participants);
-            
-            // Create corrected expense object
-            const correctedExpense = {
-                id: row.data.id,
-                amount: row.data.amount,
-                category: row.data.category,
-                description: row.data.description,
-                paidBy: row.data.paidBy,
-                participants: participants, // Use corrected participants
-                date: row.data.date
-            };
-            
-            correctedExpenses.push(correctedExpense);
-            console.log(`[DEBUG] Row ${index + 1}: Corrected expense:`, correctedExpense);
-        });
-        
-        console.log('[DEBUG] === EXTRACTPROPEREXPENSEDATA END ===');
-        console.log('[DEBUG] All corrected expenses:', correctedExpenses);
-        
-        return correctedExpenses;
-    }
-
-    // Helper method to validate if a name is a valid user name
-    isValidUserName(name) {
-        if (!name || typeof name !== 'string') return false;
-        
-        // Check if it's in our users data
-        const isInUsersData = this.usersData.some(user => 
-            user.name.toLowerCase() === name.toLowerCase()
-        );
-        
-        if (isInUsersData) return true;
-        
-        // Also check against any names we've seen in the expense table
-        if (this.filterManager && this.filterManager.originalRows) {
-            const allPayers = this.filterManager.originalRows.map(row => row.data.paidBy);
-            if (allPayers.includes(name)) return true;
-        }
-        
-        return false;
-    }
-
-    hasMonthFilter(dateFilter) {
-        // Return true if month is specifically selected (not just year)
-        return dateFilter && dateFilter.month;
-    }
-
-    updateTotalExpensesCard(filteredData) {
-        const totalElement = document.getElementById('expenses-total');
-        if (totalElement) {
-            totalElement.textContent = `${filteredData.totalAmount.toFixed(2)}`;
-            
-            // Add visual indicator that this is filtered data
-            if (filteredData.count < this.filterManager.originalRows.length) {
-                totalElement.style.background = 'linear-gradient(135deg, #f39c12, #e67e22)';
-                totalElement.title = `Filtered total (${filteredData.count} of ${this.filterManager.originalRows.length} expenses)`;
-            } else {
-                totalElement.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
-                totalElement.title = 'Total of all expenses';
-            }
-        }
-    }
-
-    updateExpenseCount(filteredData) {
-        const countElement = document.querySelector('.expense-count');
-        if (countElement) {
-            const total = this.filterManager.originalRows.length;
-            const filtered = filteredData.count;
-            
-            if (filtered < total) {
-                countElement.textContent = `(${filtered} of ${total})`;
-                countElement.style.background = '#fff3cd';
-                countElement.style.color = '#856404';
-            } else {
-                countElement.textContent = `(${total})`;
-                countElement.style.background = '#f8f9fa';
-                countElement.style.color = '#6c757d';
-            }
-        }
-    }
-
-    async updateBalancesFromFilteredData(filteredData, settlementsData = []) {
-        try {
-            console.log('[DEBUG] === UPDATEBALANCESFROMFILTEREDDATA START ===');
-            console.log('[DEBUG] Full filteredData object:', filteredData);
-            console.log('[DEBUG] filteredData.expenses:', filteredData.expenses);
-            console.log('[DEBUG] settlementsData:', settlementsData);
-            
-            // Verify expenses have participants
-            filteredData.expenses.forEach((expense, index) => {
-                console.log(`[DEBUG] Expense ${index + 1}:`, {
-                    id: expense.id,
-                    amount: expense.amount,
-                    paidBy: expense.paidBy,
-                    participants: expense.participants,
-                    participantsLength: expense.participants ? expense.participants.length : 0
-                });
-            });
-            
-            // Calculate balances with corrected expense data
-            const calculatedBalances = this.calculateBalancesFromFilteredData(filteredData.expenses, settlementsData);
-            
-            // Update balances display
-            this.updateBalancesDisplay(calculatedBalances, filteredData.dateFilter);
-            
-            // Update header status
-            this.updateHeaderStatus(calculatedBalances);
-            
-        } catch (error) {
-            console.error('[ERROR] Failed to update balances from filtered data:', error);
-        }
-    }
-
-    async updateSettlementsFromFilteredData(filteredData, settlementsData = []) {
-        try {
-            // Calculate balances first (including settlements)
-            const balances = this.calculateBalancesFromFilteredData(filteredData.expenses, settlementsData);
-            
-            // Calculate settlement suggestions from the net balances
-            const suggestions = this.calculateSettlementSuggestions(balances);
-            
-            // Update settlements display
-            this.updateSettlementsDisplay(suggestions, filteredData.dateFilter);
-            
-        } catch (error) {
-            console.error('[ERROR] Failed to update settlements from filtered data:', error);
-        }
-    }
-
-    // FIXED: Proper balance calculation that includes ALL participants
-    calculateBalancesFromFilteredData(expenses, settlements = []) {
-        console.log('[DEBUG] === CALCULATEBALANCESFROMFILTEREDDATA START ===');
-        console.log('[DEBUG] Input expenses:', expenses);
-        console.log('[DEBUG] Input settlements:', settlements);
-        
-        const balances = {};
-
-        // Initialize balances for ALL users from users data
-        console.log('[DEBUG] Initializing balances for all users from usersData:', this.usersData);
-        this.usersData.forEach(user => {
-            balances[user.name] = { user_name: user.name, balance: 0 };
-            console.log('[DEBUG] Initialized balance for user:', user.name);
-        });
-
-        // Also get any additional participants from expense data
-        if (this.filterManager && this.filterManager.originalRows) {
-            console.log('[DEBUG] Adding participants from original rows...');
-            this.filterManager.originalRows.forEach(row => {
-                // Add payer
-                if (!balances[row.data.paidBy]) {
-                    balances[row.data.paidBy] = { user_name: row.data.paidBy, balance: 0 };
-                    console.log('[DEBUG] Added payer from original rows:', row.data.paidBy);
-                }
-
-                // Add all participants
-                if (row.data.participants && row.data.participants.trim()) {
-                    row.data.participants.split(',').forEach(participant => {
-                        const participantName = participant.trim();
-                        if (participantName && !balances[participantName]) {
-                            balances[participantName] = { user_name: participantName, balance: 0 };
-                            console.log('[DEBUG] Added participant from original rows:', participantName);
-                        }
-                    });
-                }
-            });
-        }
-
-        console.log('[DEBUG] Initial balances after user initialization:', balances);
-
-        // Calculate balances from filtered expenses
-        console.log('[DEBUG] Processing', expenses.length, 'filtered expenses...');
-        expenses.forEach((expense, index) => {
-            console.log(`[DEBUG] Processing expense ${index + 1}:`, expense);
-            
-            const paidBy = expense.paidBy;
-            const amount = expense.amount;
-
-            console.log(`[DEBUG] Expense ${index + 1}: ${paidBy} paid ${amount}`);
-
-            // Get participants properly
-            let participants = [];
-            if (expense.participants && expense.participants.trim()) {
-                participants = expense.participants.split(',').map(p => p.trim()).filter(p => p);
-            }
-
-            console.log(`[DEBUG] Expense ${index + 1}: Raw participants:`, expense.participants);
-            console.log(`[DEBUG] Expense ${index + 1}: Parsed participants:`, participants);
-
-            // If no participants, this is a critical error - let's try to get them from DOM
-            if (participants.length === 0) {
-                console.error(`[ERROR] Expense ${index + 1}: NO PARTICIPANTS FOUND! Attempting emergency lookup...`);
-                
-                // Emergency: try to find participants from DOM
-                const expenseElement = document.querySelector(`tr[data-expense-id="${expense.id}"]`);
-                if (expenseElement) {
-                    const participantsCell = expenseElement.querySelector('td.participants');
-                    if (participantsCell) {
-                        const domParticipants = participantsCell.getAttribute('data-value') || participantsCell.textContent.trim();
-                        if (domParticipants) {
-                            participants = domParticipants.split(',').map(p => p.trim()).filter(p => p);
-                            console.log(`[DEBUG] Expense ${index + 1}: Emergency participants from DOM:`, participants);
-                        }
-                    }
-                }
-                
-                // If still no participants, assume the payer is the only participant
-                if (participants.length === 0) {
-                    participants = [paidBy];
-                    console.log(`[DEBUG] Expense ${index + 1}: Using payer only as fallback:`, participants);
-                }
-            }
-
-            // Ensure payer is included in participants
-            if (!participants.includes(paidBy)) {
-                participants.push(paidBy);
-                console.log(`[DEBUG] Expense ${index + 1}: Added payer to participants:`, participants);
-            }
-
-            const sharePerPerson = amount / participants.length;
-            console.log(`[DEBUG] Expense ${index + 1}: Share per person: ${sharePerPerson} (${participants.length} participants)`);
-
-            // Initialize balances if somehow not exists (safety check)
-            if (!balances[paidBy]) {
-                balances[paidBy] = { user_name: paidBy, balance: 0 };
-                console.log(`[DEBUG] Expense ${index + 1}: Initialized balance for payer:`, paidBy);
-            }
-
-            participants.forEach(participant => {
-                if (!balances[participant]) {
-                    balances[participant] = { user_name: participant, balance: 0 };
-                    console.log(`[DEBUG] Expense ${index + 1}: Initialized balance for participant:`, participant);
-                }
-            });
-
-            // Payer gets credited the full amount
-            const oldPayerBalance = balances[paidBy].balance;
-            balances[paidBy].balance += amount;
-            console.log(`[DEBUG] Expense ${index + 1}: ${paidBy} balance: ${oldPayerBalance} + ${amount} = ${balances[paidBy].balance}`);
-
-            // Each participant (including payer) gets debited their share
-            participants.forEach(participant => {
-                const oldBalance = balances[participant].balance;
-                balances[participant].balance -= sharePerPerson;
-                console.log(`[DEBUG] Expense ${index + 1}: ${participant} balance: ${oldBalance} - ${sharePerPerson} = ${balances[participant].balance}`);
-            });
-
-            console.log(`[DEBUG] Expense ${index + 1}: Balances after processing:`, Object.fromEntries(Object.entries(balances).map(([k, v]) => [k, v.balance])));
-        });
-
-        console.log('[DEBUG] Balances after all expenses processed:', balances);
-
-        // Process settlements (payments) - same logic as settlement-manager
-        console.log('[DEBUG] Processing', settlements.length, 'settlements...');
-        settlements.forEach((settlement, index) => {
-            console.log(`[DEBUG] Processing settlement ${index + 1}:`, settlement);
-            
-            const payerName = settlement.payer_name;
-            const receiverName = settlement.receiver_name;
-            const amount = settlement.amount;
-
-            console.log(`[DEBUG] Settlement ${index + 1}: ${payerName} paid ${receiverName} ${amount}`);
-
-            // Initialize balances if not exists (safety check)
-            if (!balances[payerName]) {
-                balances[payerName] = { user_name: payerName, balance: 0 };
-                console.log(`[DEBUG] Settlement ${index + 1}: Initialized balance for payer:`, payerName);
-            }
-            if (!balances[receiverName]) {
-                balances[receiverName] = { user_name: receiverName, balance: 0 };
-                console.log(`[DEBUG] Settlement ${index + 1}: Initialized balance for receiver:`, receiverName);
-            }
-
-            // Settlement logic: payer owes less (+), receiver is owed less (-)
-            const oldPayerBalance = balances[payerName].balance;
-            const oldReceiverBalance = balances[receiverName].balance;
-            
-            balances[payerName].balance += amount;
-            balances[receiverName].balance -= amount;
-            
-            console.log(`[DEBUG] Settlement ${index + 1}: ${payerName} balance: ${oldPayerBalance} + ${amount} = ${balances[payerName].balance}`);
-            console.log(`[DEBUG] Settlement ${index + 1}: ${receiverName} balance: ${oldReceiverBalance} - ${amount} = ${balances[receiverName].balance}`);
-        });
-
-        console.log('[DEBUG] Final balances after settlements:', balances);
-
-        const result = Object.values(balances);
-        console.log('[DEBUG] Returning balance array:', result);
-        console.log('[DEBUG] === CALCULATEBALANCESFROMFILTEREDDATA END ===');
-        
-        return result;
-    }
-
-    // Use same logic as balance-manager for rendering
-    updateBalancesDisplay(balances, dateFilter) {
-        console.log('[DEBUG] Updating balances display with:', balances);
-        const container = document.getElementById('balances-container');
-        if (!container) {
-            console.log('[DEBUG] No balances container found');
-            return;
-        }
-        
-        if (!balances || balances.length === 0) {
-            container.innerHTML = '<div style="text-align: center; padding: 20px; color: #7f8c8d;">No balance data for filtered expenses</div>';
-            return;
-        }
-
-        // Add filtered indicator ONLY for month filters (not year-only)
-        let indicatorHTML = '';
-        if (this.hasMonthFilter(dateFilter)) {
-            const months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            
-            let periodText = '';
-            if (dateFilter.year && dateFilter.month) {
-                periodText = `${months[dateFilter.month - 1]} ${dateFilter.year}`;
-            } else if (dateFilter.month) {
-                periodText = `${months[dateFilter.month - 1]}`;
-            }
-            
-            indicatorHTML = `
-                <div class="filter-indicator" style="
-                    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
-                    color: #1565c0;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    margin-bottom: 16px;
-                    text-align: center;
-                    border: 1px solid #90caf9;
-                    box-shadow: 0 2px 4px rgba(21, 101, 192, 0.1);
-                ">
-                    📅 Balances for ${periodText}
+        return `
+            <div class="filter-header">
+                <h4>Filter Expenses</h4>
+                <button class="clear-filters-btn" type="button">Clear All Filters</button>
+            </div>
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label>Paid By</label>
+                    <select class="filter-select" data-filter="paidBy">
+                        <option value="">All Users</option>
+                        ${uniqueUsers.map(user => `<option value="${user}">${user}</option>`).join('')}
+                    </select>
                 </div>
-            `;
-        }
-
-        // Use same rendering logic as balance-manager
-        const balanceItems = balances.map(balance => {
-            const initial = balance.user_name.charAt(0).toUpperCase();
-            const status = balance.balance > 0.01 ? 'positive' : balance.balance < -0.01 ? 'negative' : 'even';
-            const statusText = balance.balance > 0.01 ? 'owed' : balance.balance < -0.01 ? 'owes' : 'even';
-            const amount = Math.abs(balance.balance);
-
-            return `
-                <div class="balance-item ${status}">
-                    <div class="user-info">
-                        <div class="user-avatar">${initial}</div>
-                        <div>
-                            <div class="user-name">${balance.user_name}</div>
+                
+                <div class="filter-group">
+                    <label>Category</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="category">
+                            <span class="selected-text">All Categories</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueCategories.map(category => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${category}" data-filter="category">
+                                    <span>${category}</span>
+                                </label>
+                            `).join('')}
                         </div>
                     </div>
-                    <div class="balance-amount">
-                        <div class="amount">${amount.toFixed(2)}</div>
-                        <div class="status">${statusText}</div>
+                </div>
+                
+                <div class="filter-group">
+                    <label>Description</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="description">
+                            <span class="selected-text">All Descriptions</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueDescriptions.map(desc => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${desc}" data-filter="description">
+                                    <span>${desc}</span>
+                                </label>
+                            `).join('')}
+                        </div>
                     </div>
                 </div>
-            `;
-        }).join('');
-
-        container.innerHTML = indicatorHTML + balanceItems;
-        console.log('[DEBUG] Balances display updated');
-    }
-
-    updateHeaderStatus(balances) {
-        const statusIndicator = document.querySelector('.status-indicator');
-        if (!statusIndicator) return;
-
-        const hasImbalances = balances.some(b => Math.abs(b.balance) > 0.01);
-        
-        if (hasImbalances) {
-            statusIndicator.textContent = 'Pending Settlements';
-            statusIndicator.className = 'status-indicator pending';
-            statusIndicator.style.background = '#fff3cd';
-            statusIndicator.style.color = '#856404';
-        } else {
-            statusIndicator.textContent = 'All Even';
-            statusIndicator.className = 'status-indicator all-even';
-        }
-    }
-
-    // Use same settlement calculation logic as settlement-manager
-    calculateSettlementSuggestions(balances) {
-        const suggestions = [];
-        
-        // Separate creditors (positive balance) and debtors (negative balance)
-        const creditors = balances.filter(b => b.balance > 0.01).sort((a, b) => b.balance - a.balance);
-        const debtors = balances.filter(b => b.balance < -0.01).sort((a, b) => a.balance - b.balance);
-        
-        // Create copies to avoid modifying original data
-        const creditorsQueue = creditors.map(c => ({ ...c }));
-        const debtorsQueue = debtors.map(d => ({ ...d, balance: Math.abs(d.balance) }));
-        
-        while (creditorsQueue.length > 0 && debtorsQueue.length > 0) {
-            const creditor = creditorsQueue[0];
-            const debtor = debtorsQueue[0];
-            
-            const amount = Math.min(creditor.balance, debtor.balance);
-            
-            if (amount > 0.01) {
-                suggestions.push({
-                    from: debtor.user_name,
-                    to: creditor.user_name,
-                    amount: amount
-                });
-            }
-            
-            creditor.balance -= amount;
-            debtor.balance -= amount;
-            
-            if (creditor.balance <= 0.01) {
-                creditorsQueue.shift();
-            }
-            if (debtor.balance <= 0.01) {
-                debtorsQueue.shift();
-            }
-        }
-        
-        return suggestions;
-    }
-
-    updateSettlementsDisplay(suggestions, dateFilter) {
-        console.log('[DEBUG] Updating settlements display with:', suggestions);
-        const container = document.getElementById('settlements-container');
-        if (!container) {
-            console.log('[DEBUG] No settlements container found');
-            return;
-        }
-        
-        // Add filtered indicator ONLY for month filters (not year-only)
-        let indicatorHTML = '';
-        if (this.hasMonthFilter(dateFilter)) {
-            const months = [
-                'January', 'February', 'March', 'April', 'May', 'June',
-                'July', 'August', 'September', 'October', 'November', 'December'
-            ];
-            
-            let periodText = '';
-            if (dateFilter.year && dateFilter.month) {
-                periodText = `${months[dateFilter.month - 1]} ${dateFilter.year}`;
-            } else if (dateFilter.month) {
-                periodText = `${months[dateFilter.month - 1]}`;
-            }
-            
-            indicatorHTML = `
-                <div class="filter-indicator" style="
-                    background: linear-gradient(135deg, #e8f5e8, #c8e6c9);
-                    color: #2e7d32;
-                    padding: 10px 12px;
-                    border-radius: 8px;
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    margin-bottom: 16px;
-                    text-align: center;
-                    border: 1px solid #a5d6a7;
-                    box-shadow: 0 2px 4px rgba(46, 125, 50, 0.1);
-                ">
-                    💰 Settlements for ${periodText}
+                
+                <div class="filter-group">
+                    <label>Amount</label>
+                    <select class="filter-select" data-filter="amountSort">
+                        <option value="">No Sorting</option>
+                        <option value="asc">Lowest to Highest</option>
+                        <option value="desc">Highest to Lowest</option>
+                    </select>
                 </div>
-            `;
-        }
-        
-        if (!suggestions || suggestions.length === 0) {
-            container.innerHTML = indicatorHTML + '<div class="no-settlements">🎉 All settled! No payments needed.</div>';
-            return;
-        }
-
-        const suggestionItems = suggestions.map(suggestion => `
-            <div class="settlement-item">
-                <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
-                <span class="settlement-amount">${suggestion.amount.toFixed(2)}</span>
+                
+                <div class="filter-group date-filter-group">
+                    <label>Date Period</label>
+                    <div class="date-filter-container">
+                        <select class="filter-select date-year" data-filter="year">
+                            <option value="">All Years</option>
+                            ${uniqueYears.map(year => `<option value="${year}">${year}</option>`).join('')}
+                        </select>
+                        <select class="filter-select date-month" data-filter="month" disabled>
+                            <option value="">All Months</option>
+                            ${months.map((month, i) => `<option value="${i + 1}">${month}</option>`).join('')}
+                        </select>
+                    </div>
+                </div>
             </div>
-        `).join('');
-
-        container.innerHTML = indicatorHTML + suggestionItems;
-        console.log('[DEBUG] Settlements display updated');
+        `;
     }
 
-    // FIXED: Update recent payments table with filtered data
-    updateRecentPaymentsTable(settlementsData) {
-        console.log('[DEBUG] Updating recent payments table with:', settlementsData);
-        
-        // Find the recent payments table - try multiple selectors
-        const paymentsTable = document.querySelector(
-            '.settlements-history table tbody, .recent-payments table tbody, .payments-history table tbody, .settlements-table tbody'
-        );
-        
-        if (!paymentsTable) {
-            console.log('[DEBUG] No recent payments table found');
-            return;
+    attachEventListeners() {
+        const filterContainer = document.querySelector('.expense-filters');
+        if (!filterContainer) return;
+
+        // Single select filters
+        filterContainer.querySelectorAll('.filter-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                this.handleSingleSelectFilter(e.target);
+            });
+        });
+
+        // Multi-select dropdowns
+        filterContainer.querySelectorAll('.multi-select-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.toggleMultiSelectDropdown(btn);
+            });
+        });
+
+        // Multi-select checkboxes
+        filterContainer.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.handleMultiSelectFilter(e.target);
+            });
+        });
+
+        // Clear filters button
+        const clearBtn = filterContainer.querySelector('.clear-filters-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearAllFilters();
+            });
         }
 
-        if (!settlementsData || settlementsData.length === 0) {
-            paymentsTable.innerHTML = `
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.multi-select-container')) {
+                this.closeAllDropdowns();
+            }
+        });
+    }
+
+    handleSingleSelectFilter(select) {
+        const filterType = select.dataset.filter;
+        const value = select.value;
+
+        switch (filterType) {
+            case 'paidBy':
+                this.filters.paidBy = value || null;
+                break;
+            case 'amountSort':
+                this.filters.amountSort = value || null;
+                break;
+            case 'year':
+                this.filters.dateFilter.year = value ? parseInt(value) : null;
+                this.handleYearChange(value);
+                break;
+            case 'month':
+                this.filters.dateFilter.month = value ? parseInt(value) : null;
+                console.log(`[DEBUG] Month filter set to: ${this.filters.dateFilter.month}`);
+                break;
+        }
+
+        this.applyFilters();
+    }
+
+    handleYearChange(yearValue) {
+        const monthSelect = document.querySelector('.date-month');
+        if (!monthSelect) return;
+
+        if (yearValue) {
+            // Enable month selector and populate with available months for the selected year
+            monthSelect.disabled = false;
+            this.populateAvailableMonths(parseInt(yearValue));
+        } else {
+            // Disable month selector and reset
+            monthSelect.disabled = true;
+            monthSelect.value = '';
+            this.filters.dateFilter.month = null;
+        }
+    }
+
+    populateAvailableMonths(selectedYear) {
+        const monthSelect = document.querySelector('.date-month');
+        if (!monthSelect) return;
+
+        // Get months that have expenses for the selected year
+        const availableMonths = new Set();
+        this.originalRows.forEach(row => {
+            // Parse date directly from YYYY-MM-DD format
+            const [year, month] = row.data.date.split('-').map(num => parseInt(num));
+            if (year === selectedYear) {
+                availableMonths.add(month); // month is already 1-based
+            }
+        });
+
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+
+        // Clear and repopulate month options
+        monthSelect.innerHTML = '<option value="">All Months</option>';
+        
+        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
+            const option = document.createElement('option');
+            option.value = monthNum;
+            option.textContent = months[monthNum - 1]; // monthNum is 1-based, so subtract 1 for array index
+            console.log(`[DEBUG] Adding month option: ${monthNum} = ${months[monthNum - 1]}`);
+            monthSelect.appendChild(option);
+        });
+
+        // If current month filter is not available for this year, reset it
+        if (this.filters.dateFilter.month && !availableMonths.has(this.filters.dateFilter.month)) {
+            this.filters.dateFilter.month = null;
+            monthSelect.value = '';
+        }
+    }
+
+    handleMultiSelectFilter(checkbox) {
+        const filterType = checkbox.dataset.filter;
+        const value = checkbox.value;
+        
+        if (checkbox.checked) {
+            if (!this.filters[filterType].includes(value)) {
+                this.filters[filterType].push(value);
+            }
+        } else {
+            this.filters[filterType] = this.filters[filterType].filter(v => v !== value);
+        }
+
+        this.updateMultiSelectDisplay(filterType);
+        this.applyFilters();
+    }
+
+    updateMultiSelectDisplay(filterType) {
+        const container = document.querySelector(`[data-filter="${filterType}"]`).closest('.multi-select-container');
+        const selectedText = container.querySelector('.selected-text');
+        const selected = this.filters[filterType];
+
+        if (selected.length === 0) {
+            selectedText.textContent = filterType === 'category' ? 'All Categories' : 'All Descriptions';
+        } else if (selected.length === 1) {
+            selectedText.textContent = selected[0];
+        } else {
+            selectedText.textContent = `${selected.length} selected`;
+        }
+    }
+
+    toggleMultiSelectDropdown(btn) {
+        const dropdown = btn.nextElementSibling;
+        const isOpen = dropdown.style.display === 'block';
+        
+        this.closeAllDropdowns();
+        
+        if (!isOpen) {
+            dropdown.style.display = 'block';
+        }
+    }
+
+    closeAllDropdowns() {
+        document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
+            dropdown.style.display = 'none';
+        });
+    }
+
+    applyFilters() {
+        let filtered = [...this.originalRows];
+
+        // Apply paid by filter
+        if (this.filters.paidBy) {
+            filtered = filtered.filter(row => row.data.paidBy === this.filters.paidBy);
+        }
+
+        // Apply category filter
+        if (this.filters.category.length > 0) {
+            filtered = filtered.filter(row => this.filters.category.includes(row.data.category));
+        }
+
+        // Apply description filter
+        if (this.filters.description.length > 0) {
+            filtered = filtered.filter(row => this.filters.description.includes(row.data.description));
+        }
+
+        // Apply date filter
+        if (this.filters.dateFilter.year || this.filters.dateFilter.month) {
+            filtered = filtered.filter(row => {
+                // Parse date directly from YYYY-MM-DD format
+                const [rowYear, rowMonth] = row.data.date.split('-').map(num => parseInt(num));
+                if (!rowYear || !rowMonth) return false;
+
+                let yearMatch = true;
+                let monthMatch = true;
+
+                if (this.filters.dateFilter.year) {
+                    yearMatch = rowYear === this.filters.dateFilter.year;
+                }
+
+                if (this.filters.dateFilter.month) {
+                    monthMatch = rowMonth === this.filters.dateFilter.month;
+                }
+
+                console.log(`[DEBUG] Date filter: Row date ${row.data.date} (${rowYear}-${rowMonth}) against filter year: ${this.filters.dateFilter.year}, month: ${this.filters.dateFilter.month} -> Match: ${yearMatch && monthMatch}`);
+                return yearMatch && monthMatch;
+            });
+        }
+
+        // Apply amount sorting
+        if (this.filters.amountSort) {
+            filtered.sort((a, b) => {
+                if (this.filters.amountSort === 'asc') {
+                    return a.data.amount - b.data.amount;
+                } else {
+                    return b.data.amount - a.data.amount;
+                }
+            });
+        }
+
+        this.filteredRows = filtered;
+        this.updateTableDisplay();
+        this.updateFilterStats();
+        this.notifyFilterChange();
+    }
+
+    updateTableDisplay() {
+        const table = document.querySelector(this.tableSelector);
+        if (!table) return;
+
+        const tbody = table.querySelector('tbody');
+        tbody.innerHTML = '';
+
+        if (this.filteredRows.length === 0) {
+            const colCount = table.querySelectorAll('thead th').length;
+            tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; color: #888; padding: 20px;">
-                        No payments found for this period
+                    <td colspan="${colCount}" style="text-align: center; color: #888; padding: 40px 20px;">
+                        No expenses match the current filters
                     </td>
                 </tr>
             `;
-            return;
+        } else {
+            this.filteredRows.forEach(row => {
+                tbody.appendChild(row.element.cloneNode(true));
+            });
         }
 
-        // Sort settlements by date (newest first)
-        const sortedSettlements = settlementsData.sort((a, b) => new Date(b.date) - new Date(a.date));
-
-        const rows = sortedSettlements.map(settlement => {
-            const date = new Date(settlement.date).toLocaleDateString();
-            return `
-                <tr>
-                    <td>${date}</td>
-                    <td>${settlement.payer_name}</td>
-                    <td>${settlement.receiver_name}</td>
-                    <td>${settlement.amount.toFixed(2)}</td>
-                    <td>${settlement.description || '-'}</td>
-                </tr>
-            `;
-        }).join('');
-
-        paymentsTable.innerHTML = rows;
-        console.log('[DEBUG] Recent payments table updated with filtered data');
-    }
-
-    // Public method to get current filter state
-    getFilterState() {
-        return this.filterManager ? this.filterManager.filters : null;
-    }
-
-    // Public method to clear all filters
-    async clearFilters() {
-        if (this.filterManager) {
-            this.filterManager.clearAllFilters();
-            // Reload original balances and settlements when filters are cleared
-            await this.loadOriginalBalancesAndSettlements();
+        // Reattach event listeners for the new rows if expense table manager exists
+        if (window.expenseTableManager) {
+            window.expenseTableManager.setupEditableCells();
+            window.expenseTableManager.setupDeleteButtons();
         }
     }
 
-    // Public method to refresh the entire system
+    updateFilterStats() {
+        const total = this.originalRows.length;
+        const filtered = this.filteredRows.length;
+        
+        // Calculate total amount for filtered expenses
+        const totalAmount = this.filteredRows.reduce((sum, row) => sum + row.data.amount, 0);
+        
+        // Prepare filter change data
+        const filterChangeData = {
+            count: filtered,
+            totalAmount: totalAmount,
+            expenses: this.filteredRows.map(row => row.data),
+            dateFilter: this.filters.dateFilter,
+            isCleared: false
+        };
+        
+        // Notify about filter change
+        if (this.onFilterChange) {
+            this.onFilterChange(filterChangeData);
+        }
+    }
+
+    notifyFilterChange() {
+        // Already handled in updateFilterStats
+    }
+
+    clearAllFilters() {
+        // Reset filter state
+        this.filters = {
+            paidBy: null,
+            category: [],
+            description: [],
+            amountSort: null,
+            dateFilter: { year: null, month: null },
+            dateRange: { start: null, end: null }
+        };
+
+        // Reset UI
+        document.querySelectorAll('.filter-select').forEach(select => {
+            select.value = '';
+            if (select.classList.contains('date-month')) {
+                select.disabled = true;
+            }
+        });
+
+        document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = false;
+        });
+
+        document.querySelectorAll('.selected-text').forEach((text, index) => {
+            text.textContent = index === 0 ? 'All Categories' : 'All Descriptions';
+        });
+
+        this.closeAllDropdowns();
+        this.applyFilters();
+        
+        // Notify that filters were cleared
+        const totalAmount = this.originalRows.reduce((sum, row) => sum + row.data.amount, 0);
+        if (this.onFilterChange) {
+            this.onFilterChange({
+                count: this.originalRows.length,
+                totalAmount: totalAmount,
+                expenses: this.originalRows.map(row => row.data),
+                dateFilter: null,
+                isCleared: true
+            });
+        }
+    }
+
+    // Public method to refresh filters when data changes
     refresh() {
-        if (this.filterManager) {
-            this.filterManager.refresh();
+        this.cacheOriginalRows();
+        
+        // Remove old filter UI
+        const oldFilters = document.querySelector('.expense-filters');
+        if (oldFilters) {
+            oldFilters.remove();
         }
-    }
-
-    // Fetch settlements data for filtered period (exact period only, not cumulative)
-    async fetchSettlementsData(dateFilter) {
-        try {
-            // Fetch all settlements from the API
-            const response = await fetch('/api/settlements');
-            if (!response.ok) {
-                console.warn('[WARN] Could not fetch settlements data');
-                return [];
-            }
-
-            const data = await response.json();
-            let settlements = data.settlements || [];
-
-            // Filter settlements for the exact filtered period only
-            if (dateFilter && (dateFilter.year || dateFilter.month)) {
-                settlements = settlements.filter(settlement => {
-                    const settlementDate = new Date(settlement.date);
-                    const settlementYear = settlementDate.getFullYear();
-                    const settlementMonth = settlementDate.getMonth() + 1;
-
-                    const filterYear = parseInt(dateFilter.year);
-                    const filterMonth = parseInt(dateFilter.month);
-
-                    // Filter for exact period match only
-                    if (dateFilter.year && dateFilter.month) {
-                        // Both year and month specified: exact month match
-                        return settlementYear === filterYear && settlementMonth === filterMonth;
-                    } else if (dateFilter.year && !dateFilter.month) {
-                        // Only year specified: all months in that year
-                        return settlementYear === filterYear;
-                    }
-
-                    return true;
-                });
-            }
-
-            console.log('[DEBUG] Filtered settlements for exact period only:', dateFilter, settlements);
-            return settlements;
-
-        } catch (error) {
-            console.error('[ERROR] Failed to fetch settlements data:', error);
-            return [];
-        }
-    }
-
-    // Load original balances and settlements (when filters are cleared)
-    async loadOriginalBalancesAndSettlements() {
-        try {
-            console.log('[DEBUG] Loading original balances and settlements');
-            
-            // Use the global refresh function if available
-            if (window.globalRefreshBalances) {
-                await window.globalRefreshBalances();
-            } else if (window.balanceManager && typeof window.balanceManager.refresh === 'function') {
-                await window.balanceManager.refresh();
-            } else {
-                // Fallback: fetch balances and settlements directly
-                const [balancesResponse, suggestionsResponse] = await Promise.all([
-                    fetch('/api/balances'),
-                    fetch('/api/settlement-suggestions')
-                ]);
-                
-                if (balancesResponse.ok && suggestionsResponse.ok) {
-                    const balancesData = await balancesResponse.json();
-                    const suggestionsData = await suggestionsResponse.json();
-                    
-                    // Update displays
-                    this.updateBalancesDisplay(balancesData.balances, null);
-                    this.updateSettlementsDisplay(suggestionsData.suggestions, null);
-                    this.updateHeaderStatus(balancesData.balances);
-                }
-            }
-
-            // Also restore original payments table
-            const allSettlements = await this.fetchSettlementsData(null); // Get all settlements
-            this.updateRecentPaymentsTable(allSettlements);
-            
-        } catch (error) {
-            console.error('[ERROR] Failed to load original balances and settlements:', error);
-        }
+        
+        // Recreate filter UI
+        this.createFilterUI();
+        this.attachEventListeners();
+        this.applyFilters();
     }
 }
 
 // Export for use in other modules
-window.ExpenseFilterIntegration = ExpenseFilterIntegration;
+window.ExpenseFilterManager = ExpenseFilterManager;

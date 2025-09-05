@@ -140,6 +140,8 @@ class CombinedPageManager {
                 // Show success message
                 this.showSuccessMessage('Payment recorded successfully!');
                 
+                // Dispatch paymentAdded event
+                document.dispatchEvent(new CustomEvent('paymentAdded'));
             } else {
                 this.showError(data.error || 'Failed to record settlement');
             }
@@ -322,6 +324,9 @@ class CombinedPageManager {
                 
                 this.showTableMessage('Settlement updated successfully', 'success');
                 
+                // Dispatch paymentUpdated event
+                document.dispatchEvent(new CustomEvent('paymentUpdated'));
+                
                 // Refresh balances after edit
                 setTimeout(() => this.refreshBalancesOnly(), 500);
                 
@@ -404,6 +409,9 @@ class CombinedPageManager {
 
             if (data.success) {
                 this.showSuccessMessage('Payment deleted successfully');
+                
+                // Dispatch paymentDeleted event before refreshing
+                document.dispatchEvent(new CustomEvent('paymentDeleted'));
                 
                 // Refresh all data after deletion
                 await this.refreshAllDataImmediate();
@@ -562,8 +570,13 @@ class CombinedPageManager {
             const isMainPage = document.getElementById('settleUpModal') !== null;
             
             if (isCombinedPage) {
-                // For combined page, do full page reload to refresh all server-side data
-                window.location.reload();
+                // For combined page, update the data without full page reload
+                this.renderSidebarSettlementsIfNeeded();
+                
+                // Reapply existing filters to keep the view consistent
+                if (window.expenseFilterIntegration?.currentFilter) {
+                    window.expenseFilterIntegration.handleFilterChange(window.expenseFilterIntegration.currentFilter);
+                }
             } else if (isMainPage) {
                 // For main page, refresh balances and settlements data
                 console.log('[DEBUG] Refreshing main page data...');
