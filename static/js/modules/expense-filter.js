@@ -1,475 +1,481 @@
+// Updated Expense Filter Integration Module
+// This module integrates the expense filter with the existing expense table and balance systems
 
-class ExpenseFilterManager {
+class ExpenseFilterIntegration {
     constructor(options = {}) {
-        this.tableSelector = options.tableSelector || '.expenses-table';
-        this.containerSelector = options.containerSelector || '.table-wrapper';
-        this.onFilterChange = options.onFilterChange || (() => {});
+        this.filterManager = null;
+        this.onFilterChange = options.onFilterChange || this.handleFilterChange.bind(this);
+        this.urls = options.urls || window.urls || {};
+        this.usersData = this.loadUsersData();
+        this.originalPaymentsHTML = null; // Store original payments table HTML
+        this.currentFilter = null; // Store current filter state
         
-        this.filters = {
-            paidBy: null,
-            category: [],
-            description: [],
-            amountSort: null, // 'asc' or 'desc'
-            dateFilter: { year: null, month: null },
-            dateRange: { start: null, end: null }
-        };
+        // Listen for payments table updates
+        document.addEventListener('paymentAdded', () => {
+            // Wait a moment for the table to be updated
+            setTimeout(() => {
+                this.storeOriginalPaymentsTable();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }, 100);
+        });
         
-        this.originalRows = [];
-        this.filteredRows = [];
+        document.addEventListener('paymentDeleted', () => {
+            // Wait a moment for the table to be updated
+            setTimeout(() => {
+                this.storeOriginalPaymentsTable();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }, 100);
+        });
+        
+        document.addEventListener('paymentUpdated', () => {
+            // Wait a moment for the table to be updated
+            setTimeout(() => {
+                this.storeOriginalPaymentsTable();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }, 100);
+        });
         
         this.init();
     }
 
     init() {
-        this.cacheOriginalRows();
-        this.createFilterUI();
-        this.attachEventListeners();
-    }
-
-    cacheOriginalRows() {
-        const table = document.querySelector(this.tableSelector);
-        if (!table) return;
-        
-        const rows = table.querySelectorAll('tbody tr[data-expense-id]');
-        this.originalRows = Array.from(rows).map(row => ({
-            element: row.cloneNode(true),
-            data: this.extractRowData(row)
-        }));
-        this.filteredRows = [...this.originalRows];
-    }
-
-    extractRowData(row) {
-        const cells = row.querySelectorAll('td');
-        
-        // Get participants from data-value attribute, not text content
-        const participantsCell = row.querySelector('td.participants');
-        let participants = '';
-        if (participantsCell) {
-            // Use data-value attribute which contains the comma-separated participant names
-            participants = participantsCell.getAttribute('data-value') || '';
-            console.log('[DEBUG] Extracted participants from data-value:', participants);
+        // Wait for DOM to be ready and other managers to be initialized
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => this.initializeFilter());
+        } else {
+            this.initializeFilter();
         }
-        
-        return {
-            id: row.dataset.expenseId,
-            amount: parseFloat(cells[0]?.dataset.value || cells[0]?.textContent.replace('$', '') || 0),
-            category: cells[1]?.dataset.value || cells[1]?.textContent.trim() || '',
-            description: cells[2]?.dataset.value || cells[2]?.textContent.trim() || '',
-            paidBy: cells[3]?.dataset.value || cells[3]?.textContent.trim() || '',
-            participants: participants, // Now correctly extracted from data-value
-            date: cells[participantsCell ? 5 : 4]?.dataset.value || cells[participantsCell ? 5 : 4]?.textContent.trim() || ''
-        };
     }
 
-    createFilterUI() {
-        const container = document.querySelector(this.containerSelector);
-        if (!container) return;
-
-        const filterContainer = document.createElement('div');
-        filterContainer.className = 'expense-filters';
-        filterContainer.innerHTML = this.generateFilterHTML();
-        
-        // Insert before the table
-        container.insertBefore(filterContainer, container.firstChild);
+    loadUsersData() {
+        const usersScript = document.getElementById('users-data');
+        if (usersScript) {
+            try {
+                return JSON.parse(usersScript.textContent || '[]');
+            } catch (e) {
+                console.error('Error parsing users data:', e);
+                return [];
+            }
+        }
+        return [];
     }
 
-    generateFilterHTML() {
-        const uniqueUsers = [...new Set(this.originalRows.map(row => row.data.paidBy))];
-        const uniqueCategories = [...new Set(this.originalRows.map(row => row.data.category))];
-        const uniqueDescriptions = [...new Set(this.originalRows.map(row => row.data.description).filter(d => d))];
+    initializeFilter() {
+        // Store original payments table HTML before any filtering
+        this.storeOriginalPaymentsTable();
         
-        // Get unique years and months from dates
-        const dates = this.originalRows.map(row => new Date(row.data.date));
-        const uniqueYears = [...new Set(dates.map(d => d.getFullYear()))].sort((a, b) => b - a);
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
+        // Initialize the filter manager
+        this.filterManager = new window.ExpenseFilterManager({
+            tableSelector: '.expenses-table',
+            containerSelector: '.table-wrapper',
+            onFilterChange: this.onFilterChange
+        });
+
+        // Set up integration with existing systems
+        this.setupIntegrations();
+    }
+
+    storeOriginalPaymentsTable() {
+        // Try each possible table container first
+        const containers = [
+            document.querySelector('.settlements-history'),
+            document.querySelector('.recent-payments'),
+            document.querySelector('.payments-history'),
+            document.querySelector('.settlements-table-container')
         ];
 
-        return `
-            <div class="filter-header">
-                <h4>Filter Expenses</h4>
-                <button class="clear-filters-btn" type="button">Clear All Filters</button>
-            </div>
-            <div class="filter-row">
-                <div class="filter-group">
-                    <label>Paid By</label>
-                    <select class="filter-select" data-filter="paidBy">
-                        <option value="">All Users</option>
-                        ${uniqueUsers.map(user => `<option value="${user}">${user}</option>`).join('')}
-                    </select>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Category</label>
-                    <div class="multi-select-container">
-                        <button class="multi-select-btn" data-filter="category">
-                            <span class="selected-text">All Categories</span>
-                            <span class="arrow">▼</span>
-                        </button>
-                        <div class="multi-select-dropdown">
-                            ${uniqueCategories.map(category => `
-                                <label class="checkbox-item">
-                                    <input type="checkbox" value="${category}" data-filter="category">
-                                    <span>${category}</span>
-                                </label>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Description</label>
-                    <div class="multi-select-container">
-                        <button class="multi-select-btn" data-filter="description">
-                            <span class="selected-text">All Descriptions</span>
-                            <span class="arrow">▼</span>
-                        </button>
-                        <div class="multi-select-dropdown">
-                            ${uniqueDescriptions.map(desc => `
-                                <label class="checkbox-item">
-                                    <input type="checkbox" value="${desc}" data-filter="description">
-                                    <span>${desc}</span>
-                                </label>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="filter-group">
-                    <label>Amount</label>
-                    <select class="filter-select" data-filter="amountSort">
-                        <option value="">No Sorting</option>
-                        <option value="asc">Lowest to Highest</option>
-                        <option value="desc">Highest to Lowest</option>
-                    </select>
-                </div>
-                
-                <div class="filter-group date-filter-group">
-                    <label>Date Period</label>
-                    <div class="date-filter-container">
-                        <select class="filter-select date-year" data-filter="year">
-                            <option value="">All Years</option>
-                            ${uniqueYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-                        </select>
-                        <select class="filter-select date-month" data-filter="month" disabled>
-                            <option value="">All Months</option>
-                            ${months.map((month, index) => `<option value="${index + 1}">${month}</option>`).join('')}
-                        </select>
-                    </div>
-                </div>
-            </div>
-        `;
-    }
-
-    attachEventListeners() {
-        const filterContainer = document.querySelector('.expense-filters');
-        if (!filterContainer) return;
-
-        // Single select filters
-        filterContainer.querySelectorAll('.filter-select').forEach(select => {
-            select.addEventListener('change', (e) => {
-                this.handleSingleSelectFilter(e.target);
-            });
-        });
-
-        // Multi-select dropdowns
-        filterContainer.querySelectorAll('.multi-select-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.toggleMultiSelectDropdown(btn);
-            });
-        });
-
-        // Multi-select checkboxes
-        filterContainer.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
-            checkbox.addEventListener('change', (e) => {
-                this.handleMultiSelectFilter(e.target);
-            });
-        });
-
-        // Clear filters button
-        const clearBtn = filterContainer.querySelector('.clear-filters-btn');
-        if (clearBtn) {
-            clearBtn.addEventListener('click', () => {
-                this.clearAllFilters();
-            });
-        }
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.multi-select-container')) {
-                this.closeAllDropdowns();
-            }
-        });
-    }
-
-    handleSingleSelectFilter(select) {
-        const filterType = select.dataset.filter;
-        const value = select.value;
-
-        switch (filterType) {
-            case 'paidBy':
-                this.filters.paidBy = value || null;
-                break;
-            case 'amountSort':
-                this.filters.amountSort = value || null;
-                break;
-            case 'year':
-                this.filters.dateFilter.year = value ? parseInt(value) : null;
-                this.handleYearChange(value);
-                break;
-            case 'month':
-                this.filters.dateFilter.month = value ? parseInt(value) : null;
-                break;
-        }
-
-        this.applyFilters();
-    }
-
-    handleYearChange(yearValue) {
-        const monthSelect = document.querySelector('.date-month');
-        if (!monthSelect) return;
-
-        if (yearValue) {
-            // Enable month selector and populate with available months for the selected year
-            monthSelect.disabled = false;
-            this.populateAvailableMonths(parseInt(yearValue));
-        } else {
-            // Disable month selector and reset
-            monthSelect.disabled = true;
-            monthSelect.value = '';
-            this.filters.dateFilter.month = null;
-        }
-    }
-
-    populateAvailableMonths(selectedYear) {
-        const monthSelect = document.querySelector('.date-month');
-        if (!monthSelect) return;
-
-        // Get months that have expenses for the selected year
-        const availableMonths = new Set();
-        this.originalRows.forEach(row => {
-            const date = new Date(row.data.date);
-            if (date.getFullYear() === selectedYear) {
-                availableMonths.add(date.getMonth() + 1);
-            }
-        });
-
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-
-        // Clear and repopulate month options
-        monthSelect.innerHTML = '<option value="">All Months</option>';
-        
-        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
-            const option = document.createElement('option');
-            option.value = monthNum;
-            option.textContent = months[monthNum - 1];
-            monthSelect.appendChild(option);
-        });
-
-        // If current month filter is not available for this year, reset it
-        if (this.filters.dateFilter.month && !availableMonths.has(this.filters.dateFilter.month)) {
-            this.filters.dateFilter.month = null;
-            monthSelect.value = '';
-        }
-    }
-
-    handleMultiSelectFilter(checkbox) {
-        const filterType = checkbox.dataset.filter;
-        const value = checkbox.value;
-        
-        if (checkbox.checked) {
-            if (!this.filters[filterType].includes(value)) {
-                this.filters[filterType].push(value);
-            }
-        } else {
-            this.filters[filterType] = this.filters[filterType].filter(v => v !== value);
-        }
-
-        this.updateMultiSelectDisplay(filterType);
-        this.applyFilters();
-    }
-
-    updateMultiSelectDisplay(filterType) {
-        const container = document.querySelector(`[data-filter="${filterType}"]`).closest('.multi-select-container');
-        const selectedText = container.querySelector('.selected-text');
-        const selected = this.filters[filterType];
-
-        if (selected.length === 0) {
-            selectedText.textContent = filterType === 'category' ? 'All Categories' : 'All Descriptions';
-        } else if (selected.length === 1) {
-            selectedText.textContent = selected[0];
-        } else {
-            selectedText.textContent = `${selected.length} selected`;
-        }
-    }
-
-    toggleMultiSelectDropdown(btn) {
-        const dropdown = btn.nextElementSibling;
-        const isOpen = dropdown.style.display === 'block';
-        
-        this.closeAllDropdowns();
-        
-        if (!isOpen) {
-            dropdown.style.display = 'block';
-        }
-    }
-
-    closeAllDropdowns() {
-        document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
-            dropdown.style.display = 'none';
-        });
-    }
-
-
-    applyFilters() {
-        let filtered = [...this.originalRows];
-
-        // Apply paid by filter
-        if (this.filters.paidBy) {
-            filtered = filtered.filter(row => row.data.paidBy === this.filters.paidBy);
-        }
-
-        // Apply category filter
-        if (this.filters.category.length > 0) {
-            filtered = filtered.filter(row => this.filters.category.includes(row.data.category));
-        }
-
-        // Apply description filter
-        if (this.filters.description.length > 0) {
-            filtered = filtered.filter(row => this.filters.description.includes(row.data.description));
-        }
-
-    
-
-        // Apply date filter
-        if (this.filters.dateFilter.year || this.filters.dateFilter.month) {
-            filtered = filtered.filter(row => {
-                const date = new Date(row.data.date);
-                const year = date.getFullYear();
-                const month = date.getMonth() + 1;
-
-                let yearMatch = true;
-                let monthMatch = true;
-
-                if (this.filters.dateFilter.year) {
-                    yearMatch = year === this.filters.dateFilter.year;
+        // Find the first container that exists and has a tbody
+        let paymentsTable = null;
+        for (const container of containers) {
+            if (container) {
+                const tbody = container.querySelector('table tbody');
+                if (tbody) {
+                    paymentsTable = tbody;
+                    break;
                 }
-
-                if (this.filters.dateFilter.month) {
-                    monthMatch = month === this.filters.dateFilter.month;
-                }
-
-                return yearMatch && monthMatch;
-            });
+            }
         }
+        
+        if (paymentsTable) {
+            this.originalPaymentsHTML = paymentsTable.innerHTML;
+            console.log('[DEBUG] Stored original payments table HTML from', paymentsTable.closest('div').className);
+            this.paymentsTableSelector = this.getTableSelector(paymentsTable);
+        } else {
+            console.log('[DEBUG] No payments table found in any container');
+        }
+    }
 
-        // Apply amount sorting
-        if (this.filters.amountSort) {
-            filtered.sort((a, b) => {
-                if (this.filters.amountSort === 'asc') {
-                    return a.data.amount - b.data.amount;
+    getTableSelector(tbody) {
+        // Get the container class to ensure we find the same table later
+        const container = tbody.closest('div');
+        if (container) {
+            return `${container.className} table tbody`;
+        }
+        return null;
+    }
+
+    setupIntegrations() {
+        // Listen for expense table updates to refresh filters
+        document.addEventListener('expenseTableUpdated', () => {
+            if (this.filterManager) {
+                // Store the original payments table again
+                this.storeOriginalPaymentsTable();
+                // Refresh and maintain current filter
+                this.filterManager.refresh();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }
+        });
+
+        // Listen for new expenses added
+        document.addEventListener('expenseAdded', () => {
+            if (this.filterManager) {
+                // Store the original payments table again
+                this.storeOriginalPaymentsTable();
+                // Refresh and maintain current filter
+                this.filterManager.refresh();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }
+        });
+    }
+
+    async handleFilterChange(filteredData) {
+        try {
+            console.log('[DEBUG] === HANDLEFILTERCHANGE START ===');
+            console.log('[DEBUG] Filtered data:', filteredData);
+            
+            // Store the current filter
+            this.currentFilter = filteredData;
+            
+            // Update total expenses card and count
+            this.updateTotalExpensesCard(filteredData);
+            this.updateExpenseCount(filteredData);
+            
+            // Try to initialize the payments table if not already done
+            if (!this.originalPaymentsHTML) {
+                const tableContainer = document.getElementById('settlements-table-container');
+                if (tableContainer) {
+                    const tbody = tableContainer.querySelector('table tbody');
+                    if (tbody && tbody.children.length > 0) {
+                        this.originalPaymentsHTML = tbody.innerHTML;
+                        console.log('[DEBUG] Late initialization: stored original payments table HTML');
+                    }
+                }
+            }
+
+            // Now try to filter the payments table
+            if (filteredData.dateFilter) {
+                const tableContainer = document.getElementById('settlements-table-container');
+                const tbody = tableContainer?.querySelector('table tbody');
+                
+                if (tbody && this.originalPaymentsHTML) {
+                    console.log('[DEBUG] Found payments table, applying filter...');
+                    console.log('[DEBUG] Filter state:', JSON.stringify(filteredData.dateFilter));
+                    if (filteredData.isCleared) {
+                        tbody.innerHTML = this.originalPaymentsHTML;
+                        console.log('[DEBUG] Reset payments table to original content');
+                    } else {
+                        const tempDiv = document.createElement('div');
+                        tempDiv.innerHTML = `<table><tbody>${this.originalPaymentsHTML}</tbody></table>`;
+                        const allRows = Array.from(tempDiv.querySelectorAll('tr'));
+                        
+                        console.log('[DEBUG] Processing', allRows.length, 'payment rows');
+                        
+                        const filteredRows = allRows.filter(row => {
+                            // Skip the "no data" row if present
+                            if (row.querySelector('.no-data')) {
+                                console.log('[DEBUG] Skipping no-data row');
+                                return false;
+                            }
+                            
+                            // Get the date cell (it's either the 4th or 5th cell depending on compact mode)
+                            const isCompact = document.querySelector('.settlements-history.compact-mode') !== null;
+                            const dateCellIndex = isCompact ? 3 : 4;
+                            const dateCell = row.cells?.[dateCellIndex];
+                            
+                            if (!dateCell) {
+                                console.log('[DEBUG] No date cell found in row:', row.innerHTML);
+                                return false;
+                            }
+                            
+                            // Try to get date from data-value first, then fallback to text content
+                            const dateText = dateCell.getAttribute('data-value') || dateCell.textContent.trim();
+                            if (!dateText) {
+                                console.log('[DEBUG] Empty date text in cell');
+                                return false;
+                            }
+                            
+                            console.log('[DEBUG] Processing row date:', dateText);
+                            
+                            // Parse date in YYYY-MM-DD format
+                            const dateParts = dateText.split('-');
+                            if (dateParts.length < 2) {
+                                console.log('[DEBUG] Invalid date format:', dateText);
+                                return false;
+                            }
+                            
+                            const rowYear = parseInt(dateParts[0]);
+                            const rowMonth = parseInt(dateParts[1]);
+                            
+                            console.log(`[DEBUG] Parsed date: year=${rowYear}, month=${rowMonth}`);
+                            console.log(`[DEBUG] Filter: year=${filteredData.dateFilter?.year}, month=${filteredData.dateFilter?.month}`);
+                            
+                            if (filteredData.dateFilter?.year && filteredData.dateFilter?.month) {
+                                const yearMatch = rowYear === parseInt(filteredData.dateFilter.year);
+                                const monthMatch = rowMonth === parseInt(filteredData.dateFilter.month);
+                                console.log(`[DEBUG] Match check: year=${yearMatch}, month=${monthMatch}`);
+                                return yearMatch && monthMatch;
+                            } else if (filteredData.dateFilter?.year) {
+                                return rowYear === parseInt(filteredData.dateFilter.year);
+                            } else if (filteredData.dateFilter?.month) {
+                                return rowMonth === parseInt(filteredData.dateFilter.month);
+                            }
+                            return true;
+                        });
+                        
+                        if (filteredRows.length === 0) {
+                            tbody.innerHTML = `<tr><td colspan="5" class="no-data">No payments found for this period</td></tr>`;
+                        } else {
+                            tbody.innerHTML = filteredRows.map(row => row.outerHTML).join('');
+                        }
+                        console.log(`[DEBUG] Filtered payments table: ${filteredRows.length} rows shown`);
+                    }
                 } else {
-                    return b.data.amount - a.data.amount;
+                    console.log('[DEBUG] Could not find payments table or no original content stored');
                 }
-            });
-        }
+            }
+            
+            // Re-attach event listeners for editable cells after filtering
+            this.reattachEditableListeners();
 
-        this.filteredRows = filtered;
-        this.updateTableDisplay();
-        this.updateFilterStats();
+        } catch (error) {
+            console.error('[ERROR] Failed to update data after filter change:', error);
+        }
     }
 
-    updateTableDisplay() {
-        const table = document.querySelector(this.tableSelector);
-        if (!table) return;
+    reattachEditableListeners() {
+        // Re-initialize the expense table manager for the filtered rows
+        if (window.expenseTableManager) {
+            // Setup editable cells for the filtered rows
+            window.expenseTableManager.setupEditableCells();
+            window.expenseTableManager.setupDeleteButtons();
+        } else if (window.ExpenseTableManager) {
+            // Create a new instance if needed
+            const tableManager = new window.ExpenseTableManager({
+                tableSelector: '.expenses-table',
+                errorSelector: '#table-error',
+                urls: this.urls
+            });
+            window.expenseTableManager = tableManager;
+        }
 
-        const tbody = table.querySelector('tbody');
-        tbody.innerHTML = '';
+        // Re-initialize the settlements table manager for the filtered rows
+        if (window.combinedPageManager) {
+            window.combinedPageManager.initializeTableEditing();
+            window.combinedPageManager.initializeDeleteButtons();
+        } else if (window.CombinedPageManager) {
+            // Create a new instance if needed
+            const pageManager = new window.CombinedPageManager();
+            window.combinedPageManager = pageManager;
+        }
+        
+        console.log('[DEBUG] Re-attached editable listeners to filtered rows');
+    }
+    
+    // Method to reapply current filter
+    reapplyFilter() {
+        if (this.currentFilter) {
+            console.log('[DEBUG] Reapplying current filter after table update');
+            this.handleFilterChange(this.currentFilter);
+        }
+    }
 
-        if (this.filteredRows.length === 0) {
-            const colCount = table.querySelectorAll('thead th').length;
-            tbody.innerHTML = `
+    filterRecentPaymentsTable(dateFilter, isCleared) {
+        console.log('[DEBUG] Filtering recent payments table:', dateFilter, isCleared);
+        
+        // Use the stored selector to find the same table
+        if (!this.paymentsTableSelector || !this.originalPaymentsHTML) {
+            console.log('[DEBUG] No table selector or original HTML stored');
+            return;
+        }
+        
+        const paymentsTable = document.querySelector(this.paymentsTableSelector);
+        if (!paymentsTable) {
+            console.log('[DEBUG] Could not find payments table with selector:', this.paymentsTableSelector);
+            return;
+        }
+        
+        console.log('[DEBUG] Found payments table, applying filter');
+
+        // If filters are cleared or no date filter is active, restore original table
+        if (isCleared || (!dateFilter || (!dateFilter.year && !dateFilter.month))) {
+            paymentsTable.innerHTML = this.originalPaymentsHTML;
+            console.log('[DEBUG] Restored original payments table');
+            return;
+        }
+        
+        console.log('[DEBUG] Applying date filter to payments:', dateFilter);
+
+        // Get all rows from the original HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = `<table><tbody>${this.originalPaymentsHTML}</tbody></table>`;
+        const allRows = Array.from(tempDiv.querySelectorAll('tr'));
+        
+        // Filter rows based on date
+        const filteredRows = allRows.filter(row => {
+            const dateCell = row.querySelector('td:first-child');
+            if (!dateCell) return false;
+            
+            const dateText = dateCell.textContent.trim();
+            if (!dateText || dateText === 'No payments found for this period') return false;
+            
+            // Parse the date - format should be YYYY-MM-DD
+            const dateParts = dateText.split('-');
+            if (dateParts.length !== 3) return false;
+            
+            const rowYear = parseInt(dateParts[0]);
+            const rowMonth = parseInt(dateParts[1]); // This is already 1-based (1-12)
+            
+            console.log(`[DEBUG] Row date: ${dateText} (year: ${rowYear}, month: ${rowMonth})`);
+            console.log(`[DEBUG] Filter: year: ${dateFilter.year}, month: ${dateFilter.month}`);
+            
+            if (dateFilter.year && dateFilter.month) {
+                const filterYear = parseInt(dateFilter.year);
+                const filterMonth = parseInt(dateFilter.month);
+                console.log(`[DEBUG] Comparing ${rowYear}-${rowMonth} with ${filterYear}-${filterMonth}`);
+                return rowYear === filterYear && rowMonth === filterMonth;
+            } else if (dateFilter.year) {
+                return rowYear === parseInt(dateFilter.year);
+            } else if (dateFilter.month) {
+                return rowMonth === parseInt(dateFilter.month);
+            }
+            
+            return true;
+        });
+
+        // Update the table with filtered rows
+        if (filteredRows.length === 0) {
+            paymentsTable.innerHTML = `
                 <tr>
-                    <td colspan="${colCount}" style="text-align: center; color: #888; padding: 40px 20px;">
-                        No expenses match the current filters
+                    <td colspan="5" style="text-align: center; color: #888; padding: 20px;">
+                        No payments found for the filtered period
                     </td>
                 </tr>
             `;
         } else {
-            this.filteredRows.forEach(row => {
-                tbody.appendChild(row.element.cloneNode(true));
-            });
+            paymentsTable.innerHTML = filteredRows.map(row => row.outerHTML).join('');
         }
+        
+        console.log(`[DEBUG] Filtered payments: ${filteredRows.length} rows shown`);
+    }
 
-        // Reattach event listeners for the new rows if expense table manager exists
-        if (window.expenseTableManager && window.expenseTableManager.attachEventListenersToContainer) {
-            window.expenseTableManager.attachEventListenersToContainer(tbody);
+    updateTotalExpensesCard(filteredData) {
+        const totalElement = document.getElementById('expenses-total');
+        if (totalElement) {
+            totalElement.textContent = `${filteredData.totalAmount.toFixed(2)}`;
+            
+            // Add visual indicator that this is filtered data
+            if (filteredData.count < this.filterManager.originalRows.length) {
+                totalElement.style.background = 'linear-gradient(135deg, #f39c12, #e67e22)';
+                totalElement.title = `Filtered total (${filteredData.count} of ${this.filterManager.originalRows.length} expenses)`;
+            } else {
+                totalElement.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+                totalElement.title = 'Total of all expenses';
+            }
         }
     }
 
-    updateFilterStats() {
+    updateExpenseCount(filteredData) {
         const countElement = document.querySelector('.expense-count');
         if (countElement) {
-            const total = this.originalRows.length;
-            const filtered = this.filteredRows.length;
-            countElement.textContent = `(${filtered} of ${total})`;
-        }
-    }
-
-    clearAllFilters() {
-        // Reset filter state
-        this.filters = {
-            paidBy: null,
-            category: [],
-            description: [],
-            amountSort: null,
-            dateFilter: { year: null, month: null },
-            dateRange: { start: null, end: null }
-        };
-
-        // Reset UI
-        document.querySelectorAll('.filter-select').forEach(select => {
-            select.value = '';
-            if (select.classList.contains('date-month')) {
-                select.disabled = true;
+            const total = this.filterManager.originalRows.length;
+            const filtered = filteredData.count;
+            
+            if (filtered < total) {
+                countElement.textContent = `(${filtered} of ${total})`;
+                countElement.style.background = '#fff3cd';
+                countElement.style.color = '#856404';
+                countElement.style.padding = '2px 6px';
+                countElement.style.borderRadius = '3px';
+            } else {
+                countElement.textContent = `(${total})`;
+                countElement.style.background = '#f8f9fa';
+                countElement.style.color = '#6c757d';
+                countElement.style.padding = '2px 6px';
+                countElement.style.borderRadius = '3px';
             }
-        });
-
-        document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
-            checkbox.checked = false;
-        });
-
-        document.querySelectorAll('.selected-text').forEach((text, index) => {
-            text.textContent = index === 0 ? 'All Categories' : 'All Descriptions';
-        });
-
-        this.closeAllDropdowns();
-        this.applyFilters();
-        
-        // Trigger callback to reload original data
+        }
     }
 
-    // Public method to refresh filters when data changes
-    refresh() {
-        this.cacheOriginalRows();
-        
-        // Remove old filter UI
-        const oldFilters = document.querySelector('.expense-filters');
-        if (oldFilters) {
-            oldFilters.remove();
+    // Public method to get current filter state
+    getFilterState() {
+        return this.filterManager ? this.filterManager.filters : null;
+    }
+
+    // Public method to clear all filters
+    async clearFilters() {
+        if (this.filterManager) {
+            console.log('[DEBUG] Clearing all filters');
+            this.currentFilter = null;
+            this.filterManager.clearAllFilters();
+            
+            // Get fresh copy of payments table
+            const tableContainer = document.getElementById('settlements-table-container');
+            const tbody = tableContainer?.querySelector('table tbody');
+            if (tbody) {
+                // Update our stored original HTML before resetting
+                this.storeOriginalPaymentsTable();
+                tbody.innerHTML = this.originalPaymentsHTML;
+                console.log('[DEBUG] Reset payments table to original content');
+            }
+            
+            // Make sure the filter UI is reset too
+            const yearSelect = document.querySelector('select[name="year"]');
+            const monthSelect = document.querySelector('select[name="month"]');
+            if (yearSelect) yearSelect.value = '';
+            if (monthSelect) monthSelect.value = '';
         }
-        
-        // Recreate filter UI
-        this.createFilterUI();
-        this.attachEventListeners();
-        this.applyFilters();
+    }
+
+    // Store the original payments table HTML
+    storeOriginalPaymentsTable() {
+        const tableContainer = document.getElementById('settlements-table-container');
+        if (tableContainer) {
+            const tbody = tableContainer.querySelector('table tbody');
+            if (tbody) {
+                // For empty tables, store the "no payments" message
+                if (tbody.children.length === 0) {
+                    this.originalPaymentsHTML = `<tr><td colspan="5" class="no-data">No payments found for this period</td></tr>`;
+                } else {
+                    this.originalPaymentsHTML = tbody.innerHTML;
+                }
+                console.log('[DEBUG] Stored original payments table HTML, rows:', tbody.children.length);
+            }
+        }
+    }
+
+    // Public method to refresh the entire system
+    refresh() {
+        if (this.filterManager) {
+            // Store the original payments table again before refresh
+            this.storeOriginalPaymentsTable();
+            // If we have an active filter, reapply it
+            if (this.currentFilter && !this.currentFilter.isCleared) {
+                this.handleFilterChange(this.currentFilter);
+            }
+            this.filterManager.refresh();
+        }
     }
 }
 
 // Export for use in other modules
-window.ExpenseFilterManager = ExpenseFilterManager;
+window.ExpenseFilterIntegration = ExpenseFilterIntegration;
