@@ -4,72 +4,13 @@ class ExpenseFilterManager {
         this.containerSelector = options.containerSelector || '.table-wrapper';
         this.onFilterChange = options.onFilterChange || (() => {});
         
-        // Add search styles
-        const style = document.createElement('style');
-        style.textContent = `
-            .search-container {
-                padding: 8px;
-                border-bottom: 1px solid #ddd;
-                position: sticky;
-                top: 0;
-                background: white;
-                z-index: 1;
-            }
-            .description-search {
-                width: 100%;
-                padding: 6px;
-                border: 1px solid #ddd;
-                border-radius: 4px;
-                font-size: 14px;
-            }
-            .description-search:focus {
-                outline: none;
-                border-color: #007bff;
-            }
-            .checkbox-list {
-                max-height: 200px;
-                overflow: auto;
-                scrollbar-width: thin;  /* For Firefox */
-            }
-            /* Make both vertical and horizontal scrollbars small */
-            .checkbox-list::-webkit-scrollbar,
-            .multi-select-dropdown::-webkit-scrollbar {
-                width: 4px;
-                height: 4px;
-            }
-            .checkbox-list::-webkit-scrollbar-track,
-            .multi-select-dropdown::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 2px;
-            }
-            .checkbox-list::-webkit-scrollbar-thumb,
-            .multi-select-dropdown::-webkit-scrollbar-thumb {
-                background: #888;
-                border-radius: 2px;
-            }
-            .checkbox-list::-webkit-scrollbar-thumb:hover,
-            .multi-select-dropdown::-webkit-scrollbar-thumb:hover {
-                background: #555;
-            }
-            /* Corner where scrollbars meet */
-            .checkbox-list::-webkit-scrollbar-corner,
-            .multi-select-dropdown::-webkit-scrollbar-corner {
-                background: #f1f1f1;
-            }
-            .multi-select-dropdown {
-                max-height: none;
-                overflow: auto;
-                scrollbar-width: thin;  /* For Firefox */
-            }
-        `;
-        document.head.appendChild(style);
-        
+
         this.filters = {
-            paidBy: null,
+            paidBy: [],
             category: [],
             description: [],
-            amountSort: null, // 'asc' or 'desc'
-            dateFilter: { year: null, month: null },
+            amountSort: [],
+            dateFilter: { years: [], months: [] },
             dateRange: { start: null, end: null }
         };
         
@@ -137,15 +78,17 @@ class ExpenseFilterManager {
         const uniqueCategories = [...new Set(this.originalRows.map(row => row.data.category))];
         const uniqueDescriptions = [...new Set(this.originalRows.map(row => row.data.description).filter(d => d))];
         
-        // Get unique years and months from dates (assuming YYYY-MM-DD format)
+        // Get unique years from dates (assuming YYYY-MM-DD format)
         const dates = this.originalRows.map(row => {
             const [year, month] = row.data.date.split('-').map(num => parseInt(num));
             return { year, month };
         });
         const uniqueYears = [...new Set(dates.map(d => d.year))].sort((a, b) => b - a);
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
+
+        // Amount sort options
+        const amountSortOptions = [
+            { value: 'asc', label: 'Lowest to Highest' },
+            { value: 'desc', label: 'Highest to Lowest' }
         ];
 
         return `
@@ -156,10 +99,20 @@ class ExpenseFilterManager {
             <div class="filter-row">
                 <div class="filter-group">
                     <label>Paid By</label>
-                    <select class="filter-select" data-filter="paidBy">
-                        <option value="">All Users</option>
-                        ${uniqueUsers.map(user => `<option value="${user}">${user}</option>`).join('')}
-                    </select>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="paidBy">
+                            <span class="selected-text">All Users</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueUsers.map(user => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${user}" data-filter="paidBy">
+                                    <span>${user}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="filter-group">
@@ -204,25 +157,51 @@ class ExpenseFilterManager {
                 </div>
                 
                 <div class="filter-group">
-                    <label>Amount</label>
-                    <select class="filter-select" data-filter="amountSort">
-                        <option value="">No Sorting</option>
-                        <option value="asc">Lowest to Highest</option>
-                        <option value="desc">Highest to Lowest</option>
-                    </select>
+                    <label>Amount Sort</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="amountSort">
+                            <span class="selected-text">No Sorting</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${amountSortOptions.map(option => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${option.value}" data-filter="amountSort">
+                                    <span>${option.label}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="filter-group date-filter-group">
-                    <label>Date Period</label>
-                    <div class="date-filter-container">
-                        <select class="filter-select date-year" data-filter="year">
-                            <option value="">All Years</option>
-                            ${uniqueYears.map(year => `<option value="${year}">${year}</option>`).join('')}
-                        </select>
-                        <select class="filter-select date-month" data-filter="month" disabled>
-                            <option value="">All Months</option>
-                            ${months.map((month, i) => `<option value="${i + 1}">${month}</option>`).join('')}
-                        </select>
+                    <label>Year</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="year">
+                            <span class="selected-text">All Years</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueYears.map(year => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${year}" data-filter="year">
+                                    <span>${year}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="filter-group date-filter-group">
+                    <label>Month</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="month" disabled>
+                            <span class="selected-text">Select Year First</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown" id="month-dropdown">
+                            <!-- Months will be populated dynamically based on selected years -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -262,13 +241,6 @@ class ExpenseFilterManager {
             });
         }
 
-        // Single select filters
-        filterContainer.querySelectorAll('.filter-select').forEach(select => {
-            select.addEventListener('change', (e) => {
-                this.handleSingleSelectFilter(e.target);
-            });
-        });
-
         // Multi-select dropdowns
         filterContainer.querySelectorAll('.multi-select-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -300,114 +272,180 @@ class ExpenseFilterManager {
         });
     }
 
-    handleSingleSelectFilter(select) {
-        const filterType = select.dataset.filter;
-        const value = select.value;
-
-        switch (filterType) {
-            case 'paidBy':
-                this.filters.paidBy = value || null;
-                break;
-            case 'amountSort':
-                this.filters.amountSort = value || null;
-                break;
-            case 'year':
-                this.filters.dateFilter.year = value ? parseInt(value) : null;
-                this.handleYearChange(value);
-                break;
-            case 'month':
-                this.filters.dateFilter.month = value ? parseInt(value) : null;
-                console.log(`[DEBUG] Month filter set to: ${this.filters.dateFilter.month}`);
-                break;
-        }
-
-        this.applyFilters();
-    }
-
-    handleYearChange(yearValue) {
-        const monthSelect = document.querySelector('.date-month');
-        if (!monthSelect) return;
-
-        if (yearValue) {
-            // Enable month selector and populate with available months for the selected year
-            monthSelect.disabled = false;
-            this.populateAvailableMonths(parseInt(yearValue));
-        } else {
-            // Disable month selector and reset
-            monthSelect.disabled = true;
-            monthSelect.value = '';
-            this.filters.dateFilter.month = null;
-        }
-    }
-
-    populateAvailableMonths(selectedYear) {
-        const monthSelect = document.querySelector('.date-month');
-        if (!monthSelect) return;
-
-        // Get months that have expenses for the selected year
-        const availableMonths = new Set();
-        this.originalRows.forEach(row => {
-            // Parse date directly from YYYY-MM-DD format
-            const [year, month] = row.data.date.split('-').map(num => parseInt(num));
-            if (year === selectedYear) {
-                availableMonths.add(month); // month is already 1-based
-            }
-        });
-
-        const months = [
-            'January', 'February', 'March', 'April', 'May', 'June',
-            'July', 'August', 'September', 'October', 'November', 'December'
-        ];
-
-        // Clear and repopulate month options
-        monthSelect.innerHTML = '<option value="">All Months</option>';
-        
-        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
-            const option = document.createElement('option');
-            option.value = monthNum;
-            option.textContent = months[monthNum - 1]; // monthNum is 1-based, so subtract 1 for array index
-            console.log(`[DEBUG] Adding month option: ${monthNum} = ${months[monthNum - 1]}`);
-            monthSelect.appendChild(option);
-        });
-
-        // If current month filter is not available for this year, reset it
-        if (this.filters.dateFilter.month && !availableMonths.has(this.filters.dateFilter.month)) {
-            this.filters.dateFilter.month = null;
-            monthSelect.value = '';
-        }
-    }
-
     handleMultiSelectFilter(checkbox) {
         const filterType = checkbox.dataset.filter;
         const value = checkbox.value;
         
-        if (checkbox.checked) {
-            if (!this.filters[filterType].includes(value)) {
+        // Handle different filter types
+        if (filterType === 'year') {
+            if (checkbox.checked) {
+                if (!this.filters.dateFilter.years.includes(parseInt(value))) {
+                    this.filters.dateFilter.years.push(parseInt(value));
+                }
+            } else {
+                this.filters.dateFilter.years = this.filters.dateFilter.years.filter(v => v !== parseInt(value));
+            }
+            
+            // Update available months based on selected years
+            this.updateAvailableMonths();
+            
+        } else if (filterType === 'month') {
+            if (checkbox.checked) {
+                if (!this.filters.dateFilter.months.includes(parseInt(value))) {
+                    this.filters.dateFilter.months.push(parseInt(value));
+                }
+            } else {
+                this.filters.dateFilter.months = this.filters.dateFilter.months.filter(v => v !== parseInt(value));
+            }
+        } else if (filterType === 'amountSort') {
+            // Amount sort should be single selection, so clear others first
+            this.filters[filterType] = [];
+            if (checkbox.checked) {
                 this.filters[filterType].push(value);
+                // Uncheck other amount sort options
+                const container = checkbox.closest('.multi-select-dropdown');
+                container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                    if (cb !== checkbox) {
+                        cb.checked = false;
+                    }
+                });
             }
         } else {
-            this.filters[filterType] = this.filters[filterType].filter(v => v !== value);
+            // Handle regular multi-select filters
+            if (checkbox.checked) {
+                if (!this.filters[filterType].includes(value)) {
+                    this.filters[filterType].push(value);
+                }
+            } else {
+                this.filters[filterType] = this.filters[filterType].filter(v => v !== value);
+            }
         }
 
         this.updateMultiSelectDisplay(filterType);
         this.applyFilters();
     }
 
-    updateMultiSelectDisplay(filterType) {
-        const container = document.querySelector(`[data-filter="${filterType}"]`).closest('.multi-select-container');
-        const selectedText = container.querySelector('.selected-text');
-        const selected = this.filters[filterType];
+    updateAvailableMonths() {
+        const monthButton = document.querySelector('[data-filter="month"]');
+        const monthDropdown = document.getElementById('month-dropdown');
+        
+        if (!monthButton || !monthDropdown) return;
+        
+        // If no years are selected, disable months
+        if (this.filters.dateFilter.years.length === 0) {
+            monthButton.disabled = true;
+            monthButton.querySelector('.selected-text').textContent = 'Select Year First';
+            monthDropdown.innerHTML = '';
+            this.filters.dateFilter.months = []; // Clear selected months
+            monthButton.classList.remove('has-selection');
+            return;
+        }
+        
+        // Enable months and populate with available months for selected years
+        monthButton.disabled = false;
+        
+        // Get months that have expenses for the selected years
+        const availableMonths = new Set();
+        this.originalRows.forEach(row => {
+            const [year, month] = row.data.date.split('-').map(num => parseInt(num));
+            if (this.filters.dateFilter.years.includes(year)) {
+                availableMonths.add(month);
+            }
+        });
+        
+        const months = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+        ];
+        
+        // Clear and repopulate month options
+        monthDropdown.innerHTML = '';
+        
+        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
+            const checkbox = document.createElement('label');
+            checkbox.className = 'checkbox-item';
+            checkbox.innerHTML = `
+                <input type="checkbox" value="${monthNum}" data-filter="month" ${this.filters.dateFilter.months.includes(monthNum) ? 'checked' : ''}>
+                <span>${months[monthNum - 1]}</span>
+            `;
+            monthDropdown.appendChild(checkbox);
+        });
+        
+        // Remove months from filter that are no longer available
+        this.filters.dateFilter.months = this.filters.dateFilter.months.filter(month => 
+            availableMonths.has(month)
+        );
+        
+        // Re-attach event listeners to new month checkboxes
+        monthDropdown.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                this.handleMultiSelectFilter(e.target);
+            });
+        });
+        
+        // Update display
+        this.updateMultiSelectDisplay('month');
+        
+        console.log(`[DEBUG] Updated available months for years [${this.filters.dateFilter.years}]: [${Array.from(availableMonths).sort()}]`);
+    }
 
+    updateMultiSelectDisplay(filterType) {
+        let container, selected, defaultText;
+        
+        if (filterType === 'year') {
+            container = document.querySelector(`[data-filter="year"]`).closest('.multi-select-container');
+            selected = this.filters.dateFilter.years;
+            defaultText = 'All Years';
+        } else if (filterType === 'month') {
+            container = document.querySelector(`[data-filter="month"]`).closest('.multi-select-container');
+            selected = this.filters.dateFilter.months;
+            
+            // Special handling for month display
+            if (this.filters.dateFilter.years.length === 0) {
+                defaultText = 'Select Year First';
+            } else {
+                defaultText = 'All Months';
+            }
+        } else {
+            container = document.querySelector(`[data-filter="${filterType}"]`).closest('.multi-select-container');
+            selected = this.filters[filterType];
+            defaultText = {
+                'paidBy': 'All Users',
+                'category': 'All Categories',
+                'description': 'All Descriptions',
+                'amountSort': 'No Sorting'
+            }[filterType];
+        }
+
+        const selectedText = container.querySelector('.selected-text');
+        
         if (selected.length === 0) {
-            selectedText.textContent = filterType === 'category' ? 'All Categories' : 'All Descriptions';
+            selectedText.textContent = defaultText;
+            container.querySelector('.multi-select-btn').classList.remove('has-selection');
         } else if (selected.length === 1) {
-            selectedText.textContent = selected[0];
+            if (filterType === 'month') {
+                const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                               'July', 'August', 'September', 'October', 'November', 'December'];
+                selectedText.textContent = months[selected[0] - 1];
+            } else if (filterType === 'amountSort') {
+                const sortLabels = { 'asc': 'Lowest to Highest', 'desc': 'Highest to Lowest' };
+                selectedText.textContent = sortLabels[selected[0]];
+            } else {
+                selectedText.textContent = selected[0];
+            }
+            container.querySelector('.multi-select-btn').classList.add('has-selection');
         } else {
             selectedText.textContent = `${selected.length} selected`;
+            container.querySelector('.multi-select-btn').classList.add('has-selection');
         }
     }
 
     toggleMultiSelectDropdown(btn) {
+        // Don't open month dropdown if it's disabled
+        if (btn.disabled) {
+            return;
+        }
+        
         const dropdown = btn.nextElementSibling;
         const isOpen = dropdown.style.display === 'block';
         
@@ -428,8 +466,8 @@ class ExpenseFilterManager {
         let filtered = [...this.originalRows];
 
         // Apply paid by filter
-        if (this.filters.paidBy) {
-            filtered = filtered.filter(row => row.data.paidBy === this.filters.paidBy);
+        if (this.filters.paidBy.length > 0) {
+            filtered = filtered.filter(row => this.filters.paidBy.includes(row.data.paidBy));
         }
 
         // Apply category filter
@@ -443,32 +481,25 @@ class ExpenseFilterManager {
         }
 
         // Apply date filter
-        if (this.filters.dateFilter.year || this.filters.dateFilter.month) {
+        if (this.filters.dateFilter.years.length > 0 || this.filters.dateFilter.months.length > 0) {
             filtered = filtered.filter(row => {
                 // Parse date directly from YYYY-MM-DD format
                 const [rowYear, rowMonth] = row.data.date.split('-').map(num => parseInt(num));
                 if (!rowYear || !rowMonth) return false;
 
-                let yearMatch = true;
-                let monthMatch = true;
+                let yearMatch = this.filters.dateFilter.years.length === 0 || this.filters.dateFilter.years.includes(rowYear);
+                let monthMatch = this.filters.dateFilter.months.length === 0 || this.filters.dateFilter.months.includes(rowMonth);
 
-                if (this.filters.dateFilter.year) {
-                    yearMatch = rowYear === this.filters.dateFilter.year;
-                }
-
-                if (this.filters.dateFilter.month) {
-                    monthMatch = rowMonth === this.filters.dateFilter.month;
-                }
-
-                console.log(`[DEBUG] Date filter: Row date ${row.data.date} (${rowYear}-${rowMonth}) against filter year: ${this.filters.dateFilter.year}, month: ${this.filters.dateFilter.month} -> Match: ${yearMatch && monthMatch}`);
+                console.log(`[DEBUG] Date filter: Row date ${row.data.date} (${rowYear}-${rowMonth}) against filter years: [${this.filters.dateFilter.years}], months: [${this.filters.dateFilter.months}] -> Match: ${yearMatch && monthMatch}`);
                 return yearMatch && monthMatch;
             });
         }
 
         // Apply amount sorting
-        if (this.filters.amountSort) {
+        if (this.filters.amountSort.length > 0) {
+            const sortType = this.filters.amountSort[0]; // Should only have one selection
             filtered.sort((a, b) => {
-                if (this.filters.amountSort === 'asc') {
+                if (sortType === 'asc') {
                     return a.data.amount - b.data.amount;
                 } else {
                     return b.data.amount - a.data.amount;
@@ -518,12 +549,17 @@ class ExpenseFilterManager {
         // Calculate total amount for filtered expenses
         const totalAmount = this.filteredRows.reduce((sum, row) => sum + row.data.amount, 0);
         
-        // Prepare filter change data
+        // Prepare filter change data - convert to old format for compatibility
         const filterChangeData = {
             count: filtered,
             totalAmount: totalAmount,
             expenses: this.filteredRows.map(row => row.data),
-            dateFilter: this.filters.dateFilter,
+            dateFilter: {
+                year: this.filters.dateFilter.years.length === 1 ? this.filters.dateFilter.years[0] : null,
+                month: this.filters.dateFilter.months.length === 1 ? this.filters.dateFilter.months[0] : null,
+                years: this.filters.dateFilter.years,
+                months: this.filters.dateFilter.months
+            },
             isCleared: false
         };
         
@@ -540,29 +576,44 @@ class ExpenseFilterManager {
     clearAllFilters() {
         // Reset filter state
         this.filters = {
-            paidBy: null,
+            paidBy: [],
             category: [],
             description: [],
-            amountSort: null,
-            dateFilter: { year: null, month: null },
+            amountSort: [],
+            dateFilter: { years: [], months: [] },
             dateRange: { start: null, end: null }
         };
 
-        // Reset UI
-        document.querySelectorAll('.filter-select').forEach(select => {
-            select.value = '';
-            if (select.classList.contains('date-month')) {
-                select.disabled = true;
-            }
-        });
-
+        // Reset UI checkboxes
         document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(checkbox => {
             checkbox.checked = false;
         });
 
+        // Reset display text
         document.querySelectorAll('.selected-text').forEach((text, index) => {
-            text.textContent = index === 0 ? 'All Categories' : 'All Descriptions';
+            const btn = text.closest('.multi-select-btn');
+            const filterType = btn.dataset.filter;
+            
+            const defaultTexts = {
+                'paidBy': 'All Users',
+                'category': 'All Categories', 
+                'description': 'All Descriptions',
+                'amountSort': 'No Sorting',
+                'year': 'All Years',
+                'month': 'Select Year First'
+            };
+            
+            text.textContent = defaultTexts[filterType];
+            btn.classList.remove('has-selection');
         });
+
+        // Disable month filter and clear its options
+        const monthButton = document.querySelector('[data-filter="month"]');
+        const monthDropdown = document.getElementById('month-dropdown');
+        if (monthButton && monthDropdown) {
+            monthButton.disabled = true;
+            monthDropdown.innerHTML = '';
+        }
 
         this.closeAllDropdowns();
         this.applyFilters();
