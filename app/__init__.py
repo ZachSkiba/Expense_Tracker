@@ -3,6 +3,7 @@
 from flask import Flask, request, session, redirect, url_for, render_template_string
 from models import db
 from config import Config
+from app.routes.recurring import recurring
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -77,5 +78,6 @@ def create_app():
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
     app.register_blueprint(management_bp)
+    app.register_blueprint(recurring)
 
     return app

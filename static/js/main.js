@@ -60,6 +60,12 @@ function initializeForPage(pageName, urls) {
             input.dataset.autocompleteInitialized = 'true';
         }
     });
+
+     // Initialize recurring payments manager
+    if (typeof RecurringPaymentsManager !== 'undefined') {
+        window.recurringPaymentsManager = new RecurringPaymentsManager();
+        console.log('Recurring payments manager initialized');
+    }
     
     // Page-specific initializations
     switch (pageName) {
