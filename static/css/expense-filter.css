@@ -21,7 +21,7 @@
     overflow-x: hidden;
     display: none;
     margin-top: 2px;
-    scrollbar-width: thin;  /* For Firefox */m: 20px;
+    scrollbar-width: thin;  /* For Firefox */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
