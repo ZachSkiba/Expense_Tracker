@@ -4,7 +4,24 @@
     border: 1px solid #e9ecef;
     border-radius: 12px;
     padding: 20px;
-    margin-bottom: 20px;
+}
+
+.multi-select-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 2px solid #3498db;
+    border-radius: 6px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    max-height: 240px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: none;
+    margin-top: 2px;
+    scrollbar-width: thin;  /* For Firefox */m: 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
@@ -94,8 +111,9 @@
 
 /* Combined Date Filter Styling */
 .date-filter-group {
-    grid-column: span 2;
-    min-width: 300px;
+    grid-column: span 1;
+    min-width: auto;
+    max-width: 280px;
 }
 
 .date-filter-container {
@@ -105,8 +123,9 @@
 }
 
 .date-filter-container .filter-select {
-    flex: 1;
-    min-width: 120px;
+    min-width: 90px;
+    max-width: 130px;
+    width: auto;
 }
 
 .date-year {
@@ -186,19 +205,23 @@
     border-radius: 6px;
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     z-index: 1000;
-    max-height: 200px;
+    max-height: 280px;
     overflow-y: auto;
+    overflow-x: hidden;
     display: none;
     margin-top: 2px;
+    scrollbar-width: thin;  /* For Firefox */
 }
 
 .checkbox-item {
     display: flex;
     align-items: center;
-    padding: 10px 12px;
+    padding: 4px 8px;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
     border-bottom: 1px solid #f8f9fa;
+    border-radius: 4px;
+    margin: 0 4px;
 }
 
 .checkbox-item:last-child {
@@ -206,7 +229,9 @@
 }
 
 .checkbox-item:hover {
-    background-color: #f8f9fa;
+    background: linear-gradient(135deg, #f8f9ff, #e8f0ff) !important;
+    transform: translateX(2px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .checkbox-item input[type="checkbox"] {
@@ -219,6 +244,112 @@
     font-size: 0.9rem;
     color: #495057;
     flex: 1;
+}
+
+.checkbox-item input[type="checkbox"]:checked + span {
+    color: #3498db;
+    font-weight: 500;
+}
+
+/* Search container styling */
+.search-container {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 1;
+}
+
+.description-search {
+    width: 100%;
+    padding: 6px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.description-search:focus {
+    outline: none;
+    border-color: #007bff;
+}
+
+.checkbox-list {
+    max-height: 300px;
+    overflow: hidden;
+}
+
+/* Webkit scrollbar styling for all dropdown containers */
+.checkbox-list::-webkit-scrollbar,
+.multi-select-dropdown::-webkit-scrollbar {
+    width: 8px;
+    height: 0;  /* Hide horizontal scrollbar */
+}
+
+.checkbox-list::-webkit-scrollbar-track,
+.multi-select-dropdown::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 3px;
+    margin: 4px;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb,
+.multi-select-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
+    transition: background-color 0.2s ease;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb:hover,
+.multi-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+    border-color: #cbd5e0;
+}
+
+.checkbox-list::-webkit-scrollbar-thumb:active,
+.multi-select-dropdown::-webkit-scrollbar-thumb:active {
+    background: #718096;
+}
+
+/* Corner where scrollbars meet */
+.checkbox-list::-webkit-scrollbar-corner,
+.multi-select-dropdown::-webkit-scrollbar-corner {
+    background: #f8f9fa;
+}
+
+/* Smooth dropdown animations */
+.multi-select-dropdown {
+    animation: slideDown 0.15s ease-out;
+    transform-origin: top;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scaleY(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+}
+
+/* Disabled state styling */
+.multi-select-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f8f9fa;
+    color: #6c757d;
+}
+
+.multi-select-btn:disabled:hover {
+    border-color: #e9ecef;
+    transform: none;
+}
+
+.multi-select-btn:disabled .arrow {
+    opacity: 0.5;
 }
 
 /* Filter stats styling */
@@ -272,12 +403,8 @@
 
 @media (max-width: 768px) {
     .filter-row {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-    
-    .date-filter-group {
-        grid-column: span 1;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
     }
     
     .filter-header {
@@ -319,39 +446,4 @@
     .checkbox-item span {
         font-size: 0.85rem;
     }
-}
-
-/* Animation for dropdown */
-.multi-select-dropdown {
-    animation: fadeIn 0.2s ease-out;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Scrollbar styling for dropdown */
-.multi-select-dropdown::-webkit-scrollbar {
-    width: 6px;
-}
-
-.multi-select-dropdown::-webkit-scrollbar-track {
-    background: #f1f1f1;
-    border-radius: 3px;
-}
-
-.multi-select-dropdown::-webkit-scrollbar-thumb {
-    background: #c1c1c1;
-    border-radius: 3px;
-}
-
-.multi-select-dropdown::-webkit-scrollbar-thumb:hover {
-    background: #a8a8a8;
 }
