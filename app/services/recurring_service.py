@@ -88,7 +88,6 @@ class RecurringPaymentService:
             db.session.add(participant)
         
         # Update balances
-        BalanceService._update_user_balance(expense)
 
         return expense
     
@@ -169,7 +168,7 @@ class RecurringPaymentService:
                     db.session.add(participant)
                 
                 # Update balances
-                BalanceService._update_user_balance(expense)
+            
                 created_expenses.append(expense)
             
             # Calculate next date

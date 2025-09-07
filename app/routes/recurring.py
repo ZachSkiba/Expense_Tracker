@@ -25,7 +25,6 @@ def get_recurring_payments_api():
             
             payments_data.append({
                 'id': payment.id,
-                'name': payment.name,
                 'amount': payment.amount,
                 'category_id': payment.category_id,
                 'category_name': payment.category_obj.name,
