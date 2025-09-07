@@ -3,7 +3,7 @@ Service for handling recurring payment logic
 """
 from datetime import datetime, date
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User
-from balance_service import BalanceService
+from balance_service import BalanceService  # Fixed import path
 import json
 
 

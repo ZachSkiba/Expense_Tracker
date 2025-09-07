@@ -67,6 +67,7 @@ class Expense(db.Model):
     # Link to recurring payment if this expense was auto-generated
     recurring_payment_id = db.Column(db.Integer, db.ForeignKey("recurring_payment.id"), nullable=True)
     recurring_payment = db.relationship("RecurringPayment", back_populates="generated_expenses")
+    recurring_payment = db.relationship('RecurringPayment', backref='created_expenses')
     
     # relationship to participants
     participants = db.relationship("ExpenseParticipant", back_populates="expense", cascade="all, delete-orphan")

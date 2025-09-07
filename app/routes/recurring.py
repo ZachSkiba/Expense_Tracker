@@ -3,7 +3,7 @@ Blueprint for recurring payments management
 """
 from flask import Blueprint, request, jsonify
 from models import db, RecurringPayment, User, Category
-from services.recurring_service import RecurringPaymentService
+from app.services.recurring_service import RecurringPaymentService  # Fixed import path
 from datetime import datetime
 
 recurring = Blueprint('recurring', __name__, url_prefix='/api/recurring')
