@@ -59,12 +59,12 @@
             <div class="modal-body">
                 <form method="POST" id="expense-form">
                 <div class="form-group">
-                    <label>Amount</label>
+                    <label class="required">Amount</label>
                     <input type="number" step="0.01" min="0.01" name="amount" value="{{ amount or '' }}" required>
                 </div>
 
                 <div class="form-group">
-                    <label>Category</label>
+                    <label class="required">Category</label>
                     <select id="category-select" name="category_id" required onchange="handleCategoryChange(this)">
                         <option value="" disabled selected>Select category</option>
                         {% for cat in categories %}
@@ -82,7 +82,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Paid By</label>
+                    <label class="required">Paid By</label>
                     <select id="user-select" name="user_id" required onchange="handleUserChange(this)">
                         <option value="" disabled selected>Select user</option>
                         {% for user in users %}
@@ -119,7 +119,7 @@
                 </div>
 
                 <div class="form-group">
-                    <label>Date</label>
+                    <label class="required">Date</label>
                     <input type="date" name="date" value="{{ date or '' }}">
                 </div>
 
@@ -139,12 +139,12 @@
             <div class="modal-body">
                 <form id="settlement-form">
                     <div class="form-group">
-                        <label>Amount Paid</label>
+                        <label class="required">Amount Paid</label>
                         <input type="number" step="0.01" min="0.01" name="amount" required autocomplete="off">
                     </div>
 
                     <div class="form-group">
-                        <label>From</label>
+                        <label class="required">From</label>
                         <select name="payer_id" required autocomplete="off">
                             <option value="" disabled selected>Select payer</option>
                             {% for user in users %}
@@ -154,7 +154,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label>To</label>
+                        <label class="required">To</label>
                         <select name="receiver_id" required autocomplete="off">
                             <option value="" disabled selected>Select receiver</option>
                             {% for user in users %}
@@ -169,7 +169,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label>Date</label>
+                        <label class="required">Date</label>
                         <input type="date" name="date" autocomplete="off">
                     </div>
 
@@ -199,12 +199,12 @@
                     
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Amount</label>
+                            <label class="required">Amount</label>
                             <input type="number" step="0.01" min="0.01" name="amount" required>
                         </div>
                         
                         <div class="form-group">
-                            <label>Category</label>
+                            <label class="required">Category</label>
                             <select name="category_id" required>
                                 <option value="" disabled selected>Select category</option>
                                 {% for cat in categories %}
@@ -221,7 +221,7 @@
                         </div>
                         
                         <div class="form-group">
-                            <label>Paid By</label>
+                            <label class="required">Paid By</label>
                             <select name="user_id" required>
                                 <option value="" disabled selected>Select user</option>
                                 {% for user in users %}
@@ -233,7 +233,7 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Frequency</label>
+                            <label class="required">Frequency</label>
                             <select name="frequency" required onchange="handleFrequencyChange(this)">
                                 <option value="" disabled selected>Select frequency</option>
                                 <option value="daily">Daily</option>
@@ -244,14 +244,14 @@
                         </div>
                         
                         <div class="form-group" id="interval-group" style="display: none;">
-                            <label id="interval-label">Interval</label>
+                            <label class="required" id="interval-label">Interval</label>
                             <input type="number" name="interval_value" min="1" value="1">
                         </div>
                     </div>
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>Start Date</label>
+                            <label class="required">Start Date</label>
                             <input type="date" name="start_date" required>
                         </div>
                         
@@ -263,12 +263,12 @@
 
                     <div class="form-row">
                         <div class="form-group">
-                            <label>End Date (Optional)</label>
+                            <label>End Date</label>
                             <input type="date" name="end_date" placeholder="Leave blank for no end date">
                         </div>
                         
                         <div class="form-group">
-                            <label>Status</label>
+                            <label class="required">Status</label>
                             <select name="is_active">
                                 <option value="true">Active</option>
                                 <option value="false">Inactive</option>

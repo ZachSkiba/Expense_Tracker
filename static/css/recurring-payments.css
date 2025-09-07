@@ -208,14 +208,19 @@
 }
 
 /* Form validation */
+/* Remove red/green borders */
 .form-group input:invalid,
-.form-group select:invalid {
-    border-color: #dc3545;
-}
-
+.form-group select:invalid,
 .form-group input:valid,
 .form-group select:valid {
-    border-color: #28a745;
+    border-color: #ced4da; /* default gray */
+}
+
+/* Add red asterisk to required labels */
+.form-group label.required::after {
+    content: " *";
+    color: red;
+    font-weight: bold;
 }
 
 /* Loading state */
