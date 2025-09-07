@@ -192,144 +192,142 @@
             <div class="modal-body">
                 <!-- Add/Edit Recurring Payment Form -->
                 <div class="recurring-form-section">
-                    <h3 id="recurring-form-title">Add New Recurring Payment</h3>
+                <h3 id="recurring-form-title">Add New Recurring Payment</h3>
+                
+                <form id="recurring-payment-form">
+                    <input type="hidden" id="recurring-payment-id" name="id">
                     
-                    <form id="recurring-payment-form">
-                        <input type="hidden" id="recurring-payment-id" name="id">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Amount</label>
+                            <input type="number" step="0.01" min="0.01" name="amount" required>
+                        </div>
                         
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Payment Name</label>
-                                <input type="text" name="name" placeholder="e.g., Monthly Rent, Netflix Subscription" required>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Amount</label>
-                                <input type="number" step="0.01" min="0.01" name="amount" required>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Category</label>
-                                <select name="category_id" required>
-                                    <option value="" disabled selected>Select category</option>
-                                    {% for cat in categories %}
-                                        <option value="{{ cat.id }}">{{ cat.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Description / Store</label>
-                                <input type="text" name="category_description" placeholder="Optional description">
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Paid By</label>
-                                <select name="user_id" required>
-                                    <option value="" disabled selected>Select user</option>
-                                    {% for user in users %}
-                                        <option value="{{ user.id }}">{{ user.name }}</option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Frequency</label>
-                                <select name="frequency" required onchange="handleFrequencyChange(this)">
-                                    <option value="" disabled selected>Select frequency</option>
-                                    <option value="daily">Daily</option>
-                                    <option value="weekly">Weekly</option>
-                                    <option value="monthly">Monthly</option>
-                                    <option value="yearly">Yearly</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group" id="interval-group" style="display: none;">
-                                <label id="interval-label">Interval</label>
-                                <input type="number" name="interval_value" min="1" value="1">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Start Date</label>
-                                <input type="date" name="start_date" required>
-                            </div>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>End Date (Optional)</label>
-                                <input type="date" name="end_date" placeholder="Leave blank for no end date">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label>Status</label>
-                                <select name="is_active">
-                                    <option value="true">Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <div class="participants-section">
-                            <div class="participants-title">Who should split this recurring payment?</div>
-                            <div class="participants-subtitle">Select everyone who should split this expense</div>
-                            
-                            <button type="button" class="select-all-btn" onclick="toggleAllRecurringParticipants()">Select All</button>
-
-                            <div id="recurring-participants-list" class="participants-grid">
-                                {% for user in users %}
-                                <div class="participant-checkbox">
-                                    <input type="checkbox" 
-                                        id="recurring-participant-{{ user.id }}" 
-                                        name="participant_ids" 
-                                        value="{{ user.id }}">
-                                    <label for="recurring-participant-{{ user.id }}">{{ user.name }}</label>
-                                </div>
+                        <div class="form-group">
+                            <label>Category</label>
+                            <select name="category_id" required>
+                                <option value="" disabled selected>Select category</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
                                 {% endfor %}
-                            </div>
+                            </select>
                         </div>
-
-                        <div class="form-actions">
-                            <button type="submit" class="submit-btn" id="recurring-submit-btn">Add Recurring Payment</button>
-                            <button type="button" class="cancel-btn" onclick="resetRecurringForm()">Cancel</button>
-                        </div>
-                    </form>
-                </div>
-
-                <!-- Current Recurring Payments Table -->
-                <div class="recurring-table-section">
-                    <h3>Current Recurring Payments</h3>
-                    
-                    <div id="recurring-payments-table-container">
-                        <table class="recurring-payments-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Amount</th>
-                                    <th>Category</th>
-                                    <th>Paid By</th>
-                                    <th>Frequency</th>
-                                    <th>Next Due</th>
-                                    <th>Status</th>
-                                    <th>Participants</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody id="recurring-payments-table-body">
-                                <!-- Will be populated by JavaScript -->
-                            </tbody>
-                        </table>
                     </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Description / Store</label>
+                            <input type="text" name="category_description" placeholder="Optional description">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Paid By</label>
+                            <select name="user_id" required>
+                                <option value="" disabled selected>Select user</option>
+                                {% for user in users %}
+                                    <option value="{{ user.id }}">{{ user.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Frequency</label>
+                            <select name="frequency" required onchange="handleFrequencyChange(this)">
+                                <option value="" disabled selected>Select frequency</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="interval-group" style="display: none;">
+                            <label id="interval-label">Interval</label>
+                            <input type="number" name="interval_value" min="1" value="1">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Start Date</label>
+                            <input type="date" name="start_date" required>
+                        </div>
+                        
+                        <div class="form-group" id="next-due-group" style="display: none;">
+                            <label>Next Due Date</label>
+                            <input type="date" name="next_due_date" placeholder="Auto-calculated from start date">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>End Date (Optional)</label>
+                            <input type="date" name="end_date" placeholder="Leave blank for no end date">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="is_active">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="participants-section">
+                        <div class="participants-title">Who should split this recurring payment?</div>
+                        <div class="participants-subtitle">Select everyone who should split this expense</div>
+                        
+                        <button type="button" class="select-all-btn" onclick="toggleAllRecurringParticipants()">Select All</button>
+
+                        <div id="recurring-participants-list" class="participants-grid">
+                            {% for user in users %}
+                            <div class="participant-checkbox">
+                                <input type="checkbox" 
+                                    id="recurring-participant-{{ user.id }}" 
+                                    name="participant_ids" 
+                                    value="{{ user.id }}">
+                                <label for="recurring-participant-{{ user.id }}">{{ user.name }}</label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn" id="recurring-submit-btn">Add Recurring Payment</button>
+                        <button type="button" class="cancel-btn" onclick="resetRecurringForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Current Recurring Payments Table -->
+            <div class="recurring-table-section">
+                <h3>Current Recurring Payments</h3>
+                
+                <div id="recurring-payments-table-container">
+                    <table class="recurring-payments-table">
+                        <thead>
+                            <tr>
+                                <th>Category</th>
+                                <th>Amount</th>
+                                <th>Paid By</th>
+                                <th>Frequency</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Next Due</th>
+                                <th>Status</th>
+                                <th>Participants</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recurring-payments-table-body">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        </div>
-    </div>
 
     <!-- JavaScript -->
     <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>

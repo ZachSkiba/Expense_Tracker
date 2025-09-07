@@ -103,7 +103,7 @@ def recurring_payments_api():
         data = request.json
         
         # Validate required fields
-        required_fields = ['name', 'amount', 'category_id', 'user_id', 'frequency', 'start_date']
+        required_fields = ['amount', 'category_id', 'user_id', 'frequency', 'start_date']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -139,8 +139,8 @@ def update_recurring_payment_api(payment_id):
     try:
         data = request.json
         
-        # Validate required fields
-        required_fields = ['name', 'amount', 'category_id', 'user_id', 'frequency']
+        # Validate required fields (removed 'name')
+        required_fields = ['amount', 'category_id', 'user_id', 'frequency']
         for field in required_fields:
             if field not in data or not data[field]:
                 return jsonify({
@@ -151,6 +151,9 @@ def update_recurring_payment_api(payment_id):
         # Update recurring payment using service
         recurring_payment = RecurringPaymentService.update_recurring_payment(payment_id, data)
         
+        # Commit the changes here
+        db.session.commit()
+        
         return jsonify({
             'success': True,
             'message': 'Recurring payment updated successfully',
@@ -158,12 +161,14 @@ def update_recurring_payment_api(payment_id):
         })
     
     except ValueError as e:
+        db.session.rollback()
         return jsonify({
             'success': False,
             'message': str(e)
         }), 400
     
     except Exception as e:
+        db.session.rollback()
         print(f"Error updating recurring payment: {e}")
         return jsonify({
             'success': False,

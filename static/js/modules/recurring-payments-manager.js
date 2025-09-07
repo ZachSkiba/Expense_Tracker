@@ -8,6 +8,7 @@ class RecurringPaymentsManager {
         this.form = document.getElementById('recurring-payment-form');
         this.tableBody = document.getElementById('recurring-payments-table-body');
         this.isEditing = false;
+        this.editingId = null;
         
         this.init();
     }
@@ -45,8 +46,8 @@ class RecurringPaymentsManager {
             this.setLoadingState(true);
             
             let response;
-            if (this.isEditing) {
-                response = await this.updateRecurringPayment(data);
+            if (this.isEditing && this.editingId) {
+                response = await this.updateRecurringPayment(this.editingId, data);
             } else {
                 response = await this.createRecurringPayment(data);
             }
@@ -72,7 +73,7 @@ class RecurringPaymentsManager {
         const data = {};
         
         // Basic fields
-        data.name = formData.get('name');
+        
         data.amount = formData.get('amount');
         data.category_id = formData.get('category_id');
         data.category_description = formData.get('category_description');
@@ -80,6 +81,7 @@ class RecurringPaymentsManager {
         data.frequency = formData.get('frequency');
         data.interval_value = formData.get('interval_value');
         data.start_date = formData.get('start_date');
+        data.next_due_date = formData.get('next_due_date'); // Add this for editing
         data.end_date = formData.get('end_date');
         data.is_active = formData.get('is_active') === 'true';
         
@@ -87,21 +89,13 @@ class RecurringPaymentsManager {
         const participantIds = formData.getAll('participant_ids');
         data.participant_ids = participantIds;
         
-        // ID for editing
-        const id = formData.get('id');
-        if (id) {
-            data.id = id;
-        }
-        
         return data;
     }
     
     validateForm(data) {
         const errors = [];
         
-        if (!data.name || data.name.trim().length === 0) {
-            errors.push('Payment name is required');
-        }
+        
         
         if (!data.amount || parseFloat(data.amount) <= 0) {
             errors.push('Amount must be greater than 0');
@@ -151,8 +145,8 @@ class RecurringPaymentsManager {
         return await response.json();
     }
     
-    async updateRecurringPayment(data) {
-        const response = await fetch(`${window.urls.recurringPaymentsApi}/${data.id}`, {
+    async updateRecurringPayment(id, data) {
+        const response = await fetch(`${window.urls.recurringPaymentsApi}/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -226,17 +220,18 @@ class RecurringPaymentsManager {
             return `
                 <tr>
                     <td>
-                        <strong>${this.escapeHtml(payment.name)}</strong>
+                        <strong>${this.escapeHtml(payment.category_name)}</strong>
                         ${payment.category_description ? `<br><small>${this.escapeHtml(payment.category_description)}</small>` : ''}
                     </td>
                     <td>$${parseFloat(payment.amount).toFixed(2)}</td>
-                    <td>${this.escapeHtml(payment.category_name)}</td>
                     <td>${this.escapeHtml(payment.user_name)}</td>
                     <td>
                         <span class="frequency-display">
                             ${this.formatFrequency(payment.frequency, payment.interval_value)}
                         </span>
                     </td>
+                    <td>${this.formatDate(payment.start_date)}</td>
+                    <td>${payment.end_date ? this.formatDate(payment.end_date) : 'Never'}</td>
                     <td>
                         <span class="due-date ${dueDateClass}">
                             ${this.formatDate(payment.next_due_date)}
@@ -249,7 +244,7 @@ class RecurringPaymentsManager {
                     </td>
                     <td>
                         <div class="participants-display">
-                            ${payment.participants ? payment.participants.join(', ') : 'All users'}
+                            ${payment.participants && payment.participants.length > 0 ? payment.participants.join(', ') : 'All users'}
                         </div>
                     </td>
                     <td>
@@ -276,7 +271,7 @@ class RecurringPaymentsManager {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    this.populateFormForEdit(data.recurring_payment);
+                    this.populateFormForEdit(data.recurring_payment, id);
                 }
             })
             .catch(error => {
@@ -284,8 +279,9 @@ class RecurringPaymentsManager {
             });
     }
     
-    populateFormForEdit(payment) {
+    populateFormForEdit(payment, id) {
         this.isEditing = true;
+        this.editingId = id;
         
         // Update form title
         const title = document.getElementById('recurring-form-title');
@@ -295,9 +291,11 @@ class RecurringPaymentsManager {
         const submitBtn = document.getElementById('recurring-submit-btn');
         if (submitBtn) submitBtn.textContent = 'Update Recurring Payment';
         
-        // Populate form fields
-        this.form.querySelector('[name="id"]').value = payment.id;
-        this.form.querySelector('[name="name"]').value = payment.name;
+        // Show next due date field
+        const nextDueGroup = document.getElementById('next-due-group');
+        if (nextDueGroup) nextDueGroup.style.display = 'block';
+        
+        // Populate form fields (removed name field)
         this.form.querySelector('[name="amount"]').value = payment.amount;
         this.form.querySelector('[name="category_id"]').value = payment.category_id;
         this.form.querySelector('[name="category_description"]').value = payment.category_description || '';
@@ -305,6 +303,7 @@ class RecurringPaymentsManager {
         this.form.querySelector('[name="frequency"]').value = payment.frequency;
         this.form.querySelector('[name="interval_value"]').value = payment.interval_value;
         this.form.querySelector('[name="start_date"]').value = payment.start_date;
+        this.form.querySelector('[name="next_due_date"]').value = payment.next_due_date;
         this.form.querySelector('[name="end_date"]').value = payment.end_date || '';
         this.form.querySelector('[name="is_active"]').value = payment.is_active.toString();
         
@@ -320,6 +319,7 @@ class RecurringPaymentsManager {
     
     resetForm() {
         this.isEditing = false;
+        this.editingId = null;
         this.form.reset();
         
         // Reset form title and button
@@ -329,9 +329,12 @@ class RecurringPaymentsManager {
         const submitBtn = document.getElementById('recurring-submit-btn');
         if (submitBtn) submitBtn.textContent = 'Add Recurring Payment';
         
-        // Hide interval group
+        // Hide interval group and next due group
         const intervalGroup = document.getElementById('interval-group');
         if (intervalGroup) intervalGroup.style.display = 'none';
+        
+        const nextDueGroup = document.getElementById('next-due-group');
+        if (nextDueGroup) nextDueGroup.style.display = 'none';
         
         // Clear all checkboxes
         this.form.querySelectorAll('[name="participant_ids"]').forEach(checkbox => {
