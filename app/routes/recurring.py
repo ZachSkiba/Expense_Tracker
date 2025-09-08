@@ -1,10 +1,10 @@
 """
-Blueprint for recurring payments management
+Blueprint for recurring payments management - CORRECTED VERSION
 """
 from flask import Blueprint, request, jsonify
 from models import db, RecurringPayment, User, Category
-from app.services.recurring_service import RecurringPaymentService  # Fixed import path
-from datetime import datetime
+from app.services.recurring_service import RecurringPaymentService
+from datetime import datetime, date
 
 recurring = Blueprint('recurring', __name__, url_prefix='/api/recurring')
 
@@ -68,7 +68,6 @@ def get_recurring_payment_api(payment_id):
         
         payment_data = {
             'id': payment.id,
-            'name': payment.name,
             'amount': payment.amount,
             'category_id': payment.category_id,
             'category_description': payment.category_description,
@@ -100,6 +99,7 @@ def recurring_payments_api():
     """Create a new recurring payment"""
     try:
         data = request.json
+        print(f"Received data for recurring payment: {data}")  # Debug log
         
         # Validate required fields
         required_fields = ['amount', 'category_id', 'user_id', 'frequency', 'start_date']
@@ -110,8 +110,21 @@ def recurring_payments_api():
                     'message': f'Missing required field: {field}'
                 }), 400
         
+        # Add "Recurring" to description if not already there
+        description = data.get('category_description', '').strip()
+        if description:
+            if "recurring" not in description.lower():
+                description = f"{description} - Recurring"
+        else:
+            description = "Recurring"
+        data['category_description'] = description
+        
+        print(f"Updated description: {description}")  # Debug log
+        
         # Create recurring payment using service
         recurring_payment = RecurringPaymentService.create_recurring_payment(data)
+        
+        print(f"Created recurring payment with ID: {recurring_payment.id}")  # Debug log
         
         return jsonify({
             'success': True,
@@ -120,6 +133,7 @@ def recurring_payments_api():
         })
     
     except ValueError as e:
+        print(f"ValueError creating recurring payment: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -127,6 +141,8 @@ def recurring_payments_api():
     
     except Exception as e:
         print(f"Error creating recurring payment: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error creating recurring payment'
@@ -137,15 +153,28 @@ def update_recurring_payment_api(payment_id):
     """Update an existing recurring payment"""
     try:
         data = request.json
+        print(f"[UPDATE] Updating payment {payment_id} with data: {data}")
         
-        # Validate required fields (removed 'name')
+        # Validate required fields
         required_fields = ['amount', 'category_id', 'user_id', 'frequency']
         for field in required_fields:
             if field not in data or not data[field]:
+                print(f"[UPDATE] Missing field: {field}")
                 return jsonify({
                     'success': False,
                     'message': f'Missing required field: {field}'
                 }), 400
+        
+        # Add "Recurring" to description if not already there
+        description = data.get('category_description', '').strip()
+        if description:
+            if "recurring" not in description.lower():
+                description = f"{description} - Recurring"
+        else:
+            description = "Recurring"
+        data['category_description'] = description
+        
+        print(f"[UPDATE] Final description: {description}")
         
         # Update recurring payment using service
         recurring_payment = RecurringPaymentService.update_recurring_payment(payment_id, data)
@@ -153,14 +182,17 @@ def update_recurring_payment_api(payment_id):
         # Commit the changes here
         db.session.commit()
         
+        print(f"[UPDATE] Successfully updated payment {payment_id}")
+        
         return jsonify({
             'success': True,
             'message': 'Recurring payment updated successfully',
             'recurring_payment_id': recurring_payment.id
-        })
+        }), 200
     
     except ValueError as e:
         db.session.rollback()
+        print(f"[UPDATE] ValueError: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -168,7 +200,9 @@ def update_recurring_payment_api(payment_id):
     
     except Exception as e:
         db.session.rollback()
-        print(f"Error updating recurring payment: {e}")
+        print(f"[UPDATE] Exception: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error updating recurring payment'
@@ -194,8 +228,10 @@ def delete_recurring_payment_api(payment_id):
 
 @recurring.route('/payments/<int:payment_id>/process', methods=['POST'])
 def process_recurring_payment_api(payment_id):
-    """Manually process a recurring payment to create an expense"""
+    """Manually process a recurring payment to create an expense - WORKS REGARDLESS OF DUE DATE"""
     try:
+        print(f"Processing recurring payment {payment_id}")
+        
         recurring_payment = RecurringPayment.query.get_or_404(payment_id)
         
         if not recurring_payment.is_active:
@@ -204,43 +240,43 @@ def process_recurring_payment_api(payment_id):
                 'message': 'Cannot process inactive recurring payment'
             }), 400
         
-        # Check if already processed for current due date
+        # Create expense for today regardless of due date
         from models import Expense
+        expense_date = date.today()
+        
+        print(f"Creating expense for date: {expense_date}")
+        
+        # Check if already processed for today
         existing_expense = Expense.query.filter(
             Expense.recurring_payment_id == recurring_payment.id,
-            Expense.date == recurring_payment.next_due_date
+            Expense.date == expense_date
         ).first()
         
         if existing_expense:
             return jsonify({
                 'success': False,
-                'message': 'This recurring payment has already been processed for the current due date'
+                'message': 'This recurring payment has already been processed for today'
             }), 400
         
-        # Process the payment
-        created_expenses = RecurringPaymentService.process_due_payments()
+        # Create the expense directly
+        expense = RecurringPaymentService._create_expense_from_recurring_manual(recurring_payment, expense_date)
         
-        # Find the expense that was created for this payment
-        created_expense = None
-        for expense in created_expenses:
-            if expense.recurring_payment_id == payment_id:
-                created_expense = expense
-                break
+        # Commit the transaction
+        db.session.commit()
         
-        if created_expense:
-            return jsonify({
-                'success': True,
-                'message': 'Recurring payment processed successfully',
-                'expense_id': created_expense.id
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'message': 'No expense was created. Payment may not be due yet.'
-            }), 400
+        print(f"Successfully created expense {expense.id} from recurring payment {payment_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Recurring payment processed successfully',
+            'expense_id': expense.id
+        })
     
     except Exception as e:
+        db.session.rollback()
         print(f"Error processing recurring payment: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error processing recurring payment'

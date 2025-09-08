@@ -1,5 +1,5 @@
 /**
- * Recurring Payments Manager
+ * Recurring Payments Manager - FIXED VERSION
  * Handles all recurring payment functionality
  */
 
@@ -9,6 +9,7 @@ class RecurringPaymentsManager {
         this.tableBody = document.getElementById('recurring-payments-table-body');
         this.isEditing = false;
         this.editingId = null;
+        this.isSubmitting = false; // Prevent double submission
         
         this.init();
     }
@@ -34,6 +35,12 @@ class RecurringPaymentsManager {
     async handleFormSubmit(event) {
         event.preventDefault();
         
+        // Prevent double submission
+        if (this.isSubmitting) {
+            console.log('Already submitting, ignoring duplicate submission');
+            return;
+        }
+        
         const formData = new FormData(this.form);
         const data = this.parseFormData(formData);
         
@@ -43,6 +50,7 @@ class RecurringPaymentsManager {
         }
         
         try {
+            this.isSubmitting = true;
             this.setLoadingState(true);
             
             let response;
@@ -57,7 +65,14 @@ class RecurringPaymentsManager {
                     this.isEditing ? 'Recurring payment updated successfully!' : 'Recurring payment created successfully!'
                 );
                 this.resetForm();
-                this.loadRecurringPayments();
+                
+                // Immediately reload the table to show the new/updated payment
+                await this.loadRecurringPayments();
+                
+                // Also refresh the main expenses table if it exists
+                if (window.expenseTableManager) {
+                    window.expenseTableManager.loadExpenses();
+                }
             } else {
                 this.showErrorMessage(response.message || 'An error occurred');
             }
@@ -65,6 +80,7 @@ class RecurringPaymentsManager {
             console.error('Error submitting recurring payment:', error);
             this.showErrorMessage('An error occurred while saving the recurring payment');
         } finally {
+            this.isSubmitting = false;
             this.setLoadingState(false);
         }
     }
@@ -73,7 +89,6 @@ class RecurringPaymentsManager {
         const data = {};
         
         // Basic fields
-        
         data.amount = formData.get('amount');
         data.category_id = formData.get('category_id');
         data.category_description = formData.get('category_description');
@@ -94,8 +109,6 @@ class RecurringPaymentsManager {
     
     validateForm(data) {
         const errors = [];
-        
-        
         
         if (!data.amount || parseFloat(data.amount) <= 0) {
             errors.push('Amount must be greater than 0');
@@ -171,7 +184,7 @@ class RecurringPaymentsManager {
             
             if (result.success) {
                 this.showSuccessMessage('Recurring payment deleted successfully');
-                this.loadRecurringPayments();
+                await this.loadRecurringPayments();
             } else {
                 this.showErrorMessage(result.message || 'Error deleting recurring payment');
             }
@@ -202,7 +215,7 @@ class RecurringPaymentsManager {
         if (recurringPayments.length === 0) {
             this.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="empty-state">
+                    <td colspan="10" class="empty-state">
                         <div class="empty-state-icon">🔄</div>
                         <div class="empty-state-text">No recurring payments found</div>
                         <div class="empty-state-subtext">Create your first recurring payment above</div>
@@ -216,6 +229,7 @@ class RecurringPaymentsManager {
             const nextDueDate = new Date(payment.next_due_date);
             const today = new Date();
             const dueDateClass = this.getDueDateClass(nextDueDate, today);
+            const isDueOrOverdue = dueDateClass === 'due-today' || nextDueDate < today;
             
             return `
                 <tr>
@@ -254,8 +268,9 @@ class RecurringPaymentsManager {
                         <button class="action-btn delete-btn" onclick="recurringPaymentsManager.deleteRecurringPayment(${payment.id})">
                             Delete
                         </button>
-                        ${payment.is_active && dueDateClass === 'due-today' ? `
-                            <button class="action-btn process-btn" onclick="recurringPaymentsManager.processPayment(${payment.id})">
+                        ${payment.is_active ? `
+                            <button class="action-btn process-btn" onclick="recurringPaymentsManager.processPayment(${payment.id})"
+                                    title="Process this payment now to create an expense">
                                 Process
                             </button>
                         ` : ''}
@@ -265,18 +280,21 @@ class RecurringPaymentsManager {
         }).join('');
     }
     
-    editRecurringPayment(id) {
-        // Find the recurring payment data
-        fetch(`${window.urls.getRecurringPaymentsApi}/${id}`)
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    this.populateFormForEdit(data.recurring_payment, id);
-                }
-            })
-            .catch(error => {
-                console.error('Error loading recurring payment:', error);
-            });
+    async editRecurringPayment(id) {
+        try {
+            // Find the recurring payment data
+            const response = await fetch(`${window.urls.recurringPaymentsApi}/${id}`);
+            const data = await response.json();
+            
+            if (data.success) {
+                this.populateFormForEdit(data.recurring_payment, id);
+            } else {
+                this.showErrorMessage('Error loading recurring payment for editing');
+            }
+        } catch (error) {
+            console.error('Error loading recurring payment:', error);
+            this.showErrorMessage('Error loading recurring payment for editing');
+        }
     }
     
     populateFormForEdit(payment, id) {
@@ -295,7 +313,7 @@ class RecurringPaymentsManager {
         const nextDueGroup = document.getElementById('next-due-group');
         if (nextDueGroup) nextDueGroup.style.display = 'block';
         
-        // Populate form fields (removed name field)
+        // Populate form fields
         this.form.querySelector('[name="amount"]').value = payment.amount;
         this.form.querySelector('[name="category_id"]').value = payment.category_id;
         this.form.querySelector('[name="category_description"]').value = payment.category_description || '';
@@ -307,7 +325,7 @@ class RecurringPaymentsManager {
         this.form.querySelector('[name="end_date"]').value = payment.end_date || '';
         this.form.querySelector('[name="is_active"]').value = payment.is_active.toString();
         
-        // Handle frequency change
+        // Handle frequency change to show interval field
         this.handleFrequencyChange({ target: this.form.querySelector('[name="frequency"]') });
         
         // Set participants
@@ -315,6 +333,9 @@ class RecurringPaymentsManager {
         this.form.querySelectorAll('[name="participant_ids"]').forEach(checkbox => {
             checkbox.checked = participantIds.includes(parseInt(checkbox.value));
         });
+        
+        // Scroll to form
+        document.getElementById('recurring-form-title').scrollIntoView({ behavior: 'smooth' });
     }
     
     resetForm() {
@@ -370,24 +391,32 @@ class RecurringPaymentsManager {
     }
     
     async processPayment(id) {
-        if (!confirm('Process this recurring payment now? This will create a new expense.')) {
+        if (!confirm('Process this recurring payment now? This will create a new expense for today.')) {
             return;
         }
         
         try {
             const response = await fetch(`${window.urls.recurringPaymentsApi}/${id}/process`, {
-                method: 'POST'
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
             });
             
             const result = await response.json();
             
             if (result.success) {
-                this.showSuccessMessage('Recurring payment processed successfully');
-                this.loadRecurringPayments();
+                this.showSuccessMessage('Recurring payment processed successfully! Expense created for today.');
+                await this.loadRecurringPayments();
                 
-                // Refresh the main page data
-                if (window.expenseTableManager) {
-                    window.expenseTableManager.loadExpenses();
+                // Force refresh the main expenses table
+                if (window.expenseTableManager && window.expenseTableManager.loadExpenses) {
+                    await window.expenseTableManager.loadExpenses();
+                }
+                
+                // Trigger any other refresh functions
+                if (window.refreshAllData) {
+                    window.refreshAllData();
                 }
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
@@ -434,26 +463,29 @@ class RecurringPaymentsManager {
     }
     
     setLoadingState(loading) {
-        const submitBtn = document.getElementById('recurring-submit-btn');
-        if (submitBtn) {
+        if (this.submitButton) {
             if (loading) {
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = '<span class="spinner"></span> Saving...';
+                this.submitButton.disabled = true;
+                this.submitButton.style.pointerEvents = 'none';
+                this.submitButton.innerHTML = '<span class="spinner"></span> Saving...';
             } else {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = this.isEditing ? 'Update Recurring Payment' : 'Add Recurring Payment';
+                this.submitButton.disabled = false;
+                this.submitButton.style.pointerEvents = '';
+                this.submitButton.innerHTML = this.isEditing ? 'Update Recurring Payment' : 'Add Recurring Payment';
             }
         }
     }
     
     showSuccessMessage(message) {
-        // You can customize this to match your existing notification system
+        // Simple alert for now - you can customize this
         alert(message);
+        console.log('SUCCESS:', message);
     }
     
     showErrorMessage(message) {
-        // You can customize this to match your existing notification system
+        // Simple alert for now - you can customize this
         alert('Error: ' + message);
+        console.error('ERROR:', message);
     }
 }
 

@@ -1,5 +1,5 @@
 """
-Service for handling recurring payment logic
+Service for handling recurring payment logic - FIXED VERSION
 """
 from datetime import datetime, date, timedelta
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
@@ -57,11 +57,18 @@ class RecurringPaymentService:
     @staticmethod
     def _create_expense_from_recurring(recurring_payment):
         """Create an expense record from a recurring payment"""
+        # Ensure description has "Recurring" in it
+        description = recurring_payment.category_description or ""
+        if description and not description.lower().endswith('recurring'):
+            description = f"{description} - Recurring"
+        elif not description:
+            description = "Recurring"
+        
         # Create the expense
         expense = Expense(
             amount=recurring_payment.amount,
             category_id=recurring_payment.category_id,
-            category_description=recurring_payment.category_description,
+            category_description=description,
             user_id=recurring_payment.user_id,
             date=recurring_payment.next_due_date,
             split_type='equal',
@@ -87,8 +94,48 @@ class RecurringPaymentService:
             )
             db.session.add(participant)
         
-        # Update balances
-
+        return expense
+    
+    @staticmethod
+    def _create_expense_from_recurring_manual(recurring_payment, expense_date):
+        """Create an expense record from a recurring payment for manual processing"""
+        # Ensure description has "Recurring" in it
+        description = recurring_payment.category_description or ""
+        if description.strip() and "recurring" not in description.lower():
+            description = f"{description} - Recurring"
+        elif not description.strip():
+            description = "Recurring"
+        
+        # Create the expense
+        expense = Expense(
+            amount=recurring_payment.amount,
+            category_id=recurring_payment.category_id,
+            category_description=description,
+            user_id=recurring_payment.user_id,
+            date=expense_date,
+            split_type='equal',
+            recurring_payment_id=recurring_payment.id
+        )
+        
+        db.session.add(expense)
+        db.session.flush()  # Get the expense ID
+        
+        # Add participants
+        participant_ids = recurring_payment.get_participant_ids()
+        if not participant_ids:
+            # If no participants specified, use all users
+            participant_ids = [user.id for user in User.query.all()]
+        
+        amount_per_person = recurring_payment.amount / len(participant_ids)
+        
+        for user_id in participant_ids:
+            participant = ExpenseParticipant(
+                expense_id=expense.id,
+                user_id=user_id,
+                amount_owed=amount_per_person
+            )
+            db.session.add(participant)
+        
         return expense
     
     @staticmethod
@@ -97,10 +144,17 @@ class RecurringPaymentService:
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         current_date = datetime.now().date()
         
+        # Ensure description has "Recurring" in it (already handled in route, but double-check)
+        description = data.get('category_description', '').strip()
+        if description and not description.lower().endswith('recurring'):
+            description = f"{description} - Recurring"
+        elif not description:
+            description = "Recurring"
+        
         recurring_payment = RecurringPayment(
             amount=float(data['amount']),
             category_id=int(data['category_id']),
-            category_description=data.get('category_description', ''),
+            category_description=description,
             user_id=int(data['user_id']),
             frequency=data['frequency'],
             interval_value=int(data.get('interval_value', 1)),
@@ -138,11 +192,18 @@ class RecurringPaymentService:
             ).first()
             
             if not existing_expense:
+                # Ensure description has "Recurring" in it
+                description = recurring_payment.category_description or ""
+                if description and not description.lower().endswith('recurring'):
+                    description = f"{description} - Recurring"
+                elif not description:
+                    description = "Recurring"
+                
                 # Create expense for this date
                 expense = Expense(
                     amount=recurring_payment.amount,
                     category_id=recurring_payment.category_id,
-                    category_description=recurring_payment.category_description,
+                    category_description=description,
                     user_id=recurring_payment.user_id,
                     date=check_date,
                     split_type='equal',
@@ -166,8 +227,6 @@ class RecurringPaymentService:
                         amount_owed=amount_per_person
                     )
                     db.session.add(participant)
-                
-                # Update balances
             
                 created_expenses.append(expense)
             
@@ -195,10 +254,16 @@ class RecurringPaymentService:
         """Update an existing recurring payment"""
         recurring_payment = RecurringPayment.query.get_or_404(recurring_payment_id)
         
+        # Ensure description has "Recurring" in it (already handled in route, but double-check)
+        description = data.get('category_description', '').strip()
+        if description and not description.lower().endswith('recurring'):
+            description = f"{description} - Recurring"
+        elif not description:
+            description = "Recurring"
         
         recurring_payment.amount = float(data['amount'])
         recurring_payment.category_id = int(data['category_id'])
-        recurring_payment.category_description = data.get('category_description', '')
+        recurring_payment.category_description = description
         recurring_payment.user_id = int(data['user_id'])
         recurring_payment.frequency = data['frequency']
         recurring_payment.interval_value = int(data.get('interval_value', 1))
