@@ -1,5 +1,6 @@
 """
-Service for handling recurring payment logic - FIXED VERSION
+Service for handling recurring payment logic - FIXED VERSION V2
+Creates past expenses and fixes update logic
 """
 from datetime import datetime, date, timedelta
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
@@ -140,9 +141,11 @@ class RecurringPaymentService:
     
     @staticmethod
     def create_recurring_payment(data):
-        """Create a new recurring payment"""
+        """Create a new recurring payment - WITH PAST EXPENSE CREATION"""
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         current_date = datetime.now().date()
+        
+        print(f"[CREATE] Start date: {start_date}, Current date: {current_date}")
         
         # Ensure description has "Recurring" in it (already handled in route, but double-check)
         description = data.get('category_description', '').strip()
@@ -173,6 +176,7 @@ class RecurringPaymentService:
         
         # If start date is in the past, create expenses up to current date
         if start_date < current_date:
+            print(f"[CREATE] Start date is in past, creating past expenses")
             RecurringPaymentService._create_past_expenses(recurring_payment, current_date)
         
         db.session.commit()
@@ -180,11 +184,15 @@ class RecurringPaymentService:
     
     @staticmethod
     def _create_past_expenses(recurring_payment, current_date):
-        """Create expenses for past due dates"""
+        """Create expenses for past due dates and set correct next_due_date"""
         created_expenses = []
         check_date = recurring_payment.start_date
         
+        print(f"[PAST_EXPENSES] Creating from {check_date} to {current_date}")
+        
         while check_date <= current_date:
+            print(f"[PAST_EXPENSES] Checking date: {check_date}")
+            
             # Check if expense already exists for this date
             existing_expense = Expense.query.filter(
                 Expense.recurring_payment_id == recurring_payment.id,
@@ -192,6 +200,8 @@ class RecurringPaymentService:
             ).first()
             
             if not existing_expense:
+                print(f"[PAST_EXPENSES] Creating expense for {check_date}")
+                
                 # Ensure description has "Recurring" in it
                 description = recurring_payment.category_description or ""
                 if description and not description.lower().endswith('recurring'):
@@ -229,6 +239,9 @@ class RecurringPaymentService:
                     db.session.add(participant)
             
                 created_expenses.append(expense)
+                print(f"[PAST_EXPENSES] Created expense {expense.id} for {check_date}")
+            else:
+                print(f"[PAST_EXPENSES] Expense already exists for {check_date}")
             
             # Calculate next date
             if recurring_payment.frequency == 'daily':
@@ -242,44 +255,73 @@ class RecurringPaymentService:
                 from dateutil.relativedelta import relativedelta
                 check_date = check_date + relativedelta(years=recurring_payment.interval_value)
             else:
+                print(f"[PAST_EXPENSES] Unknown frequency: {recurring_payment.frequency}")
                 break  # Unknown frequency
         
         # Set next due date to the next occurrence after current date
         recurring_payment.next_due_date = check_date
+        print(f"[PAST_EXPENSES] Set next_due_date to: {check_date}")
         
         return created_expenses
     
     @staticmethod
     def update_recurring_payment(recurring_payment_id, data):
-        """Update an existing recurring payment"""
+        """Update an existing recurring payment - FIXED VERSION"""
+        # Get the existing recurring payment
         recurring_payment = RecurringPayment.query.get_or_404(recurring_payment_id)
         
-        # Ensure description has "Recurring" in it (already handled in route, but double-check)
-        description = data.get('category_description', '').strip()
-        if description and not description.lower().endswith('recurring'):
-            description = f"{description} - Recurring"
-        elif not description:
-            description = "Recurring"
+        print(f"[UPDATE_SERVICE] Updating recurring payment {recurring_payment_id}")
+        print(f"[UPDATE_SERVICE] Received data: {data}")
         
-        recurring_payment.amount = float(data['amount'])
-        recurring_payment.category_id = int(data['category_id'])
-        recurring_payment.category_description = description
-        recurring_payment.user_id = int(data['user_id'])
-        recurring_payment.frequency = data['frequency']
-        recurring_payment.interval_value = int(data.get('interval_value', 1))
-        recurring_payment.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date() if data.get('end_date') else None
-        recurring_payment.is_active = data.get('is_active', True)
-        recurring_payment.last_updated = datetime.utcnow()
+        # Update fields from data
+        if 'amount' in data:
+            recurring_payment.amount = float(data['amount'])
+            print(f"[UPDATE_SERVICE] Updated amount to: {recurring_payment.amount}")
         
-        # Update participants
-        participant_ids = data.get('participant_ids', [])
-        recurring_payment.set_participant_ids([int(id) for id in participant_ids])
+        if 'category_id' in data:
+            recurring_payment.category_id = int(data['category_id'])
+            print(f"[UPDATE_SERVICE] Updated category_id to: {recurring_payment.category_id}")
         
-        # Update next due date if provided
+        if 'category_description' in data:
+            description = data['category_description'].strip()
+            if description and "recurring" not in description.lower():
+                description = f"{description} - Recurring"
+            elif not description:
+                description = "Recurring"
+            recurring_payment.category_description = description
+            print(f"[UPDATE_SERVICE] Updated description to: {description}")
+        
+        if 'user_id' in data:
+            recurring_payment.user_id = int(data['user_id'])
+            print(f"[UPDATE_SERVICE] Updated user_id to: {recurring_payment.user_id}")
+        
+        if 'frequency' in data:
+            recurring_payment.frequency = data['frequency']
+            print(f"[UPDATE_SERVICE] Updated frequency to: {recurring_payment.frequency}")
+        
+        if 'interval_value' in data:
+            recurring_payment.interval_value = int(data.get('interval_value', 1))
+            print(f"[UPDATE_SERVICE] Updated interval_value to: {recurring_payment.interval_value}")
+        
+        if 'end_date' in data:
+            if data['end_date']:
+                recurring_payment.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+            else:
+                recurring_payment.end_date = None
+            print(f"[UPDATE_SERVICE] Updated end_date to: {recurring_payment.end_date}")
+        
+        if 'is_active' in data:
+            # Handle both boolean and string values
+            if isinstance(data['is_active'], bool):
+                recurring_payment.is_active = data['is_active']
+            else:
+                recurring_payment.is_active = str(data['is_active']).lower() == 'true'
+            print(f"[UPDATE_SERVICE] Updated is_active to: {recurring_payment.is_active}")
+        
         if 'next_due_date' in data and data['next_due_date']:
             recurring_payment.next_due_date = datetime.strptime(data['next_due_date'], '%Y-%m-%d').date()
+            print(f"[UPDATE_SERVICE] Updated next_due_date to: {recurring_payment.next_due_date}")
         
-        # If start date changed, recalculate next due date
         if 'start_date' in data:
             new_start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
             if new_start_date != recurring_payment.start_date:
@@ -287,6 +329,18 @@ class RecurringPaymentService:
                 # Only update next_due_date if it hasn't been processed yet
                 if recurring_payment.next_due_date >= new_start_date:
                     recurring_payment.next_due_date = new_start_date
+                print(f"[UPDATE_SERVICE] Updated start_date to: {recurring_payment.start_date}")
+        
+        # Update participants
+        if 'participant_ids' in data:
+            participant_ids = data['participant_ids']
+            recurring_payment.set_participant_ids([int(id) for id in participant_ids])
+            print(f"[UPDATE_SERVICE] Updated participant_ids to: {participant_ids}")
+        
+        # Update timestamp
+        recurring_payment.last_updated = datetime.utcnow()
+        
+        print(f"[UPDATE_SERVICE] Successfully updated recurring payment {recurring_payment_id}")
         
         # DON'T commit here - let the route handle it
         return recurring_payment

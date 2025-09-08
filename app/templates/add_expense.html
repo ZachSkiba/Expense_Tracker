@@ -182,6 +182,7 @@
     </div>
 
     <!-- Recurring Payments Modal -->
+    <!-- Recurring Payments Modal -->
     <div id="recurringPaymentsModal" class="modal large-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -190,13 +191,11 @@
             </div>
             
             <div class="modal-body">
-                <!-- Add/Edit Recurring Payment Form -->
+                <!-- Add Recurring Payment Form -->
                 <div class="recurring-form-section">
                 <h3 id="recurring-form-title">Add New Recurring Payment</h3>
                 
                 <form id="recurring-payment-form">
-                    <input type="hidden" id="recurring-payment-id" name="id">
-                    
                     <div class="form-row">
                         <div class="form-group">
                             <label class="required">Amount</label>
@@ -255,24 +254,9 @@
                             <input type="date" name="start_date" required>
                         </div>
                         
-                        <div class="form-group" id="next-due-group" style="display: none;">
-                            <label>Next Due Date</label>
-                            <input type="date" name="next_due_date" placeholder="Auto-calculated from start date">
-                        </div>
-                    </div>
-
-                    <div class="form-row">
                         <div class="form-group">
                             <label>End Date</label>
                             <input type="date" name="end_date" placeholder="Leave blank for no end date">
-                        </div>
-                        
-                        <div class="form-group">
-                            <label class="required">Status</label>
-                            <select name="is_active">
-                                <option value="true">Active</option>
-                                <option value="false">Inactive</option>
-                            </select>
                         </div>
                     </div>
 
@@ -310,7 +294,7 @@
                     <table class="recurring-payments-table">
                         <thead>
                             <tr>
-                                <th>Category</th>
+                                <th>Category & Description</th>
                                 <th>Amount</th>
                                 <th>Paid By</th>
                                 <th>Frequency</th>
@@ -328,6 +312,8 @@
                     </table>
                 </div>
             </div>
+        </div>
+    </div>
 
     <!-- JavaScript -->
     <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>

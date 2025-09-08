@@ -1,5 +1,6 @@
 """
-Blueprint for recurring payments management - CORRECTED VERSION
+Blueprint for recurring payments management - DEBUG VERSION
+Add better error handling and logging for PUT requests
 """
 from flask import Blueprint, request, jsonify
 from models import db, RecurringPayment, User, Category
@@ -99,7 +100,7 @@ def recurring_payments_api():
     """Create a new recurring payment"""
     try:
         data = request.json
-        print(f"Received data for recurring payment: {data}")  # Debug log
+        print(f"[CREATE] Received data for recurring payment: {data}")  # Debug log
         
         # Validate required fields
         required_fields = ['amount', 'category_id', 'user_id', 'frequency', 'start_date']
@@ -119,12 +120,12 @@ def recurring_payments_api():
             description = "Recurring"
         data['category_description'] = description
         
-        print(f"Updated description: {description}")  # Debug log
+        print(f"[CREATE] Updated description: {description}")  # Debug log
         
         # Create recurring payment using service
         recurring_payment = RecurringPaymentService.create_recurring_payment(data)
         
-        print(f"Created recurring payment with ID: {recurring_payment.id}")  # Debug log
+        print(f"[CREATE] Created recurring payment with ID: {recurring_payment.id}")  # Debug log
         
         return jsonify({
             'success': True,
@@ -133,14 +134,14 @@ def recurring_payments_api():
         })
     
     except ValueError as e:
-        print(f"ValueError creating recurring payment: {e}")
+        print(f"[CREATE] ValueError creating recurring payment: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
         }), 400
     
     except Exception as e:
-        print(f"Error creating recurring payment: {e}")
+        print(f"[CREATE] Error creating recurring payment: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -152,37 +153,60 @@ def recurring_payments_api():
 def update_recurring_payment_api(payment_id):
     """Update an existing recurring payment"""
     try:
-        data = request.json
-        print(f"[UPDATE] Updating payment {payment_id} with data: {data}")
+        # Log the incoming request
+        print(f"[UPDATE_ROUTE] PUT request received for payment {payment_id}")
+        print(f"[UPDATE_ROUTE] Content-Type: {request.content_type}")
+        print(f"[UPDATE_ROUTE] Request method: {request.method}")
         
-        # Validate required fields
-        required_fields = ['amount', 'category_id', 'user_id', 'frequency']
-        for field in required_fields:
-            if field not in data or not data[field]:
-                print(f"[UPDATE] Missing field: {field}")
-                return jsonify({
-                    'success': False,
-                    'message': f'Missing required field: {field}'
-                }), 400
+        # Get and validate JSON data
+        if not request.is_json:
+            print(f"[UPDATE_ROUTE] ERROR: Request is not JSON")
+            return jsonify({
+                'success': False,
+                'message': 'Request must be JSON'
+            }), 400
         
-        # Add "Recurring" to description if not already there
-        description = data.get('category_description', '').strip()
-        if description:
-            if "recurring" not in description.lower():
-                description = f"{description} - Recurring"
-        else:
-            description = "Recurring"
-        data['category_description'] = description
+        data = request.get_json()
+        if not data:
+            print(f"[UPDATE_ROUTE] ERROR: No JSON data received")
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
+            
+        print(f"[UPDATE_ROUTE] Received data: {data}")
         
-        print(f"[UPDATE] Final description: {description}")
+        # Check if recurring payment exists
+        existing_payment = RecurringPayment.query.get(payment_id)
+        if not existing_payment:
+            print(f"[UPDATE_ROUTE] ERROR: Payment {payment_id} not found")
+            return jsonify({
+                'success': False,
+                'message': f'Recurring payment {payment_id} not found'
+            }), 404
+        
+        print(f"[UPDATE_ROUTE] Found existing payment: {existing_payment.id}")
+        
+        # Add "Recurring" to description if provided and not already there
+        if 'category_description' in data:
+            description = data.get('category_description', '').strip()
+            if description:
+                if "recurring" not in description.lower():
+                    description = f"{description} - Recurring"
+            else:
+                description = "Recurring"
+            data['category_description'] = description
+            print(f"[UPDATE_ROUTE] Updated description: {description}")
         
         # Update recurring payment using service
+        print(f"[UPDATE_ROUTE] Calling service to update payment {payment_id}")
         recurring_payment = RecurringPaymentService.update_recurring_payment(payment_id, data)
         
-        # Commit the changes here
+        # Commit the changes
+        print(f"[UPDATE_ROUTE] Committing changes to database")
         db.session.commit()
         
-        print(f"[UPDATE] Successfully updated payment {payment_id}")
+        print(f"[UPDATE_ROUTE] Successfully updated payment {payment_id}")
         
         return jsonify({
             'success': True,
@@ -192,7 +216,9 @@ def update_recurring_payment_api(payment_id):
     
     except ValueError as e:
         db.session.rollback()
-        print(f"[UPDATE] ValueError: {e}")
+        print(f"[UPDATE_ROUTE] ValueError: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': str(e)
@@ -200,12 +226,12 @@ def update_recurring_payment_api(payment_id):
     
     except Exception as e:
         db.session.rollback()
-        print(f"[UPDATE] Exception: {e}")
+        print(f"[UPDATE_ROUTE] Exception: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
             'success': False,
-            'message': 'Error updating recurring payment'
+            'message': f'Error updating recurring payment: {str(e)}'
         }), 500
 
 @recurring.route('/payments/<int:payment_id>', methods=['DELETE'])

@@ -293,3 +293,79 @@
     font-size: 14px;
     opacity: 0.8;
 }
+
+/* Additional CSS for inline editing */
+.inline-edit-help {
+    background: #e8f4f8;
+    border-left: 4px solid #17a2b8;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #0c5460;
+}
+
+/* Editable cell styling */
+.recurring-payments-table td.editable {
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.recurring-payments-table td.editable:hover {
+    background: #e9ecef;
+    border: 1px solid #17a2b8;
+}
+
+/* Special styling for category/description combined cell */
+.recurring-payments-table td.editable.category {
+    position: relative;
+}
+
+.recurring-payments-table td.editable .editable.description {
+    display: inline-block;
+    padding: 2px 4px;
+    margin-top: 2px;
+    border-radius: 3px;
+    background: #e9ecef;
+    cursor: pointer;
+}
+
+.recurring-payments-table td.editable .editable.description:hover {
+    background: #dee2e6;
+}
+
+/* Input styling within table cells */
+.recurring-payments-table input,
+.recurring-payments-table select {
+    width: 100%;
+    border: 2px solid #007bff;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background: white;
+    font-size: inherit;
+    font-family: inherit;
+}
+
+.recurring-payments-table input:focus,
+.recurring-payments-table select:focus {
+    outline: none;
+    border-color: #0056b3;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+/* Participants editor special styling */
+.participants-editor {
+    position: fixed;
+    z-index: 10001;
+    background: white;
+    border: 2px solid #007bff;
+    border-radius: 6px;
+    padding: 10px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    min-width: 250px;
+    max-width: 400px;
+    max-height: 300px;
+    overflow-y: auto;
+}
