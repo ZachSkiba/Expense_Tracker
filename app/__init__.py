@@ -1,9 +1,11 @@
 # 3. Update your app/__init__.py to include authentication:
 
-from flask import Flask, request, session, redirect, url_for, render_template_string
+from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
 from config import Config
 from app.routes.recurring import recurring
+# Import the scheduler
+from app.scheduler import recurring_scheduler
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -19,8 +21,29 @@ def create_app():
     app.config['SESSION_COOKIE_NAME'] = 'roommate_session'
     # Don't set SESSION_PERMANENT = True (this makes it expire on browser close)
 
+    # ===== SCHEDULER CONFIGURATION =====
+    # Enable scheduler (True for both development and production)
+    app.config['SCHEDULER_ENABLED'] = True
+    app.config['SCHEDULER_API_ENABLED'] = True
+    app.config['SCHEDULER_TIMEZONE'] = 'America/Chicago'  # Change to your timezone
+    app.config['RECURRING_SCHEDULE_HOUR'] = 6  # Run at 6 AM
+    app.config['RECURRING_SCHEDULE_MINUTE'] = 0  # At minute 0
+    
+    # Enable admin access (you can disable this in production if you want)
+    app.config['ADMIN_ACCESS_ENABLED'] = True
+    
+    # Notification configuration (optional - for future use)
+    app.config['RECURRING_NOTIFICATIONS'] = {
+        'enabled': False,  # Set to True when you want notifications
+        'send_errors': True
+    }
+    # ===== END SCHEDULER CONFIGURATION =====
+
     # Initialize extensions
     db.init_app(app)
+    
+    # Initialize scheduler
+    recurring_scheduler.init_app(app)
 
     # Import auth functions
     from app.auth import check_auth, authenticate, require_auth, LOGIN_TEMPLATE, SHARED_PASSWORD
@@ -39,9 +62,15 @@ def create_app():
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
-    # Authentication check for all routes
+    # Authentication check for all routes (but exempt scheduler/admin routes from general auth)
     @app.before_request
     def check_authentication():
+        # Allow scheduler internal routes to bypass authentication
+        if request.endpoint and (
+            request.endpoint.startswith('scheduler') or 
+            request.path.startswith('/admin/recurring') and app.config.get('ADMIN_ACCESS_ENABLED')
+        ):
+            return None
         return require_auth()
 
     # Login route
@@ -66,12 +95,13 @@ def create_app():
         session.pop('authenticated', None)
         return redirect(url_for('login'))
 
-    # Register blueprints (unchanged)
+    # Register blueprints (including the new admin blueprint)
     from app.routes.expenses import expenses_bp
     from app.routes.manage import manage_bp
     from app.routes.balances import balances_bp
     from app.routes.settlements import settlements_bp
     from app.routes.management import management_bp
+    from app.routes.admin import admin
 
     app.register_blueprint(manage_bp)
     app.register_blueprint(expenses_bp)
@@ -79,5 +109,6 @@ def create_app():
     app.register_blueprint(settlements_bp)
     app.register_blueprint(management_bp)
     app.register_blueprint(recurring)
+    app.register_blueprint(admin)  # Register the admin blueprint
 
     return app
