@@ -1,0 +1,84 @@
+name: Daily Recurring Payments Processing
+
+on:
+  schedule:
+    # Run at 6:00 AM Central Time (12:00 UTC during standard time, 11:00 UTC during daylight time)
+    # Using 11:00 UTC to account for daylight saving time
+    - cron: '0 11 * * *'
+  
+  # Allow manual triggering from GitHub UI
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Reason for manual trigger'
+        required: false
+        default: 'Manual processing requested'
+
+jobs:
+  process-recurring-payments:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Process Recurring Payments
+        run: |
+          echo "🏠 Starting recurring payments processing..."
+          echo "⏰ Current time: $(date)"
+          echo "🎯 Target: ${{ secrets.RENDER_APP_URL }}"
+          
+          # Wake the app and process payments
+          response=$(curl -s -w "\nHTTP_CODE:%{http_code}\nTIME_TOTAL:%{time_total}" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/admin/recurring/wake-and-process" \
+            -H "Content-Type: application/json" \
+            -H "User-Agent: GitHub-Actions-Recurring-Processor/1.0" \
+            -d '{"source": "github_actions", "timestamp": "'$(date -Iseconds)'"}' \
+            --max-time 300 \
+            --retry 3 \
+            --retry-delay 5)
+          
+          # Extract HTTP code and response
+          http_code=$(echo "$response" | grep "HTTP_CODE:" | cut -d: -f2)
+          time_total=$(echo "$response" | grep "TIME_TOTAL:" | cut -d: -f2)
+          response_body=$(echo "$response" | sed '/^HTTP_CODE:/d; /^TIME_TOTAL:/d')
+          
+          echo "📊 Response Code: $http_code"
+          echo "⏱️  Total Time: ${time_total}s"
+          echo "📄 Response: $response_body"
+          
+          # Check if request was successful
+          if [[ $http_code -ge 200 && $http_code -lt 300 ]]; then
+            echo "✅ SUCCESS: Recurring payments processed successfully"
+            
+            # Try to parse and display results
+            expenses_count=$(echo "$response_body" | grep -o '"expenses_created":[0-9]*' | cut -d: -f2 || echo "unknown")
+            echo "💰 Expenses created: $expenses_count"
+            
+            # Set success output
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ ERROR: Request failed with HTTP $http_code"
+            echo "Response: $response_body"
+            
+            # Set failure output
+            echo "status=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Report Results
+        if: always()
+        run: |
+          if [[ "${{ steps.process-recurring-payments.outputs.status }}" == "success" ]]; then
+            echo "🎉 Daily recurring payments processing completed successfully!"
+          else
+            echo "⚠️  Daily recurring payments processing encountered issues."
+            echo "Check your app logs and consider manual processing if needed."
+          fi
+          
+          echo "🔗 Manual processing available at: ${{ secrets.RENDER_APP_URL }}/admin/recurring"
+
+      # Optional: Notify on failure (uncomment and configure if you want notifications)
+      # - name: Notify on Failure
+      #   if: failure()
+      #   run: |
+      #     echo "Notification: Daily recurring payments processing failed"
+      #     # Add your notification logic here (email, Slack, Discord, etc.)
