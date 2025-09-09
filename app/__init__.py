@@ -4,7 +4,6 @@ from flask import Flask, request, session, redirect, url_for, render_template_st
 from models import db
 from config import Config
 from app.routes.recurring import recurring
-# Import the scheduler
 from app.scheduler import recurring_scheduler
 
 def create_app():
@@ -28,11 +27,7 @@ def create_app():
     app.config['SCHEDULER_TIMEZONE'] = 'America/Chicago'  # Change to your timezone
     app.config['RECURRING_SCHEDULE_HOUR'] = 6  # Run at 6 AM
     app.config['RECURRING_SCHEDULE_MINUTE'] = 0  # At minute 0
-    
-    # Enable admin access (you can disable this in production if you want)
     app.config['ADMIN_ACCESS_ENABLED'] = True
-    
-    # Notification configuration (optional - for future use)
     app.config['RECURRING_NOTIFICATIONS'] = {
         'enabled': False,  # Set to True when you want notifications
         'send_errors': True
@@ -41,9 +36,13 @@ def create_app():
 
     # Initialize extensions
     db.init_app(app)
-    
-    # Initialize scheduler
     recurring_scheduler.init_app(app)
+
+    from app.startup_processor import StartupRecurringProcessor
+    with app.app_context():
+        StartupRecurringProcessor.process_startup_recurring_payments(app)
+
+
 
     # Import auth functions
     from app.auth import check_auth, authenticate, require_auth, LOGIN_TEMPLATE, SHARED_PASSWORD

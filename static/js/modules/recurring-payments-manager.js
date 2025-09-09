@@ -910,13 +910,22 @@ class RecurringPaymentsManager {
     }
     
     formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        });
-    }
+    if (!dateString) return '';
+
+    // Split YYYY-MM-DD into parts
+    const [year, month, day] = dateString.split('-').map(Number);
+
+    // Create a Date object using local time
+    const date = new Date(year, month - 1, day);
+
+    // Format as "Sep 9, 2025"
+    return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+    });
+}
+
     
     escapeHtml(text) {
         const div = document.createElement('div');
