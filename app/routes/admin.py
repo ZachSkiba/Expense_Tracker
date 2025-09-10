@@ -3,8 +3,9 @@
 import datetime
 from flask import Blueprint, render_template, jsonify, redirect, url_for, request
 from flask import current_app
-from models import db, RecurringPayment
-from datetime import date
+from models import db
+#from models import RecurringPayment
+#from datetime import date
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -28,20 +29,20 @@ def recurring_admin_dashboard():
 def health_check():
     """Health check for the admin system"""
     try:
-        today = date.today()
+       # today = date.today()
         
         # Get payment statistics
-        total_active = RecurringPayment.query.filter(RecurringPayment.is_active == True).count()
-        due_today = RecurringPayment.query.filter(
-            RecurringPayment.is_active == True,
-            RecurringPayment.next_due_date <= today
-        ).count()
-        
+      #  total_active = RecurringPayment.query.filter(RecurringPayment.is_active == True).count()
+      #  due_today = RecurringPayment.query.filter(
+      #      RecurringPayment.is_active == True,
+      #      RecurringPayment.next_due_date <= today
+      #  ).count()
+
         return jsonify({
             'status': 'healthy',
             'payments': {
-                'total_active': total_active,
-                'due_today': due_today
+         #       'total_active': total_active,
+         #       'due_today': due_today
             },
             'timestamp': datetime.datetime.utcnow().isoformat()
         })
@@ -50,10 +51,10 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-
+"""
 @admin.route('/recurring/status')
 def get_recurring_status():
-    """Get comprehensive recurring payments status"""
+    
     try:
         from app.auth import check_auth
         if not check_auth():
@@ -125,7 +126,7 @@ def get_recurring_status():
 
 @admin.route('/recurring/process-all', methods=['POST'])
 def manual_process_all():
-    """Manually process all due recurring payments"""
+    
     try:
         from app.auth import check_auth
         if not check_auth():
@@ -166,7 +167,6 @@ def manual_process_all():
 
 @admin.route('/recurring/wake-and-process', methods=['POST'])
 def wake_and_process():
-    """Special endpoint for external triggers to wake app and process payments"""
     
     # Simple security check - validate request source
     import os
@@ -219,4 +219,5 @@ def wake_and_process():
             'success': False,
             'error': str(e),
             'timestamp': datetime.datetime.now().isoformat()
-        }), 500
+        }), 500  
+        """
