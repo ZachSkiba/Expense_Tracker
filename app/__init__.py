@@ -71,6 +71,118 @@ def create_app():
         session.pop('authenticated', None)
         return redirect(url_for('login'))
 
+    # Add this route directly in your app/__init__.py, before registering blueprints
+    @app.route('/emergency-migrate', methods=['GET', 'POST'])
+    def emergency_migrate():
+        """Emergency database migration - accessible without login"""
+        try:
+            from sqlalchemy import text
+            
+            if request.method == 'GET':
+                return '''
+                <html>
+                <body>
+                <h2>Emergency Database Migration</h2>
+                <p>This will add the missing recurring_payment_id column to your expense table.</p>
+                <form method="POST">
+                    <button type="submit" style="background: red; color: white; padding: 10px;">
+                        RUN MIGRATION (CLICK ONCE)
+                    </button>
+                </form>
+                </body>
+                </html>
+                '''
+            
+            # POST request - run migration
+            migration_log = []
+            
+            # Check if recurring_payment table exists
+            result = db.session.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_name = 'recurring_payment'
+                );
+            """))
+            recurring_table_exists = result.scalar()
+            
+            if not recurring_table_exists:
+                migration_log.append("Creating recurring_payment table...")
+                db.session.execute(text("""
+                    CREATE TABLE recurring_payment (
+                        id SERIAL PRIMARY KEY,
+                        amount FLOAT NOT NULL,
+                        category_id INTEGER NOT NULL REFERENCES category(id),
+                        category_description VARCHAR(255),
+                        user_id INTEGER NOT NULL REFERENCES "user"(id),
+                        frequency VARCHAR(20) NOT NULL,
+                        interval_value INTEGER NOT NULL DEFAULT 1,
+                        start_date DATE NOT NULL,
+                        next_due_date DATE NOT NULL,
+                        end_date DATE,
+                        is_active BOOLEAN NOT NULL DEFAULT true,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        participant_ids TEXT NOT NULL
+                    );
+                """))
+                migration_log.append("✅ Created recurring_payment table")
+            else:
+                migration_log.append("✅ recurring_payment table already exists")
+            
+            # Check if recurring_payment_id column exists in expense table
+            result = db.session.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.columns 
+                    WHERE table_name = 'expense' 
+                    AND column_name = 'recurring_payment_id'
+                );
+            """))
+            column_exists = result.scalar()
+            
+            if not column_exists:
+                migration_log.append("Adding recurring_payment_id column to expense table...")
+                db.session.execute(text("""
+                    ALTER TABLE expense 
+                    ADD COLUMN recurring_payment_id INTEGER 
+                    REFERENCES recurring_payment(id);
+                """))
+                migration_log.append("✅ Added recurring_payment_id column to expense table")
+            else:
+                migration_log.append("✅ recurring_payment_id column already exists")
+            
+            # Commit the changes
+            db.session.commit()
+            
+            return f'''
+            <html>
+            <body>
+            <h2>Migration Complete!</h2>
+            <ul>
+            {''.join(f'<li>{log}</li>' for log in migration_log)}
+            </ul>
+            <p><strong>Now you need to:</strong></p>
+            <ol>
+            <li>Replace your models.py with the full version (uncomment recurring payment code)</li>
+            <li>Restart your app</li>
+            <li>Remove this emergency migration route</li>
+            </ol>
+            <a href="/add-expense">Go to App</a>
+            </body>
+            </html>
+            '''
+            
+        except Exception as e:
+            db.session.rollback()
+            return f'''
+            <html>
+            <body>
+            <h2>Migration Failed</h2>
+            <p>Error: {str(e)}</p>
+            <a href="/emergency-migrate">Try Again</a>
+            </body>
+            </html>
+            '''
+
     # Register blueprints
     from app.routes.expenses import expenses_bp
     from app.routes.manage import manage_bp
