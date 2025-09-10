@@ -147,7 +147,7 @@ class RecurringPayment(db.Model):
     
     # Dates
     start_date = db.Column(db.Date, nullable=False)
-    next_due_date = db.Column(db.Date, nullable=False)
+    next_due_date = db.Column(db.Date, nullable=True)
     end_date = db.Column(db.Date, nullable=True)  # Optional end date
     
     # Status
