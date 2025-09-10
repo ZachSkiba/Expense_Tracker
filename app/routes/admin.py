@@ -4,8 +4,8 @@ import datetime
 from flask import Blueprint, render_template, jsonify, redirect, url_for, request
 from flask import current_app
 from models import db
-#from models import RecurringPayment
-#from datetime import date
+from models import RecurringPayment
+from datetime import date
 
 admin = Blueprint('admin', __name__, url_prefix='/admin')
 
@@ -29,20 +29,20 @@ def recurring_admin_dashboard():
 def health_check():
     """Health check for the admin system"""
     try:
-       # today = date.today()
+        today = date.today()
         
         # Get payment statistics
-      #  total_active = RecurringPayment.query.filter(RecurringPayment.is_active == True).count()
-      #  due_today = RecurringPayment.query.filter(
-      #      RecurringPayment.is_active == True,
-      #      RecurringPayment.next_due_date <= today
-      #  ).count()
+        total_active = RecurringPayment.query.filter(RecurringPayment.is_active == True).count()
+        due_today = RecurringPayment.query.filter(
+            RecurringPayment.is_active == True,
+            RecurringPayment.next_due_date <= today
+        ).count()
 
         return jsonify({
             'status': 'healthy',
             'payments': {
-         #       'total_active': total_active,
-         #       'due_today': due_today
+                'total_active': total_active,
+                'due_today': due_today
             },
             'timestamp': datetime.datetime.utcnow().isoformat()
         })
@@ -51,7 +51,7 @@ def health_check():
             'status': 'unhealthy',
             'error': str(e)
         }), 500
-"""
+
 @admin.route('/recurring/status')
 def get_recurring_status():
     
@@ -220,4 +220,4 @@ def wake_and_process():
             'error': str(e),
             'timestamp': datetime.datetime.now().isoformat()
         }), 500  
-        """
+        
