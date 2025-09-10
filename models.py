@@ -1,3 +1,4 @@
+
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 from sqlalchemy import func
@@ -24,8 +25,8 @@ class User(db.Model):
     settlements_made = db.relationship("Settlement", foreign_keys="Settlement.payer_id", back_populates="payer")
     settlements_received = db.relationship("Settlement", foreign_keys="Settlement.receiver_id", back_populates="receiver")
     
-    # relationship to recurring payments (as payer)
-    recurring_payments = db.relationship("RecurringPayment", back_populates="user")
+    # relationship to recurring payments (as payer) - COMMENTED OUT FOR HOTFIX
+    # recurring_payments = db.relationship("RecurringPayment", back_populates="user")
 
     def get_net_balance(self):
         """Calculate net balance for this user"""
@@ -41,8 +42,8 @@ class Category(db.Model):
     # relationship to expenses
     expenses = db.relationship("Expense", back_populates="category_obj")
     
-    # relationship to recurring payments
-    recurring_payments = db.relationship("RecurringPayment", back_populates="category_obj")
+    # relationship to recurring payments - COMMENTED OUT FOR HOTFIX
+    # recurring_payments = db.relationship("RecurringPayment", back_populates="category_obj")
 
 class Expense(db.Model):
     __tablename__ = "expense"
@@ -64,9 +65,10 @@ class Expense(db.Model):
     # New fields
     split_type = db.Column(db.String(20), nullable=False, default='equal')  # 'equal', 'custom'
     
+    # COMMENTED OUT FOR HOTFIX - will be added back after migration
     # Link to recurring payment if this expense was auto-generated
-    recurring_payment_id = db.Column(db.Integer, db.ForeignKey("recurring_payment.id"), nullable=True)
-    recurring_payment = db.relationship('RecurringPayment', backref='created_expenses')
+    # recurring_payment_id = db.Column(db.Integer, db.ForeignKey("recurring_payment.id"), nullable=True)
+    # recurring_payment = db.relationship('RecurringPayment', backref='created_expenses')
     
     # relationship to participants
     participants = db.relationship("ExpenseParticipant", back_populates="expense", cascade="all, delete-orphan")
@@ -123,8 +125,9 @@ class Settlement(db.Model):
     def __repr__(self):
         return f'<Settlement {self.payer.name} -> {self.receiver.name}: ${self.amount}>'
 
+"""""
 class RecurringPayment(db.Model):
-    """Track recurring payments like rent, utilities, subscriptions"""
+    
     __tablename__ = "recurring_payment"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -160,17 +163,17 @@ class RecurringPayment(db.Model):
     generated_expenses = db.relationship("Expense", back_populates="recurring_payment")
     
     def get_participant_ids(self):
-        """Get list of participant user IDs"""
+        
         import json
         return json.loads(self.participant_ids) if self.participant_ids else []
     
     def set_participant_ids(self, ids_list):
-        """Set participant user IDs"""
+       
         import json
         self.participant_ids = json.dumps(ids_list)
     
     def calculate_next_due_date(self, from_date=None):
-        """Calculate the next due date based on frequency and interval"""
+        
         if from_date is None:
             from_date = self.next_due_date
         
@@ -187,7 +190,7 @@ class RecurringPayment(db.Model):
             return from_date + relativedelta(months=self.interval_value)
     
     def is_due(self, check_date=None):
-        """Check if this recurring payment is due"""
+        
         if not self.is_active:
             return False
             
@@ -200,4 +203,4 @@ class RecurringPayment(db.Model):
         return check_date >= self.next_due_date
     
     def __repr__(self):
-        return f'<RecurringPayment {self.name}: ${self.amount} every {self.interval_value} {self.frequency}>'
+        return f'<RecurringPayment {self.name}: ${self.amount} every {self.interval_value} {self.frequency}>' """
