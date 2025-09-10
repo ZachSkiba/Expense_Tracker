@@ -3,7 +3,7 @@
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
 from config import Config
-from app.routes.recurring import recurring
+#from app.routes.recurring import recurring
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -26,9 +26,9 @@ def create_app():
     db.init_app(app)
 
     # Process startup recurring payments (this handles missed payments)
-    from app.startup_processor import StartupRecurringProcessor
-    with app.app_context():
-        StartupRecurringProcessor.process_startup_recurring_payments(app)
+  #  from app.startup_processor import StartupRecurringProcessor
+  #  with app.app_context():
+  #      StartupRecurringProcessor.process_startup_recurring_payments(app) 
 
     # Import auth functions
     from app.auth import check_auth, authenticate, require_auth, LOGIN_TEMPLATE, SHARED_PASSWORD
@@ -199,7 +199,7 @@ def create_app():
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
     app.register_blueprint(management_bp)
-    app.register_blueprint(recurring)
+    #app.register_blueprint(recurring)
     app.register_blueprint(admin)
 
     return app
