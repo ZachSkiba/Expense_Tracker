@@ -4,6 +4,8 @@ from flask import Flask, request, session, redirect, url_for, render_template_st
 from models import db
 from config import Config
 from app.routes.recurring import recurring
+import datetime
+from flask import jsonify
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -93,6 +95,7 @@ def create_app():
     def logout():
         session.pop('authenticated', None)
         return redirect(url_for('login'))
+    
 
     # Register blueprints
     from app.routes.expenses import expenses_bp
@@ -109,5 +112,61 @@ def create_app():
     app.register_blueprint(management_bp)
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
+
+    @app.route('/debug/routes')
+    def list_routes():
+        """List all registered routes for debugging"""
+        routes = []
+        for rule in app.url_map.iter_rules():
+            methods = ','.join(sorted(rule.methods - {'HEAD', 'OPTIONS'}))
+            routes.append(f"{methods} {rule.rule} -> {rule.endpoint}")
+        
+        return '<br>'.join(routes)
+    
+    # BACKUP: Direct route for GitHub Actions
+    @app.route('/admin/recurring/wake-and-process', methods=['POST'])
+    def backup_wake_and_process():
+        """Backup endpoint for GitHub Actions"""
+        print("[BACKUP_ROUTE] Direct wake-and-process endpoint called")
+        print(f"[BACKUP_ROUTE] User-Agent: {request.headers.get('User-Agent', 'None')}")
+        
+        try:
+            from app.services.recurring_service import RecurringPaymentService
+            from app.startup_processor import StartupRecurringProcessor
+            
+            # Get request data
+            request_data = request.get_json() or {}
+            source = request_data.get('source', 'backup_route')
+            
+            print(f"[BACKUP_ROUTE] Processing triggered by: {source}")
+            
+            # Run startup processor
+            StartupRecurringProcessor.process_startup_recurring_payments(app)
+            
+            # Run due payments processor
+            created_expenses = RecurringPaymentService.process_due_payments()
+            
+            result = {
+                'success': True,
+                'message': f'Backup route completed. Created {len(created_expenses)} expenses.',
+                'expenses_created': len(created_expenses),
+                'source': source,
+                'route_type': 'backup_direct_route',
+                'timestamp': datetime.datetime.now().isoformat()
+            }
+            
+            print(f"[BACKUP_ROUTE] Completed: {result}")
+            return jsonify(result)
+            
+        except Exception as e:
+            print(f"[BACKUP_ROUTE] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({
+                'success': False,
+                'error': str(e),
+                'route_type': 'backup_direct_route',
+                'timestamp': datetime.datetime.now().isoformat()
+            }), 500
 
     return app
