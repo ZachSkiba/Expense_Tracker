@@ -1,4 +1,4 @@
-# app/__init__.py - Simplified without scheduler
+# app/__init__.py - Final version with proper auth bypass
 
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
@@ -43,16 +43,36 @@ def create_app():
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
-    # Authentication check for all routes
+    # Authentication check for all routes - CRITICAL FIX
     @app.before_request
     def check_authentication():
-        # Allow specific admin endpoints to bypass auth for automation
-        if request.endpoint and (
-            request.path == '/admin/recurring/wake-and-process' or
-            request.path == '/admin/health'
-        ):
+        # Skip auth for static files
+        if request.endpoint == 'static':
             return None
-        return require_auth()
+            
+        # Skip auth for login page
+        if request.endpoint == 'login':
+            return None
+            
+        # CRITICAL: Skip auth for automation endpoints - check path AND endpoint
+        automation_paths = [
+            '/admin/health',
+            '/admin/recurring/wake-and-process'
+        ]
+        
+        # Check both path and endpoint for wake-and-process
+        if (request.path in automation_paths or 
+            request.endpoint == 'admin.wake_and_process' or
+            request.path.endswith('/wake-and-process')):
+            print(f"[AUTH_BYPASS] Allowing access to {request.path} (endpoint: {request.endpoint})")
+            return None
+            
+        # Require auth for everything else
+        if not check_auth():
+            print(f"[AUTH_REQUIRED] Redirecting {request.path} to login")
+            return redirect(url_for('login'))
+        
+        return None
 
     # Login/logout routes
     @app.route('/login', methods=['GET', 'POST'])
@@ -73,7 +93,6 @@ def create_app():
     def logout():
         session.pop('authenticated', None)
         return redirect(url_for('login'))
-
 
     # Register blueprints
     from app.routes.expenses import expenses_bp
