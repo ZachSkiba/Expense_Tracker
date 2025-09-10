@@ -1,6 +1,6 @@
 """
-Startup processor for recurring payments
-Add this file as: app/startup_processor.py
+Startup processor for recurring payments - UPDATED WITH END DATE LOGIC
+Now matches the unified logic from recurring_service.py
 """
 
 import logging
@@ -18,7 +18,7 @@ class StartupRecurringProcessor:
     def process_startup_recurring_payments(app):
         """
         Process any recurring payments that are due or overdue on app startup
-        This handles the case where the app was down and missed processing
+        UNIFIED: Now uses the same comprehensive logic as the service
         """
         with app.app_context():
             try:
@@ -47,46 +47,70 @@ class StartupRecurringProcessor:
                     
                     logger.info(f"   🔍 Checking: {payment.category_obj.name} - ${payment.amount} ({status})")
                     
-                    # Check if expense already exists for this due date
-                    existing_expense = Expense.query.filter(
-                        Expense.recurring_payment_id == payment.id,
-                        Expense.date == payment.next_due_date
-                    ).first()
+                    # Process ALL missed dates from next_due_date up through today
+                    # BUT respect the end_date if it exists
+                    current_due_date = payment.next_due_date
+                    payment_expenses = []
                     
-                    if existing_expense:
-                        logger.info(f"   ⏭️  Skipped: Expense #{existing_expense.id} already exists for {payment.next_due_date}")
-                        skipped_count += 1
+                    # Determine the actual end date for processing
+                    effective_end_date = today
+                    if payment.end_date and payment.end_date < today:
+                        effective_end_date = payment.end_date
+                        logger.info(f"      📅 Payment has end_date {payment.end_date}, limiting processing to that date")
+                    
+                    while current_due_date <= effective_end_date:
+                        # Check if expense already exists for this date
+                        existing_expense = Expense.query.filter(
+                            Expense.recurring_payment_id == payment.id,
+                            Expense.date == current_due_date
+                        ).first()
                         
-                        # Update next_due_date to prevent checking again
-                        old_due_date = payment.next_due_date
-                        payment.next_due_date = payment.calculate_next_due_date()
+                        if existing_expense:
+                            logger.info(f"      ⏭️  Skipped: Expense #{existing_expense.id} already exists for {current_due_date}")
+                            skipped_count += 1
+                        else:
+                            # Create expense for this date
+                            logger.info(f"      ✨ Creating expense for {current_due_date}...")
+                            
+                            try:
+                                expense = StartupRecurringProcessor._create_expense_from_recurring_startup(
+                                    payment, 
+                                    current_due_date
+                                )
+                                
+                                payment_expenses.append(expense)
+                                
+                                logger.info(f"      ✅ Created expense #{expense.id} for ${expense.amount}")
+                                processed_count += 1
+                                
+                            except Exception as e:
+                                logger.error(f"      ❌ Error creating expense for {current_due_date}: {e}")
+                                continue
+                        
+                        # Calculate next occurrence
+                        old_due_date = current_due_date
+                        current_due_date = payment.calculate_next_due_date(old_due_date)
+                        
+                        # Safety check to prevent infinite loops
+                        if current_due_date <= old_due_date:
+                            logger.error(f"      ⚠️  Date calculation error: {old_due_date} -> {current_due_date}")
+                            break
+                    
+                    # After processing all valid dates, check if payment should be deactivated
+                    if payment.end_date and current_due_date > payment.end_date:
+                        # Payment has ended - deactivate it and clear next_due_date
+                        payment.is_active = False
+                        payment.next_due_date = None  # Set to NULL to indicate completion
+                        payment.last_updated = datetime.utcnow()
+                        logger.info(f"      🔚 Payment ended on {payment.end_date}, marked as inactive with next_due_date cleared")
+                    else:
+                        # Update the recurring payment's next_due_date to the next future date
+                        old_next_due = payment.next_due_date
+                        payment.next_due_date = current_due_date
                         payment.last_updated = datetime.utcnow()
                         
-                        logger.info(f"      Updated next due date: {old_due_date} → {payment.next_due_date}")
-                        continue
-                    
-                    # Create the expense
-                    try:
-                        logger.info(f"   ✨ Creating expense for {payment.next_due_date}...")
-                        
-                        expense = StartupRecurringProcessor._create_expense_from_recurring_startup(
-                            payment, 
-                            payment.next_due_date
-                        )
-                        
-                        # Update next due date
-                        old_due_date = payment.next_due_date
-                        payment.next_due_date = payment.calculate_next_due_date()
-                        payment.last_updated = datetime.utcnow()
-                        
-                        logger.info(f"   ✅ Created expense #{expense.id} for ${expense.amount}")
-                        logger.info(f"      Updated next due date: {old_due_date} → {payment.next_due_date}")
-                        
-                        processed_count += 1
-                        
-                    except Exception as e:
-                        logger.error(f"   ❌ Error creating expense for payment {payment.id}: {e}")
-                        continue
+                        if payment_expenses:
+                            logger.info(f"      📅 Updated next due date: {old_next_due} → {payment.next_due_date}")
                 
                 # Commit all changes
                 if processed_count > 0 or skipped_count > 0:
@@ -104,7 +128,7 @@ class StartupRecurringProcessor:
     def _create_expense_from_recurring_startup(recurring_payment, expense_date):
         """
         Create an expense record from a recurring payment for startup processing
-        Similar to the service method but specifically for startup
+        UNIFIED: Now matches the service method exactly
         """
         from models import ExpenseParticipant, User
         
@@ -123,7 +147,7 @@ class StartupRecurringProcessor:
             category_id=recurring_payment.category_id,
             category_description=description,
             user_id=recurring_payment.user_id,
-            date=expense_date,
+            date=expense_date,  # Use the specific date passed in
             split_type='equal',
             recurring_payment_id=recurring_payment.id
         )
@@ -155,4 +179,3 @@ class StartupRecurringProcessor:
             logger.info(f"      Added participant: user {user_id}, owes ${amount_per_person:.2f}")
         
         return expense
-    

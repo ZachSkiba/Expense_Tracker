@@ -110,15 +110,7 @@ def create_app():
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
 
-    @app.route('/debug/routes')
-    def list_routes():
-        """List all registered routes for debugging"""
-        routes = []
-        for rule in app.url_map.iter_rules():
-            methods = ','.join(sorted(rule.methods - {'HEAD', 'OPTIONS'}))
-            routes.append(f"{methods} {rule.rule} -> {rule.endpoint}")
-        
-        return '<br>'.join(routes)
+    
     
     # BACKUP: Direct route for GitHub Actions
     @app.route('/admin/recurring/wake-and-process', methods=['POST'])

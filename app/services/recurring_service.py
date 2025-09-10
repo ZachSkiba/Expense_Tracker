@@ -89,13 +89,21 @@ class RecurringPaymentService:
                     logger.error(f"      ⚠️  Date calculation error: {old_due_date} -> {current_due_date}")
                     break
             
-            # Update the recurring payment's next_due_date to the next future date
-            old_next_due = recurring_payment.next_due_date
-            recurring_payment.next_due_date = current_due_date
-            recurring_payment.last_updated = datetime.utcnow()
-            
-            if payment_expenses:
-                logger.info(f"      📅 Updated next due date: {old_next_due} → {recurring_payment.next_due_date}")
+            # After processing all valid dates, check if payment should be deactivated
+            if recurring_payment.end_date and current_due_date > recurring_payment.end_date:
+                # Payment has ended - deactivate it and clear next_due_date
+                recurring_payment.is_active = False
+                recurring_payment.next_due_date = None  # Set to NULL to indicate completion
+                recurring_payment.last_updated = datetime.utcnow()
+                logger.info(f"      🔚 Payment ended on {recurring_payment.end_date}, marked as inactive with next_due_date cleared")
+            else:
+                # Update the recurring payment's next_due_date to the next future date
+                old_next_due = recurring_payment.next_due_date
+                recurring_payment.next_due_date = current_due_date
+                recurring_payment.last_updated = datetime.utcnow()
+                
+                if payment_expenses:
+                    logger.info(f"      📅 Updated next due date: {old_next_due} → {recurring_payment.next_due_date}")
         
         # Commit all changes
         if processed_count > 0 or skipped_count > 0:
