@@ -24,9 +24,9 @@ class User(db.Model):
     # relationship to settlements (as payer and receiver)
     settlements_made = db.relationship("Settlement", foreign_keys="Settlement.payer_id", back_populates="payer")
     settlements_received = db.relationship("Settlement", foreign_keys="Settlement.receiver_id", back_populates="receiver")
-    
-    # relationship to recurring payments (as payer) - COMMENTED OUT FOR HOTFIX
-    # recurring_payments = db.relationship("RecurringPayment", back_populates="user")
+
+    # relationship to recurring payments (as payer)
+    recurring_payments = db.relationship("RecurringPayment", back_populates="user")
 
     def get_net_balance(self):
         """Calculate net balance for this user"""
@@ -42,8 +42,8 @@ class Category(db.Model):
     # relationship to expenses
     expenses = db.relationship("Expense", back_populates="category_obj")
     
-    # relationship to recurring payments - COMMENTED OUT FOR HOTFIX
-    # recurring_payments = db.relationship("RecurringPayment", back_populates="category_obj")
+    
+    recurring_payments = db.relationship("RecurringPayment", back_populates="category_obj")
 
 class Expense(db.Model):
     __tablename__ = "expense"
@@ -65,10 +65,9 @@ class Expense(db.Model):
     # New fields
     split_type = db.Column(db.String(20), nullable=False, default='equal')  # 'equal', 'custom'
     
-    # COMMENTED OUT FOR HOTFIX - will be added back after migration
-    # Link to recurring payment if this expense was auto-generated
-    # recurring_payment_id = db.Column(db.Integer, db.ForeignKey("recurring_payment.id"), nullable=True)
-    # recurring_payment = db.relationship('RecurringPayment', backref='created_expenses')
+    
+    recurring_payment_id = db.Column(db.Integer, db.ForeignKey("recurring_payment.id"), nullable=True)
+    recurring_payment = db.relationship('RecurringPayment', backref='created_expenses')
     
     # relationship to participants
     participants = db.relationship("ExpenseParticipant", back_populates="expense", cascade="all, delete-orphan")
@@ -125,7 +124,7 @@ class Settlement(db.Model):
     def __repr__(self):
         return f'<Settlement {self.payer.name} -> {self.receiver.name}: ${self.amount}>'
 
-"""""
+
 class RecurringPayment(db.Model):
     
     __tablename__ = "recurring_payment"
@@ -203,4 +202,4 @@ class RecurringPayment(db.Model):
         return check_date >= self.next_due_date
     
     def __repr__(self):
-        return f'<RecurringPayment {self.name}: ${self.amount} every {self.interval_value} {self.frequency}>' """
+        return f'<RecurringPayment {self.name}: ${self.amount} every {self.interval_value} {self.frequency}>'
