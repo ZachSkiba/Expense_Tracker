@@ -1,6 +1,6 @@
 /**
- * Recurring Payments Manager - WITH INLINE EDITING
- * Fixes duplicate creation and adds inline table editing
+ * Recurring Payments Manager - WITH IMMEDIATE EXPENSE TABLE REFRESH
+ * Fixed to immediately refresh main expense table after creating recurring payments
  */
 
 class RecurringPaymentsManager {
@@ -107,8 +107,11 @@ class RecurringPaymentsManager {
                 // Reset form
                 this.resetForm();
                 
-                // Reload data
+                // Reload recurring payments data
                 await this.loadRecurringPayments();
+                
+                // IMMEDIATE REFRESH: Force refresh the main expense table right away
+                this.refreshMainTableImmediate();
                 
             } else {
                 this.showErrorMessage(response?.message || 'An error occurred while saving');
@@ -197,6 +200,78 @@ class RecurringPaymentsManager {
         return await response.json();
     }
     
+    // NEW METHOD: Immediate refresh without delays
+    refreshMainTableImmediate() {
+        console.log('Refreshing main expense table immediately...');
+        
+        // Try multiple methods to refresh the main table
+        try {
+            // Method 1: Direct call to expense table manager
+            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
+                console.log('Refreshing via expenseTableManager.loadExpenses()');
+                window.expenseTableManager.loadExpenses();
+            }
+            
+            // Method 2: Global refresh function
+            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
+                console.log('Refreshing via refreshAllData()');
+                window.refreshAllData();
+            }
+            
+            // Method 3: Try to find and trigger any expense refresh functions
+            if (window.loadExpenses && typeof window.loadExpenses === 'function') {
+                console.log('Refreshing via global loadExpenses()');
+                window.loadExpenses();
+            }
+            
+            // Method 4: Dispatch a custom event that other parts of the app can listen for
+            const refreshEvent = new CustomEvent('expenseTableRefresh', {
+                detail: { source: 'recurring-payment-created' }
+            });
+            document.dispatchEvent(refreshEvent);
+            console.log('Dispatched expenseTableRefresh event');
+            
+            // Method 5: If there's a main content area, try to reload it
+            const expensesSection = document.querySelector('.expenses-section');
+            if (expensesSection) {
+                // Trigger any refresh mechanisms on the expenses section
+                const refreshButtons = expensesSection.querySelectorAll('[onclick*="refresh"], [onclick*="load"]');
+                if (refreshButtons.length > 0) {
+                    console.log('Found refresh buttons, triggering first one');
+                    refreshButtons[0].click();
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error refreshing main table:', error);
+            
+            // Fallback: Small delay then try again
+            setTimeout(() => {
+                try {
+                    if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
+                        window.expenseTableManager.loadExpenses();
+                    }
+                } catch (fallbackError) {
+                    console.error('Fallback refresh also failed:', fallbackError);
+                }
+            }, 500);
+        }
+    }
+    
+    // Keep the old method for backward compatibility with process payment
+    refreshMainTable() {
+        // Refresh the main expenses table
+        setTimeout(() => {
+            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
+                window.expenseTableManager.loadExpenses();
+            }
+            
+            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
+                window.refreshAllData();
+            }
+        }, 1000);
+    }
+    
     // Inline editing methods
     setupInlineEditing() {
         if (!this.table) return;
@@ -275,10 +350,7 @@ class RecurringPaymentsManager {
     
     createInputForType(type, currentValue, cell) {
         let input;
-    
-    
-
-
+        
         switch (type) {
             case 'amount':
                 input = document.createElement('input');
@@ -325,8 +397,6 @@ class RecurringPaymentsManager {
                 input = document.createElement('input');
                 input.type = 'date';
                 input.value = currentValue;
-
-
                 break;
                 
             case 'category':
@@ -739,7 +809,7 @@ class RecurringPaymentsManager {
         if (recurringPayments.length === 0) {
             this.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="empty-state">
+                    <td colspan="10" class="empty-state">
                         <div class="empty-state-icon">🔄</div>
                         <div class="empty-state-text">No recurring payments found</div>
                         <div class="empty-state-subtext">Create your first recurring payment above</div>
@@ -818,7 +888,9 @@ class RecurringPaymentsManager {
             if (result.success) {
                 this.showSuccessMessage('Recurring payment processed successfully! Expense created for today.');
                 await this.loadRecurringPayments();
-                this.refreshMainTable();
+                
+                // IMMEDIATE REFRESH: Also refresh main table when processing a payment
+                this.refreshMainTableImmediate();
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
             }
@@ -826,19 +898,6 @@ class RecurringPaymentsManager {
             console.error('Error processing payment:', error);
             this.showErrorMessage('Error processing payment');
         }
-    }
-    
-    refreshMainTable() {
-        // Refresh the main expenses table
-        setTimeout(() => {
-            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
-                window.expenseTableManager.loadExpenses();
-            }
-            
-            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
-                window.refreshAllData();
-            }
-        }, 1000);
     }
     
     resetForm() {
@@ -918,22 +977,21 @@ class RecurringPaymentsManager {
     }
     
     formatDate(dateString) {
-    if (!dateString) return '';
+        if (!dateString) return '';
 
-    // Split YYYY-MM-DD into parts
-    const [year, month, day] = dateString.split('-').map(Number);
+        // Split YYYY-MM-DD into parts
+        const [year, month, day] = dateString.split('-').map(Number);
 
-    // Create a Date object using local time
-    const date = new Date(year, month - 1, day);
+        // Create a Date object using local time
+        const date = new Date(year, month - 1, day);
 
-    // Format as "Sep 9, 2025"
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-}
-
+        // Format as "Sep 9, 2025"
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
     
     escapeHtml(text) {
         const div = document.createElement('div');
@@ -1031,3 +1089,14 @@ if (!window.recurringPaymentsManager) {
         }
     });
 }
+
+// ADDITIONAL: Listen for custom refresh events from other parts of the app
+document.addEventListener('expenseTableRefresh', (event) => {
+    console.log('Received expenseTableRefresh event:', event.detail);
+    
+    // If the main expense table manager exists, refresh it
+    if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
+        console.log('Refreshing expense table via event listener');
+        window.expenseTableManager.loadExpenses();
+    }
+});
