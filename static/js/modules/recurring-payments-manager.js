@@ -275,7 +275,14 @@ class RecurringPaymentsManager {
     
     createInputForType(type, currentValue, cell) {
         let input;
+    
         
+        const SENTINEL_DATE = '9999-01-01';
+
+        function formatDateForInput(dateStr) {
+            return dateStr === SENTINEL_DATE ? '' : dateStr;
+}
+
         switch (type) {
             case 'amount':
                 input = document.createElement('input');
@@ -321,7 +328,12 @@ class RecurringPaymentsManager {
             case 'next_due_date':
                 input = document.createElement('input');
                 input.type = 'date';
-                input.value = currentValue;
+                input.value = formatDateForInput(currentValue);
+
+                // Optional: show 'Never' placeholder for sentinel dates
+                if (currentValue === SENTINEL_DATE) {
+                    input.placeholder = 'Never';
+                }
                 break;
                 
             case 'category':
@@ -603,12 +615,15 @@ class RecurringPaymentsManager {
             case 'start_date':
             case 'end_date':
             case 'next_due_date':
-                if (newValue) {
+                if (newValue && newValue !== SENTINEL_DATE) {
                     cell.innerHTML = this.formatDate(newValue);
                 } else {
+                    // If it's the sentinel date or null/empty
                     cell.innerHTML = type === 'end_date' ? 'Never' : '';
                 }
-                cell.setAttribute('data-value', newValue);
+
+                // Store the actual value including the sentinel for backend consistency
+                cell.setAttribute('data-value', newValue || SENTINEL_DATE);
                 break;
                 
             case 'user':
