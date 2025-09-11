@@ -275,7 +275,10 @@ class RecurringPaymentsManager {
     
     createInputForType(type, currentValue, cell) {
         let input;
-        
+    
+    
+
+
         switch (type) {
             case 'amount':
                 input = document.createElement('input');
@@ -322,6 +325,8 @@ class RecurringPaymentsManager {
                 input = document.createElement('input');
                 input.type = 'date';
                 input.value = currentValue;
+
+
                 break;
                 
             case 'category':
@@ -606,8 +611,11 @@ class RecurringPaymentsManager {
                 if (newValue) {
                     cell.innerHTML = this.formatDate(newValue);
                 } else {
+                    // If it's the sentinel date or null/empty
                     cell.innerHTML = type === 'end_date' ? 'Never' : '';
                 }
+
+                // Store the actual value including the sentinel for backend consistency
                 cell.setAttribute('data-value', newValue);
                 break;
                 

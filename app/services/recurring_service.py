@@ -1,6 +1,6 @@
 """
-Service for handling recurring payment logic - UNIFIED VERSION
-Both startup processor and regular service now use the same comprehensive logic
+Service for handling recurring payment logic - FIXED END DATE VERSION
+Fixed the end date logic to properly set sentinel date and inactive status
 """
 from datetime import datetime, date, timedelta
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
@@ -16,8 +16,8 @@ class RecurringPaymentService:
     @staticmethod
     def process_due_payments(check_date=None):
         """
-        UNIFIED: Check for due recurring payments and create expense records
-        Uses the same comprehensive logic as startup processor
+        FIXED: Check for due recurring payments and create expense records
+        Properly handles end dates by setting sentinel date and inactive status
         """
         if check_date is None:
             check_date = datetime.now().date()
@@ -50,7 +50,13 @@ class RecurringPaymentService:
             current_due_date = recurring_payment.next_due_date
             payment_expenses = []
             
+            # FIXED: Process expenses while respecting end_date
             while current_due_date <= check_date:
+                # CRITICAL: Check if current_due_date is beyond end_date BEFORE processing
+                if recurring_payment.end_date and current_due_date > recurring_payment.end_date:
+                    logger.info(f"      🔚 Current due date {current_due_date} is beyond end date {recurring_payment.end_date}, stopping processing")
+                    break
+                
                 # Check if expense already exists for this date
                 existing_expense = Expense.query.filter(
                     Expense.recurring_payment_id == recurring_payment.id,
@@ -89,17 +95,28 @@ class RecurringPaymentService:
                     logger.error(f"      ⚠️  Date calculation error: {old_due_date} -> {current_due_date}")
                     break
             
-            # After processing all valid dates, check if payment should be deactivated
-            if recurring_payment.end_date and current_due_date > recurring_payment.end_date:
-                # Payment has ended - deactivate it and clear next_due_date
+            # FIXED: After processing, check if payment should be deactivated
+            # Calculate what the NEXT due date would be
+            if payment_expenses:  # If we processed any expenses
+                last_processed_date = payment_expenses[-1].date
+                next_would_be_due = recurring_payment.calculate_next_due_date(last_processed_date)
+            else:
+                # No expenses processed, use current next_due_date to calculate next
+                next_would_be_due = recurring_payment.calculate_next_due_date(recurring_payment.next_due_date)
+            
+            # Check if the next due date would be beyond the end date
+            if recurring_payment.end_date and next_would_be_due > recurring_payment.end_date:
+                # Payment has ended - deactivate it and set sentinel date
+                sentinel_date = datetime(9999, 1, 1)  # Day after end date as sentinel
                 recurring_payment.is_active = False
-                recurring_payment.next_due_date = None  # Set to NULL to indicate completion
+                recurring_payment.next_due_date = sentinel_date  # Set sentinel date
                 recurring_payment.last_updated = datetime.utcnow()
-                logger.info(f"      🔚 Payment ended on {recurring_payment.end_date}, marked as inactive with next_due_date cleared")
+                logger.info(f"      🔚 Next due date {next_would_be_due} would be beyond end date {recurring_payment.end_date}")
+                logger.info(f"      🔚 Set payment as inactive with sentinel date: {sentinel_date}")
             else:
                 # Update the recurring payment's next_due_date to the next future date
                 old_next_due = recurring_payment.next_due_date
-                recurring_payment.next_due_date = current_due_date
+                recurring_payment.next_due_date = next_would_be_due
                 recurring_payment.last_updated = datetime.utcnow()
                 
                 if payment_expenses:
@@ -261,7 +278,15 @@ class RecurringPaymentService:
         
         if 'end_date' in data:
             if data['end_date']:
-                recurring_payment.end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+                new_end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
+                recurring_payment.end_date = new_end_date
+                
+                # FIXED: If updating end_date, check if payment should now be inactive
+                if recurring_payment.next_due_date and recurring_payment.next_due_date > new_end_date:
+                    sentinel_date = datetime(9999, 1, 1)
+                    recurring_payment.is_active = False
+                    recurring_payment.next_due_date = sentinel_date
+                    logger.info(f"[UPDATE] End date {new_end_date} is before next due date, set inactive with sentinel {sentinel_date}")
             else:
                 recurring_payment.end_date = None
         
@@ -272,7 +297,15 @@ class RecurringPaymentService:
                 recurring_payment.is_active = str(data['is_active']).lower() == 'true'
         
         if 'next_due_date' in data and data['next_due_date']:
-            recurring_payment.next_due_date = datetime.strptime(data['next_due_date'], '%Y-%m-%d').date()
+            new_next_due = datetime.strptime(data['next_due_date'], '%Y-%m-%d').date()
+            recurring_payment.next_due_date = new_next_due
+            
+            # FIXED: If updating next_due_date, check if it's beyond end_date
+            if recurring_payment.end_date and new_next_due > recurring_payment.end_date:
+                sentinel_date = datetime(9999, 1, 1)
+                recurring_payment.is_active = False
+                recurring_payment.next_due_date = sentinel_date
+                logger.info(f"[UPDATE] Next due date {new_next_due} is beyond end date {recurring_payment.end_date}, set inactive with sentinel {sentinel_date}")
         
         if 'start_date' in data:
             new_start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
