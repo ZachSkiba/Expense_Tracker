@@ -1,6 +1,6 @@
 /**
- * Recurring Payments Manager - WITH INLINE EDITING
- * Fixes duplicate creation and adds inline table editing
+ * Recurring Payments Manager - WITH IMMEDIATE EXPENSE TABLE REFRESH
+ * Fixed to immediately refresh main expense table after creating recurring payments
  */
 
 class RecurringPaymentsManager {
@@ -107,20 +107,29 @@ class RecurringPaymentsManager {
                 // Reset form
                 this.resetForm();
                 
-                // Reload data
+                // Reload recurring payments data
                 await this.loadRecurringPayments();
                 
-            } else {
-                this.showErrorMessage(response?.message || 'An error occurred while saving');
+
+
+                // SIMPLE RELOAD: Just reload the current page content
+                console.log('Reloading page to show new expenses...');
+                setTimeout(() => {
+                    window.location.reload();
+                });
             }
-        } catch (error) {
-            console.error('Error in form submission:', error);
-            this.showErrorMessage('Network error occurred while saving');
-        } finally {
-            this.isSubmitting = false;
-            this.setLoadingState(false);
-        }
-    }
+
+            else {
+                            this.showErrorMessage(response?.message || 'An error occurred while saving');
+                        }
+                    } catch (error) {
+                        console.error('Error in form submission:', error);
+                        this.showErrorMessage('Network error occurred while saving');
+                    } finally {
+                        this.isSubmitting = false;
+                        this.setLoadingState(false);
+                    }
+                }
     
     parseFormData(formData) {
         const data = {};
@@ -197,27 +206,90 @@ class RecurringPaymentsManager {
         return await response.json();
     }
     
-    // Inline editing methods
-    setupInlineEditing() {
-        if (!this.table) return;
-        
-        const editableCells = this.table.querySelectorAll('td.editable');
-        
-        editableCells.forEach((cell) => {
-            cell.style.cursor = 'pointer';
-            cell.style.backgroundColor = '#f9f9f9';
-            cell.title = 'Click to edit';
+    // NEW METHOD: Immediate refresh without delays
+        refreshMainTableImmediate() {
+            console.log('Refreshing main expense table immediately...');
             
-            // Remove existing listeners by cloning
-            const newCell = cell.cloneNode(true);
-            cell.parentNode.replaceChild(newCell, cell);
+            let refreshSuccess = false;
             
-            newCell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.startEditCell(newCell);
-            });
-        });
-    }
+            try {
+                // Method 1: Try to reload the entire expenses section via fetch
+                const expensesTableContainer = document.querySelector('.expenses-section, #expenses-table-container, .expenses-table');
+                if (expensesTableContainer && !refreshSuccess) {
+                    console.log('Found expenses table container, attempting to reload...');
+                    
+                    // Look for a reload URL or try common endpoints
+                    const reloadUrl = '/expenses/table' || window.location.pathname;
+                    fetch(reloadUrl)
+                        .then(response => response.text())
+                        .then(html => {
+                            // Parse the HTML to get just the table part
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = html;
+                            const newTable = tempDiv.querySelector('table tbody, .expenses-table tbody');
+                            const currentTable = document.querySelector('table tbody, .expenses-table tbody');
+                            
+                            if (newTable && currentTable) {
+                                currentTable.innerHTML = newTable.innerHTML;
+                                console.log('Successfully updated expense table via fetch');
+                                refreshSuccess = true;
+                                
+                                // Re-trigger the expense filter to attach listeners
+                                if (window.expenseFilter && window.expenseFilter.handleFilterChange) {
+                                    setTimeout(() => window.expenseFilter.handleFilterChange(), 100);
+                                }
+                            }
+                        })
+                        .catch(error => console.log('Fetch reload failed:', error));
+                }
+                
+                // Method 2: Trigger a page refresh of just the expenses data
+                if (window.location.pathname.includes('expenses') || window.location.pathname === '/') {
+                    console.log('Attempting to reload current page data...');
+                    
+                    // Make an AJAX call to get fresh expense data
+                    fetch(window.location.pathname)
+                        .then(response => response.text())
+                        .then(html => {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(html, 'text/html');
+                            const newTableBody = doc.querySelector('table tbody, .expenses-table tbody');
+                            const currentTableBody = document.querySelector('table tbody, .expenses-table tbody');
+                            
+                            if (newTableBody && currentTableBody) {
+                                currentTableBody.innerHTML = newTableBody.innerHTML;
+                                console.log('Successfully refreshed table content');
+                                refreshSuccess = true;
+                                
+                                // Re-run any initialization scripts
+                                setTimeout(() => {
+                                    // Re-trigger expense filter
+                                    if (window.expenseFilter) {
+                                        window.expenseFilter.handleFilterChange();
+                                    }
+                                    
+                                    // Re-trigger settlement manager
+                                    if (window.settlementManager) {
+                                        window.settlementManager.attachEditingListeners();
+                                    }
+                                }, 200);
+                            }
+                        })
+                        .catch(error => console.log('Page reload failed:', error));
+                }
+                
+                // Method 3: Force a browser refresh as last resort (with confirmation)
+                if (!refreshSuccess) {
+                    setTimeout(() => {
+                        console.log('All refresh methods failed, the table will update on next page load');
+                        // Don't force refresh automatically, but log that manual refresh is needed
+                    }, 2000);
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing main table:', error);
+            }
+}
     
     startEditCell(cell) {
         // Check if already editing
@@ -275,10 +347,7 @@ class RecurringPaymentsManager {
     
     createInputForType(type, currentValue, cell) {
         let input;
-    
-    
-
-
+        
         switch (type) {
             case 'amount':
                 input = document.createElement('input');
@@ -325,8 +394,6 @@ class RecurringPaymentsManager {
                 input = document.createElement('input');
                 input.type = 'date';
                 input.value = currentValue;
-
-
                 break;
                 
             case 'category':
@@ -739,7 +806,7 @@ class RecurringPaymentsManager {
         if (recurringPayments.length === 0) {
             this.tableBody.innerHTML = `
                 <tr>
-                    <td colspan="9" class="empty-state">
+                    <td colspan="10" class="empty-state">
                         <div class="empty-state-icon">🔄</div>
                         <div class="empty-state-text">No recurring payments found</div>
                         <div class="empty-state-subtext">Create your first recurring payment above</div>
@@ -818,27 +885,19 @@ class RecurringPaymentsManager {
             if (result.success) {
                 this.showSuccessMessage('Recurring payment processed successfully! Expense created for today.');
                 await this.loadRecurringPayments();
-                this.refreshMainTable();
+                
+                // IMMEDIATE REFRESH: Also refresh main table when processing a payment
+                this.refreshMainTableImmediate();
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
             }
+            setTimeout(() => {
+                window.location.reload();
+            });
         } catch (error) {
             console.error('Error processing payment:', error);
             this.showErrorMessage('Error processing payment');
         }
-    }
-    
-    refreshMainTable() {
-        // Refresh the main expenses table
-        setTimeout(() => {
-            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
-                window.expenseTableManager.loadExpenses();
-            }
-            
-            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
-                window.refreshAllData();
-            }
-        }, 1000);
     }
     
     resetForm() {
@@ -918,22 +977,21 @@ class RecurringPaymentsManager {
     }
     
     formatDate(dateString) {
-    if (!dateString) return '';
+        if (!dateString) return '';
 
-    // Split YYYY-MM-DD into parts
-    const [year, month, day] = dateString.split('-').map(Number);
+        // Split YYYY-MM-DD into parts
+        const [year, month, day] = dateString.split('-').map(Number);
 
-    // Create a Date object using local time
-    const date = new Date(year, month - 1, day);
+        // Create a Date object using local time
+        const date = new Date(year, month - 1, day);
 
-    // Format as "Sep 9, 2025"
-    return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-    });
-}
-
+        // Format as "Sep 9, 2025"
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        });
+    }
     
     escapeHtml(text) {
         const div = document.createElement('div');
@@ -1031,3 +1089,14 @@ if (!window.recurringPaymentsManager) {
         }
     });
 }
+
+// ADDITIONAL: Listen for custom refresh events from other parts of the app
+document.addEventListener('expenseTableRefresh', (event) => {
+    console.log('Received expenseTableRefresh event:', event.detail);
+    
+    // If the main expense table manager exists, refresh it
+    if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
+        console.log('Refreshing expense table via event listener');
+        window.expenseTableManager.loadExpenses();
+    }
+});

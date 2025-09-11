@@ -81,7 +81,7 @@ jobs:
             echo "Check your app logs and consider manual processing if needed."
           fi
           
-          echo "🔗 Manual processing available at: ${{ secrets.RENDER_APP_URL }}/admin/recurring"
+          echo "🔗 App URL: ${{ secrets.RENDER_APP_URL }}"
 
       # Optional: Notify on failure (uncomment and configure if you want notifications)
       # - name: Notify on Failure
