@@ -110,20 +110,26 @@ class RecurringPaymentsManager {
                 // Reload recurring payments data
                 await this.loadRecurringPayments();
                 
-                // IMMEDIATE REFRESH: Force refresh the main expense table right away
-                this.refreshMainTableImmediate();
-                
-            } else {
-                this.showErrorMessage(response?.message || 'An error occurred while saving');
+
+
+                // SIMPLE RELOAD: Just reload the current page content
+                console.log('Reloading page to show new expenses...');
+                setTimeout(() => {
+                    window.location.reload();
+                });
             }
-        } catch (error) {
-            console.error('Error in form submission:', error);
-            this.showErrorMessage('Network error occurred while saving');
-        } finally {
-            this.isSubmitting = false;
-            this.setLoadingState(false);
-        }
-    }
+
+            else {
+                            this.showErrorMessage(response?.message || 'An error occurred while saving');
+                        }
+                    } catch (error) {
+                        console.error('Error in form submission:', error);
+                        this.showErrorMessage('Network error occurred while saving');
+                    } finally {
+                        this.isSubmitting = false;
+                        this.setLoadingState(false);
+                    }
+                }
     
     parseFormData(formData) {
         const data = {};
@@ -201,98 +207,89 @@ class RecurringPaymentsManager {
     }
     
     // NEW METHOD: Immediate refresh without delays
-    refreshMainTableImmediate() {
-        console.log('Refreshing main expense table immediately...');
-        
-        // Try multiple methods to refresh the main table
-        try {
-            // Method 1: Direct call to expense table manager
-            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
-                console.log('Refreshing via expenseTableManager.loadExpenses()');
-                window.expenseTableManager.loadExpenses();
-            }
+        refreshMainTableImmediate() {
+            console.log('Refreshing main expense table immediately...');
             
-            // Method 2: Global refresh function
-            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
-                console.log('Refreshing via refreshAllData()');
-                window.refreshAllData();
-            }
+            let refreshSuccess = false;
             
-            // Method 3: Try to find and trigger any expense refresh functions
-            if (window.loadExpenses && typeof window.loadExpenses === 'function') {
-                console.log('Refreshing via global loadExpenses()');
-                window.loadExpenses();
-            }
-            
-            // Method 4: Dispatch a custom event that other parts of the app can listen for
-            const refreshEvent = new CustomEvent('expenseTableRefresh', {
-                detail: { source: 'recurring-payment-created' }
-            });
-            document.dispatchEvent(refreshEvent);
-            console.log('Dispatched expenseTableRefresh event');
-            
-            // Method 5: If there's a main content area, try to reload it
-            const expensesSection = document.querySelector('.expenses-section');
-            if (expensesSection) {
-                // Trigger any refresh mechanisms on the expenses section
-                const refreshButtons = expensesSection.querySelectorAll('[onclick*="refresh"], [onclick*="load"]');
-                if (refreshButtons.length > 0) {
-                    console.log('Found refresh buttons, triggering first one');
-                    refreshButtons[0].click();
+            try {
+                // Method 1: Try to reload the entire expenses section via fetch
+                const expensesTableContainer = document.querySelector('.expenses-section, #expenses-table-container, .expenses-table');
+                if (expensesTableContainer && !refreshSuccess) {
+                    console.log('Found expenses table container, attempting to reload...');
+                    
+                    // Look for a reload URL or try common endpoints
+                    const reloadUrl = '/expenses/table' || window.location.pathname;
+                    fetch(reloadUrl)
+                        .then(response => response.text())
+                        .then(html => {
+                            // Parse the HTML to get just the table part
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = html;
+                            const newTable = tempDiv.querySelector('table tbody, .expenses-table tbody');
+                            const currentTable = document.querySelector('table tbody, .expenses-table tbody');
+                            
+                            if (newTable && currentTable) {
+                                currentTable.innerHTML = newTable.innerHTML;
+                                console.log('Successfully updated expense table via fetch');
+                                refreshSuccess = true;
+                                
+                                // Re-trigger the expense filter to attach listeners
+                                if (window.expenseFilter && window.expenseFilter.handleFilterChange) {
+                                    setTimeout(() => window.expenseFilter.handleFilterChange(), 100);
+                                }
+                            }
+                        })
+                        .catch(error => console.log('Fetch reload failed:', error));
                 }
-            }
-            
-        } catch (error) {
-            console.error('Error refreshing main table:', error);
-            
-            // Fallback: Small delay then try again
-            setTimeout(() => {
-                try {
-                    if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
-                        window.expenseTableManager.loadExpenses();
-                    }
-                } catch (fallbackError) {
-                    console.error('Fallback refresh also failed:', fallbackError);
+                
+                // Method 2: Trigger a page refresh of just the expenses data
+                if (window.location.pathname.includes('expenses') || window.location.pathname === '/') {
+                    console.log('Attempting to reload current page data...');
+                    
+                    // Make an AJAX call to get fresh expense data
+                    fetch(window.location.pathname)
+                        .then(response => response.text())
+                        .then(html => {
+                            const parser = new DOMParser();
+                            const doc = parser.parseFromString(html, 'text/html');
+                            const newTableBody = doc.querySelector('table tbody, .expenses-table tbody');
+                            const currentTableBody = document.querySelector('table tbody, .expenses-table tbody');
+                            
+                            if (newTableBody && currentTableBody) {
+                                currentTableBody.innerHTML = newTableBody.innerHTML;
+                                console.log('Successfully refreshed table content');
+                                refreshSuccess = true;
+                                
+                                // Re-run any initialization scripts
+                                setTimeout(() => {
+                                    // Re-trigger expense filter
+                                    if (window.expenseFilter) {
+                                        window.expenseFilter.handleFilterChange();
+                                    }
+                                    
+                                    // Re-trigger settlement manager
+                                    if (window.settlementManager) {
+                                        window.settlementManager.attachEditingListeners();
+                                    }
+                                }, 200);
+                            }
+                        })
+                        .catch(error => console.log('Page reload failed:', error));
                 }
-            }, 500);
-        }
-    }
-    
-    // Keep the old method for backward compatibility with process payment
-    refreshMainTable() {
-        // Refresh the main expenses table
-        setTimeout(() => {
-            if (window.expenseTableManager && typeof window.expenseTableManager.loadExpenses === 'function') {
-                window.expenseTableManager.loadExpenses();
+                
+                // Method 3: Force a browser refresh as last resort (with confirmation)
+                if (!refreshSuccess) {
+                    setTimeout(() => {
+                        console.log('All refresh methods failed, the table will update on next page load');
+                        // Don't force refresh automatically, but log that manual refresh is needed
+                    }, 2000);
+                }
+                
+            } catch (error) {
+                console.error('Error refreshing main table:', error);
             }
-            
-            if (window.refreshAllData && typeof window.refreshAllData === 'function') {
-                window.refreshAllData();
-            }
-        }, 1000);
-    }
-    
-    // Inline editing methods
-    setupInlineEditing() {
-        if (!this.table) return;
-        
-        const editableCells = this.table.querySelectorAll('td.editable');
-        
-        editableCells.forEach((cell) => {
-            cell.style.cursor = 'pointer';
-            cell.style.backgroundColor = '#f9f9f9';
-            cell.title = 'Click to edit';
-            
-            // Remove existing listeners by cloning
-            const newCell = cell.cloneNode(true);
-            cell.parentNode.replaceChild(newCell, cell);
-            
-            newCell.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.startEditCell(newCell);
-            });
-        });
-    }
+}
     
     startEditCell(cell) {
         // Check if already editing
@@ -894,6 +891,9 @@ class RecurringPaymentsManager {
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
             }
+            setTimeout(() => {
+                window.location.reload();
+            });
         } catch (error) {
             console.error('Error processing payment:', error);
             this.showErrorMessage('Error processing payment');
