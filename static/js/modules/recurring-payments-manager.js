@@ -145,7 +145,7 @@ class RecurringPaymentsManager {
         data.is_active = formData.get('is_active') === 'true';
         
         // Participants
-        const participantIds = formData.getAll('participant_ids');
+        const participantIds = formData.getAll('recurring_participant_ids');
         data.participant_ids = participantIds;
         
         return data;
@@ -174,8 +174,8 @@ class RecurringPaymentsManager {
             errors.push('Start date is required');
         }
         
-        if (data.participant_ids.length === 0) {
-            errors.push('At least one participant must be selected');
+        if (!data.participant_ids || data.participant_ids.length === 0) {
+        errors.push('At least one participant must be selected');
         }
         
         if (data.end_date && new Date(data.end_date) < new Date(data.start_date)) {
@@ -950,7 +950,7 @@ class RecurringPaymentsManager {
         
         // Clear all checkboxes
         if (this.form) {
-            this.form.querySelectorAll('[name="participant_ids"]').forEach(checkbox => {
+            this.form.querySelectorAll('[name="recurring_participant_ids"]').forEach(checkbox => {
                 checkbox.checked = false;
             });
         }
@@ -1094,7 +1094,7 @@ function handleFrequencyChange(selectElement) {
 }
 
 function toggleAllRecurringParticipants() {
-    const checkboxes = document.querySelectorAll('#recurring-participants-list input[name="participant_ids"]');
+    const checkboxes = document.querySelectorAll('#recurring-participants-list input[name="recurring_participant_ids"]');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
     
     checkboxes.forEach(checkbox => {
