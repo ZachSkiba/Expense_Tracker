@@ -291,6 +291,33 @@ class RecurringPaymentsManager {
             }
 }
     
+    // MISSING METHOD - This was causing the inline editing to not work!
+    setupInlineEditing() {
+        console.log('Setting up inline editing...');
+        
+        if (!this.tableBody) {
+            console.error('Table body not found for inline editing setup');
+            return;
+        }
+        
+        // Remove existing event listeners to prevent duplicates
+        this.tableBody.removeEventListener('click', this.handleTableClick);
+        
+        // Add click event listener for inline editing
+        this.handleTableClick = (e) => {
+            const cell = e.target.closest('.editable');
+            if (cell && !cell.querySelector('input, select, div[style*="border"]')) {
+                console.log('Clicked editable cell:', cell.className);
+                this.startEditCell(cell);
+            }
+        };
+        
+        this.tableBody.addEventListener('click', this.handleTableClick);
+        
+        console.log('Inline editing setup complete');
+    }
+
+
     startEditCell(cell) {
         // Check if already editing
         if (cell.querySelector('input, select')) {
@@ -791,7 +818,7 @@ class RecurringPaymentsManager {
             if (data.success) {
                 this.renderRecurringPaymentsTable(data.recurring_payments);
                 // Set up inline editing after rendering
-                setTimeout(() => this.setupInlineEditing(), 100);
+                setTimeout(() => this.setupInlineEditing(), 200);
             } else {
                 console.error('Error loading recurring payments:', data.message);
             }
