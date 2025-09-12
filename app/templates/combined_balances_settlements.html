@@ -126,7 +126,7 @@
                 <input type="text" name="description" value="{{ description or '' }}" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
             </div>
 
-            <button type="submit" class="submit-btn">💸 Record Payment</button>
+            <button type="submit" id="record-payment-btn" class="submit-btn">💸 Record Payment</button>
         </form>
 
         <div class="payments-section">
@@ -189,7 +189,9 @@
 <!-- Load the complete settlement manager script -->
 <script src="{{ url_for('static', filename='js/modules/settlement-manager.js') }}"></script>
 <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
+<script src="{{ url_for('static', filename='main.js') }}"></script>
 <script>
+
 // Initialize totals calculator for balances page
 document.addEventListener('DOMContentLoaded', function() {
     new TotalsCalculator();

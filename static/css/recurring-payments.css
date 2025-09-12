@@ -1,22 +1,26 @@
 /* Recurring Payments Styles */
 
+/* Recurring Payments Button - Smaller, light purple */
 .recurring-payments-btn {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background-color: #9b59b6;  /* light purple */
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 8px;
-    font-weight: 500;
+    padding: 10px 20px;          /* same as submit-btn */
+    border-radius: 8px;          /* same as submit-btn */
+    font-weight: 500;            /* same as submit-btn */
+    font-size: .9rem;           /* same as submit-btn */
     cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 10px;
     width: 100%;
+    transition: background-color 0.3s ease;
 }
 
 .recurring-payments-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    background-color: #8e44ad;
 }
+
+
+
+
 
 /* Large modal for recurring payments */
 .large-modal .modal-content {
