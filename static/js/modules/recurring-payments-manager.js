@@ -145,7 +145,7 @@ class RecurringPaymentsManager {
         data.is_active = formData.get('is_active') === 'true';
         
         // Participants
-        const participantIds = formData.getAll('participant_ids');
+        const participantIds = formData.getAll('recurring_participant_ids');
         data.participant_ids = participantIds;
         
         return data;
@@ -174,8 +174,8 @@ class RecurringPaymentsManager {
             errors.push('Start date is required');
         }
         
-        if (data.participant_ids.length === 0) {
-            errors.push('At least one participant must be selected');
+        if (!data.participant_ids || data.participant_ids.length === 0) {
+        errors.push('At least one participant must be selected');
         }
         
         if (data.end_date && new Date(data.end_date) < new Date(data.start_date)) {
@@ -291,6 +291,33 @@ class RecurringPaymentsManager {
             }
 }
     
+    // MISSING METHOD - This was causing the inline editing to not work!
+    setupInlineEditing() {
+        console.log('Setting up inline editing...');
+        
+        if (!this.tableBody) {
+            console.error('Table body not found for inline editing setup');
+            return;
+        }
+        
+        // Remove existing event listeners to prevent duplicates
+        this.tableBody.removeEventListener('click', this.handleTableClick);
+        
+        // Add click event listener for inline editing
+        this.handleTableClick = (e) => {
+            const cell = e.target.closest('.editable');
+            if (cell && !cell.querySelector('input, select, div[style*="border"]')) {
+                console.log('Clicked editable cell:', cell.className);
+                this.startEditCell(cell);
+            }
+        };
+        
+        this.tableBody.addEventListener('click', this.handleTableClick);
+        
+        console.log('Inline editing setup complete');
+    }
+
+
     startEditCell(cell) {
         // Check if already editing
         if (cell.querySelector('input, select')) {
@@ -791,7 +818,7 @@ class RecurringPaymentsManager {
             if (data.success) {
                 this.renderRecurringPaymentsTable(data.recurring_payments);
                 // Set up inline editing after rendering
-                setTimeout(() => this.setupInlineEditing(), 100);
+                setTimeout(() => this.setupInlineEditing(), 200);
             } else {
                 console.error('Error loading recurring payments:', data.message);
             }
@@ -923,7 +950,7 @@ class RecurringPaymentsManager {
         
         // Clear all checkboxes
         if (this.form) {
-            this.form.querySelectorAll('[name="participant_ids"]').forEach(checkbox => {
+            this.form.querySelectorAll('[name="recurring_participant_ids"]').forEach(checkbox => {
                 checkbox.checked = false;
             });
         }
@@ -1067,7 +1094,7 @@ function handleFrequencyChange(selectElement) {
 }
 
 function toggleAllRecurringParticipants() {
-    const checkboxes = document.querySelectorAll('#recurring-participants-list input[name="participant_ids"]');
+    const checkboxes = document.querySelectorAll('#recurring-participants-list input[name="recurring_participant_ids"]');
     const allChecked = Array.from(checkboxes).every(cb => cb.checked);
     
     checkboxes.forEach(checkbox => {

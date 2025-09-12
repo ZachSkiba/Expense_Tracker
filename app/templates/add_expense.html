@@ -261,23 +261,23 @@
                     </div>
 
                     <div class="participants-section">
-                        <div class="participants-title">Who should split this recurring payment?</div>
-                        <div class="participants-subtitle">Select everyone who should split this expense</div>
-                        
-                        <button type="button" class="select-all-btn" onclick="toggleAllRecurringParticipants()">Select All</button>
+                    <div class="participants-title">Who should split this recurring payment?</div>
+                    <div class="participants-subtitle">Select everyone who should split this expense</div>
+                    
+                    <button type="button" class="select-all-btn" onclick="toggleAllRecurringParticipants()">Select All</button>
 
-                        <div id="recurring-participants-list" class="participants-grid">
-                            {% for user in users %}
-                            <div class="participant-checkbox">
-                                <input type="checkbox" 
-                                    id="recurring-participant-{{ user.id }}" 
-                                    name="participant_ids" 
-                                    value="{{ user.id }}">
-                                <label for="recurring-participant-{{ user.id }}">{{ user.name }}</label>
-                            </div>
-                            {% endfor %}
+                    <div id="recurring-participants-list" class="participants-grid">
+                        {% for user in users %}
+                        <div class="participant-checkbox">
+                            <input type="checkbox" 
+                                id="recurring-participant-{{ user.id }}" 
+                                name="recurring_participant_ids" 
+                                value="{{ user.id }}">
+                            <label for="recurring-participant-{{ user.id }}">{{ user.name }}</label>
                         </div>
+                        {% endfor %}
                     </div>
+                </div>
 
                     <div class="form-actions">
                         <button type="submit" class="submit-btn" id="recurring-submit-btn">Add Recurring Payment</button>
