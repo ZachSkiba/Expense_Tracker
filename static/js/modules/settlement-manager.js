@@ -142,6 +142,11 @@ class CombinedPageManager {
                 
                 // Dispatch paymentAdded event
                 document.dispatchEvent(new CustomEvent('paymentAdded'));
+
+                setTimeout(() => {
+                    window.location.reload();
+                });
+
             } else {
                 this.showError(data.error || 'Failed to record settlement');
             }
@@ -410,11 +415,16 @@ class CombinedPageManager {
             if (data.success) {
                 this.showSuccessMessage('Payment deleted successfully');
                 
+
                 // Dispatch paymentDeleted event before refreshing
                 document.dispatchEvent(new CustomEvent('paymentDeleted'));
                 
                 // Refresh all data after deletion
                 await this.refreshAllDataImmediate();
+                
+                setTimeout(() => {
+                    window.location.reload();
+                });
                 
             } else {
                 this.showError('Error deleting settlement: ' + data.error);

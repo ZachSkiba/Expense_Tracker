@@ -421,3 +421,24 @@ window.globalRefreshBalances = async function() {
         console.error('[ERROR] Global balance refresh failed:', error);
     }
 };
+
+// Prevent multiple form submissions
+function preventMultipleSubmissions(formId, buttonId) {
+    const form = document.getElementById(formId);
+    if (!form) return;
+
+    form.addEventListener("submit", () => {
+        const submitBtn = document.getElementById(buttonId);
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Processing..."; // Optional UX improvement
+        }
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    preventMultipleSubmissions("expense-form", "add-expense-btn");
+    preventMultipleSubmissions("settlement-form", "record-payment-btn");
+    preventMultipleSubmissions("recurring-form", "recurring-submit-btn");
+   
+});
