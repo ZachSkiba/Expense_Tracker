@@ -116,42 +116,118 @@ class ExpenseTableManager {
     }
     
     async deleteExpense(expenseId, button, row) {
-        // Show loading state
-        button.disabled = true;
-        button.textContent = "Deleting...";
+    // Show loading state
+    button.disabled = true;
+    button.textContent = "Deleting...";
+    
+    try {
+        const response = await fetch(`/delete_expense/${expenseId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
         
-        try {
-            const response = await fetch(`/delete_expense/${expenseId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            row.remove();
+            this.showMessage('Expense deleted successfully!', 'green');
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
+            // Update the filter manager's cached data
+            this.updateFilterManagerAfterDelete(expenseId);
             
-            const result = await response.json();
+            // **ADD THIS NEW CODE** - Update expense count directly
+            this.updateExpenseCountAfterDelete();
             
-            if (result.success) {
-                row.remove();
-                this.showMessage('Expense deleted successfully!', 'green');
-                // Update expense count after deletion
-                if (window.updateExpenseCount) window.updateExpenseCount();
-                if (window.loadBalancesData) window.loadBalancesData();
-            } else {
-                this.showMessage(result.error || 'Error deleting expense', 'red');
-                button.disabled = false;
-                button.textContent = "❌ Delete";
-            }
-        } catch (error) {
-            this.showMessage('Network error deleting expense: ' + error.message, 'red');
+            // Update expense count after deletion
+            if (window.updateExpenseCount) window.updateExpenseCount();
+            if (window.loadBalancesData) window.loadBalancesData();
+            
+            // Dispatch custom event for filter integration
+            document.dispatchEvent(new CustomEvent('expenseDeleted', {
+                detail: { expenseId: expenseId }
+            }));
+            
+        } else {
+            this.showMessage(result.error || 'Error deleting expense', 'red');
             button.disabled = false;
             button.textContent = "❌ Delete";
         }
+    } catch (error) {
+        this.showMessage('Network error deleting expense: ' + error.message, 'red');
+        button.disabled = false;
+        button.textContent = "❌ Delete";
     }
+}
+    
+    // Update filter manager's cached data after deletion
+    updateFilterManagerAfterDelete(expenseId) {
+        // Update the global filter integration if it exists
+        if (window.expenseFilterIntegration && window.expenseFilterIntegration.filterManager) {
+            const filterManager = window.expenseFilterIntegration.filterManager;
+            
+            // Remove the deleted expense from both originalRows and filteredRows
+            filterManager.originalRows = filterManager.originalRows.filter(row => 
+                row.data.id !== expenseId && row.element.getAttribute('data-expense-id') !== expenseId
+            );
+            
+            filterManager.filteredRows = filterManager.filteredRows.filter(row => 
+                row.data.id !== expenseId && row.element.getAttribute('data-expense-id') !== expenseId
+            );
+            
+            // Reapply current filters with updated data
+            if (window.expenseFilterIntegration.currentFilter && !window.expenseFilterIntegration.currentFilter.isCleared) {
+                filterManager.applyFilters();
+            }
+            
+            console.log(`[DEBUG] Updated filter cache after deleting expense ${expenseId}`);
+        }
+    }
+
+    // Update expense count display after deletion
+        updateExpenseCountAfterDelete() {
+            // Get current table row count
+            const currentRows = this.table.querySelectorAll('tbody tr[data-expense-id]');
+            const currentCount = currentRows.length;
+            
+            // Update the expense count display
+            const countElement = document.querySelector('.expense-count');
+            if (countElement) {
+                countElement.textContent = `(${currentCount})`;
+                // Reset to normal styling since this is unfiltered data
+                countElement.style.background = '#f8f9fa';
+                countElement.style.color = '#6c757d';
+                countElement.style.padding = '2px 6px';
+                countElement.style.borderRadius = '3px';
+            }
+            
+            // Update the total expense amount
+            let totalAmount = 0;
+            currentRows.forEach(row => {
+                const amountCell = row.querySelector('td[data-value]');
+                if (amountCell) {
+                    const amount = parseFloat(amountCell.getAttribute('data-value') || '0');
+                    totalAmount += amount;
+                }
+            });
+            
+            // Update the total display
+            const totalElement = document.getElementById('expenses-total');
+            if (totalElement) {
+                totalElement.textContent = totalAmount.toFixed(2);
+                // Reset to normal styling since this is unfiltered data
+                totalElement.style.background = 'linear-gradient(135deg, #27ae60, #2ecc71)';
+                totalElement.title = 'Total of all expenses';
+            }
+            
+            console.log(`[DEBUG] Updated expense count to ${currentCount} and total to $${totalAmount.toFixed(2)}`);
+        }
     
     setupEditableCells() {
         const editableCells = this.table.querySelectorAll('td.editable');
@@ -487,6 +563,10 @@ class ExpenseTableManager {
                     cell.innerHTML = newValue || '';
                     cell.setAttribute('data-value', newValue);
                 }
+                
+                // Update filter manager's cached data after edit
+                this.updateFilterManagerAfterEdit(expenseId, type, newValue, cell);
+                
                 this.showMessage('Updated successfully!', 'green');
                 // Update expense count after edit
                 if (window.updateExpenseCount) window.updateExpenseCount();
@@ -498,6 +578,42 @@ class ExpenseTableManager {
         } catch (error) {
             this.showMessage('Network error: ' + error.message, 'red');
             cell.innerHTML = originalHTML;
+        }
+    }
+    
+    // Update filter manager's cached data after edit
+    updateFilterManagerAfterEdit(expenseId, type, newValue, cell) {
+        if (window.expenseFilterIntegration && window.expenseFilterIntegration.filterManager) {
+            const filterManager = window.expenseFilterIntegration.filterManager;
+            
+            // Update both originalRows and filteredRows
+            [filterManager.originalRows, filterManager.filteredRows].forEach(rowsArray => {
+                const rowToUpdate = rowsArray.find(row => 
+                    row.data.id === expenseId || row.element.getAttribute('data-expense-id') === expenseId
+                );
+                
+                if (rowToUpdate) {
+                    // Update the data object
+                    if (type === 'user') {
+                        rowToUpdate.data.paidBy = newValue;
+                    } else {
+                        rowToUpdate.data[type] = newValue;
+                    }
+                    
+                    // Update the element's data-value attribute
+                    const cellInElement = rowToUpdate.element.querySelector(`td.${type}`);
+                    if (cellInElement) {
+                        cellInElement.setAttribute('data-value', newValue);
+                        if (type === 'amount') {
+                            cellInElement.textContent = `$${parseFloat(newValue).toFixed(2)}`;
+                        } else {
+                            cellInElement.textContent = newValue;
+                        }
+                    }
+                }
+            });
+            
+            console.log(`[DEBUG] Updated filter cache after editing ${type} for expense ${expenseId}`);
         }
     }
     

@@ -41,6 +41,19 @@ class ExpenseFilterIntegration {
             }, 100);
         });
         
+        // Listen for expense deletions to refresh filter cache
+        document.addEventListener('expenseDeleted', (event) => {
+            console.log('[DEBUG] ExpenseFilterIntegration received expenseDeleted event', event.detail);
+            // The ExpenseTableManager already handles updating the filter cache,
+            // but we need to refresh our stored payments table too
+            setTimeout(() => {
+                this.storeOriginalPaymentsTable();
+                if (this.currentFilter) {
+                    this.handleFilterChange(this.currentFilter);
+                }
+            }, 100);
+        });
+        
         this.init();
     }
 
