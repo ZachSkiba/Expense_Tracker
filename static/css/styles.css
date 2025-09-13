@@ -256,13 +256,20 @@ body {
 
 /* Expenses section styles - Align with right edge */
 .expenses-section {
-    background: white;
-    border-radius: 12px;
-    padding: 25px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    width: 100%;
     max-width: 100%;
     overflow-x: auto;
+    box-sizing: border-box;
+}
+
+.table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.expenses-table {
+    width: 100%;
+    table-layout: fixed; /* Helps control column widths */
+    max-width: 100%;
 }
 
 .expenses-section h3 {
