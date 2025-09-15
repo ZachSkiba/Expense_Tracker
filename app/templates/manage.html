@@ -16,7 +16,7 @@
                 <a href="{{ url_for('expenses.add_expense') }}">🏠 Home</a>
                 <a href="{{ url_for('expenses.expenses') }}">📊 View Expenses</a>
                 <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Settlements</a>
-                <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Data</a>
+                <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
             </nav>
         </div>
     </div>
@@ -30,9 +30,9 @@
             
             <a href="{{ url_for('expenses.add_expense') }}" class="setting-item">
                 <div class="setting-left">
-                    <div class="setting-icon primary">➕</div>
+                    <div class="setting-icon primary">🏠</div>
                     <div class="setting-info">
-                        <div class="setting-name">Add New Expense</div>
+                        <div class="setting-name">Home</div>
                         <div class="setting-description">Record a shared expense with roommates</div>
                     </div>
                 </div>
@@ -58,7 +58,7 @@
                 <div class="setting-left">
                     <div class="setting-icon success">💰</div>
                     <div class="setting-info">
-                        <div class="setting-name">Record Payment</div>
+                        <div class="setting-name">Balances & Settlements</div>
                         <div class="setting-description">Log a payment between roommates</div>
                     </div>
                 </div>
