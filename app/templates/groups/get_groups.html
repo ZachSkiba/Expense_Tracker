@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Groups - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a202c;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links a {
+            margin-left: 1rem;
+            color: #4a5568;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .nav-links a:hover { background: #edf2f7; }
+        .main { padding: 2rem; max-width: 800px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.75rem 1.5rem;
+            background: #4299e1;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            margin-right: 1rem;
+        }
+        .btn:hover { background: #3182ce; }
+        .btn-secondary { background: #718096; }
+        .btn-secondary:hover { background: #4a5568; }
+        .group-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+        .group-title { color: #2d3748; margin-bottom: 0.5rem; }
+        .group-meta { color: #718096; font-size: 0.875rem; }
+        .group-actions a { font-size: 0.75rem; padding: 0.5rem 1rem; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💰 Expense Tracker</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
+            <a href="{{ url_for('groups.index') }}">Groups</a>
+            <a href="{{ url_for('auth.profile') }}">Profile</a>
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <h1>My Groups</h1>
+        
+        <div style="margin: 2rem 0;">
+            <a href="{{ url_for('groups.create') }}" class="btn">Create New Group</a>
+            <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Existing Group</a>
+        </div>
+
+        {% if user_groups %}
+            {% for group in user_groups %}
+            <div class="group-card">
+                <div class="group-header">
+                    <div>
+                        <h3 class="group-title">{{ group.name }}</h3>
+                        <div class="group-meta">
+                            {{ group.get_member_count() }} members • 
+                            Created {{ group.created_at.strftime('%b %d, %Y') }}
+                            {% if group.creator_id == current_user.id %}• You are the admin{% endif %}
+                        </div>
+                        {% if group.description %}
+                        <p style="margin-top: 0.5rem; color: #4a5568;">{{ group.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="group-actions">
+                        <a href="{{ url_for('groups.detail', group_id=group.id) }}" class="btn">View Details</a>
+                    </div>
+                </div>
+                
+                <div style="background: #f7fafc; padding: 1rem; border-radius: 6px; margin-top: 1rem;">
+                    <strong>Invite Code:</strong> {{ group.invite_code }}
+                    <small style="color: #718096; margin-left: 1rem;">Share this code with friends to invite them</small>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="card" style="text-align: center; padding: 3rem;">
+                <h3 style="color: #718096; margin-bottom: 1rem;">No Groups Yet</h3>
+                <p style="color: #a0aec0; margin-bottom: 2rem;">Create your first group or join an existing one to start tracking shared expenses</p>
+                <a href="{{ url_for('groups.create') }}" class="btn">Create Your First Group</a>
+            </div>
+        {% endif %}
+    </div>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ group.name }} - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        /* Reuse dashboard styles */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1a202c;
+        }
+        .header {
+            background: white;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .nav-links a {
+            margin-left: 1rem;
+            color: #4a5568;
+            text-decoration: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            transition: all 0.2s;
+        }
+        .nav-links a:hover { background: #edf2f7; }
+        .main { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border: 1px solid #e2e8f0;
+            margin-bottom: 1.5rem;
+        }
+        .group-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 2rem;
+        }
+        .group-info h1 { color: #2d3748; margin-bottom: 0.5rem; }
+        .group-meta { color: #718096; margin-bottom: 1rem; }
+        .invite-code {
+            background: #f7fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin: 1rem 0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #4299e1;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            margin-right: 0.5rem;
+        }
+        .btn:hover { background: #3182ce; }
+        .btn-danger { background: #e53e3e; }
+        .btn-danger:hover { background: #c53030; }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            text-align: center;
+            padding: 1.5rem;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #2b6cb0;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label { color: #718096; font-size: 0.875rem; }
+        .expense-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .expense-item:last-child { border-bottom: none; }
+        .expense-info h4 { color: #2d3748; font-size: 0.875rem; margin-bottom: 0.25rem; }
+        .expense-info p { color: #718096; font-size: 0.75rem; }
+        .expense-amount { font-weight: bold; color: #e53e3e; }
+        .balance-positive { color: #38a169; }
+        .balance-negative { color: #e53e3e; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💰 Expense Tracker</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
+            <a href="{{ url_for('dashboard.groups') }}">Groups</a>
+            <a href="{{ url_for('auth.profile') }}">Profile</a>
+            <a href="{{ url_for('auth.logout') }}">Logout</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="group-header">
+            <div class="group-info">
+                <h1>{{ group.name }}</h1>
+                <div class="group-meta">
+                    {{ group.get_member_count() }} members • 
+                    Created {{ group.created_at.strftime('%b %d, %Y') }}
+                    {% if is_admin %}• You are an admin{% endif %}
+                </div>
+                {% if group.description %}
+                <p>{{ group.description }}</p>
+                {% endif %}
+            </div>
+            <div>
+                <a href="#" class="btn">Add Expense</a>
+                {% if is_admin %}
+                <a href="#" class="btn">Manage Group</a>
+                {% else %}
+                <form method="post" action="{{ url_for('dashboard.leave_group', group_id=group.id) }}" style="display: inline;">
+                    <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to leave this group?')">Leave Group</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
