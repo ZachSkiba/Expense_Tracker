@@ -1,23 +1,222 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Expense Manager</title>
+    <title>Settings - 403 Expense Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings-page.css') }}">
 </head>
 <body>
-<h1>Expense Management</h1>
+    <!-- Header -->
+    <div class="header">
+        <div class="header-left">
+            <h1>⚙️ Settings & Management</h1>
+        </div>
+        <div class="header-center">
+            <nav class="header-nav">
+                <a href="{{ url_for('expenses.add_expense') }}">🏠 Home</a>
+                <a href="{{ url_for('expenses.expenses') }}">📊 View Expenses</a>
+                <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Settlements</a>
+                <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
+            </nav>
+        </div>
+    </div>
 
-<ul>
-    <li><a href="{{ url_for('expenses.add_expense') }}">➕ Add New Expense</a></li>
-    <li><a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a></li>
-</ul>
+    <div class="settings-container">
+        <!-- Quick Actions Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon">⚡</div>
+                <div class="section-info">
+                    <h2>Quick Actions</h2>
+                    <p>Common tasks and shortcuts</p>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <a href="{{ url_for('expenses.add_expense') }}" class="setting-card primary">
+                    <div class="card-icon">➕</div>
+                    <div class="card-content">
+                        <h3>Add New Expense</h3>
+                        <p>Record a new shared expense</p>
+                    </div>
+                    <div class="card-arrow">→</div>
+                </a>
+                
+                <a href="{{ url_for('expenses.expenses') }}" class="setting-card">
+                    <div class="card-icon">📊</div>
+                    <div class="card-content">
+                        <h3>View All Expenses</h3>
+                        <p>Browse and manage expense history</p>
+                    </div>
+                    <div class="card-arrow">→</div>
+                </a>
+                
+                <a href="{{ url_for('balances.combined_balances_settlements') }}" class="setting-card success">
+                    <div class="card-icon">💰</div>
+                    <div class="card-content">
+                        <h3>Balances & Payments</h3>
+                        <p>Check who owes what and record payments</p>
+                    </div>
+                    <div class="card-arrow">→</div>
+                </a>
+                
+                <a href="{{ url_for('management.manage_data') }}" class="setting-card warning">
+                    <div class="card-icon">🛠️</div>
+                    <div class="card-content">
+                        <h3>Manage Users & Categories</h3>
+                        <p>Add/remove roommates and expense categories</p>
+                    </div>
+                    <div class="card-arrow">→</div>
+                </a>
+            </div>
+        </div>
 
-<hr>
-<h2>Future Features</h2>
-<ul>
-    <li>Edit or Delete Expenses</li>
-    <li>Monthly/Category Reports</li>
-    <li>Export Data (CSV/Excel)</li>
-</ul>
+        <!-- Data Management Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon">📋</div>
+                <div class="section-info">
+                    <h2>Data Management</h2>
+                    <p>Import, export, and backup your data</p>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-card disabled">
+                    <div class="card-icon">📥</div>
+                    <div class="card-content">
+                        <h3>Import Data</h3>
+                        <p>Import expenses from CSV or Excel</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">📤</div>
+                    <div class="card-content">
+                        <h3>Export Data</h3>
+                        <p>Export expenses to CSV or Excel</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">💾</div>
+                    <div class="card-content">
+                        <h3>Backup & Restore</h3>
+                        <p>Create backups of all your data</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reports Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon">📈</div>
+                <div class="section-info">
+                    <h2>Reports & Analytics</h2>
+                    <p>Analyze your spending patterns</p>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-card disabled">
+                    <div class="card-icon">📅</div>
+                    <div class="card-content">
+                        <h3>Monthly Reports</h3>
+                        <p>See spending trends by month</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">🏷️</div>
+                    <div class="card-content">
+                        <h3>Category Breakdown</h3>
+                        <p>Spending analysis by category</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">👥</div>
+                    <div class="card-content">
+                        <h3>Roommate Summary</h3>
+                        <p>Individual spending summaries</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Preferences Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon">🎛️</div>
+                <div class="section-info">
+                    <h2>Preferences</h2>
+                    <p>Customize your experience</p>
+                </div>
+            </div>
+            <div class="settings-grid">
+                <div class="setting-card disabled">
+                    <div class="card-icon">🌙</div>
+                    <div class="card-content">
+                        <h3>Dark Mode</h3>
+                        <p>Switch to dark theme</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">💱</div>
+                    <div class="card-content">
+                        <h3>Currency Settings</h3>
+                        <p>Change default currency</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+                
+                <div class="setting-card disabled">
+                    <div class="card-icon">🔔</div>
+                    <div class="card-content">
+                        <h3>Notifications</h3>
+                        <p>Manage notification preferences</p>
+                        <span class="coming-soon">Coming Soon</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- App Info Section -->
+        <div class="settings-section">
+            <div class="section-header">
+                <div class="section-icon">ℹ️</div>
+                <div class="section-info">
+                    <h2>App Information</h2>
+                    <p>About this application</p>
+                </div>
+            </div>
+            <div class="app-info-card">
+                <div class="app-info-content">
+                    <h3>403 Expense Tracker</h3>
+                    <p>A simple, effective way to track shared expenses with roommates.</p>
+                    <div class="app-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Version:</span>
+                            <span class="detail-value">1.0.0</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Last Updated:</span>
+                            <span class="detail-value">{{ moment().format('MMMM Do, YYYY') if moment else 'Recently' }}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">Built with:</span>
+                            <span class="detail-value">Flask, SQLite, HTML/CSS/JS</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
