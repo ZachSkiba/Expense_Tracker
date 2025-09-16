@@ -1,6 +1,6 @@
 # app/routes/dashboard.py - Main dashboard routes (cleaned and split)
 
-from flask import Blueprint, request, redirect, url_for, render_template_string, flash
+from flask import Blueprint, request, redirect, url_for, render_template, flash
 from flask_login import login_required, current_user
 from models import User, Expense, Category, db
 from sqlalchemy import func, desc
@@ -53,10 +53,10 @@ def home():
         group_balances[group.id] = balance
     
     # Import template function
-    from app.templates.groups.dashboard_templates import get_dashboard_template
     
-    return render_template_string(
-        get_dashboard_template(),
+    
+    return render_template(
+        'groups/dashboard_templates.html',
         user=current_user,
         personal_expenses=personal_expenses,
         user_groups=user_groups,

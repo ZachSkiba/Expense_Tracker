@@ -5,12 +5,14 @@ from datetime import datetime, timedelta
 from sqlalchemy import func, Table
 from dateutil.relativedelta import relativedelta
 import json
+import secrets
+import string
 
 db = SQLAlchemy()
 
 # Association table for many-to-many relationship between users and groups
 user_groups = Table('user_groups',
-                    db.metadata,
+    db.metadata,
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
     db.Column('joined_at', db.DateTime, default=datetime.utcnow),
@@ -56,6 +58,9 @@ class User(UserMixin, db.Model):
     # Personal recurring payments
     recurring_payments = db.relationship("RecurringPayment", back_populates="user")
     
+    # Personal categories
+    categories = db.relationship("Category", foreign_keys="Category.user_id", back_populates="user")
+    
     def set_password(self, password):
         """Set password hash"""
         self.password_hash = generate_password_hash(password)
@@ -82,11 +87,16 @@ class User(UserMixin, db.Model):
         """Check if user is admin of a group"""
         if isinstance(group, int):
             group_id = group
+            # Get the group object to check creator
+            group_obj = Group.query.get(group_id)
+            if not group_obj:
+                return False
         else:
             group_id = group.id
+            group_obj = group
             
         # Check if user created the group
-        if self.id == group.creator_id:
+        if self.id == group_obj.creator_id:
             return True
             
         # Check association table for admin role
@@ -131,14 +141,11 @@ class Group(db.Model):
     
     expenses = db.relationship('Expense', back_populates='group', cascade="all, delete-orphan")
     recurring_payments = db.relationship('RecurringPayment', back_populates='group')
-    categories = db.relationship('Category', back_populates='group')
+    categories = db.relationship('Category', foreign_keys='Category.group_id', back_populates='group')
     
     @staticmethod
     def generate_invite_code():
-        """Generate a unique invite code"""
-        import secrets
-        import string
-        
+        """Generate a unique invite code"""        
         while True:
             code = ''.join(secrets.choices(string.ascii_uppercase + string.digits, k=8))
             if not Group.query.filter_by(invite_code=code).first():
@@ -190,7 +197,8 @@ class Category(db.Model):
     is_default = db.Column(db.Boolean, default=False)
     
     # Relationships
-    group = db.relationship('Group', back_populates='categories')
+    group = db.relationship('Group', foreign_keys=[group_id], back_populates='categories')
+    user = db.relationship('User', foreign_keys=[user_id], back_populates='categories')
     expenses = db.relationship("Expense", back_populates="category_obj")
     recurring_payments = db.relationship("RecurringPayment", back_populates="category_obj")
     

@@ -1,8 +1,8 @@
-# app/routes/groups.py - Group management routes
+# app/routes/groups.py - Group management routes (FIXED)
 
-from flask import Blueprint, request, redirect, url_for, render_template, flash
+from flask import Blueprint, request, redirect, url_for, render_template_string, flash
 from flask_login import login_required, current_user
-from models import User, Expense, Category, db
+from models_new import User, Expense, Category, Group, db  # Import from models_new
 from sqlalchemy import func, desc
 from datetime import datetime
 
@@ -78,7 +78,8 @@ def create():
             flash('An error occurred while creating the group', 'error')
             print(f"Group creation error: {e}")
     
-    return render_template("groups/create_group.html")
+    from app.templates.group_templates import get_create_group_template
+    return render_template_string(get_create_group_template())
 
 @groups_bp.route('/join', methods=['GET', 'POST'])
 @login_required
