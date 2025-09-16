@@ -1,11 +1,10 @@
-# app/routes/auth.py - Authentication routes
+# app/routes/auth.py - Authentication routes (FIXED)
 
 from flask import Blueprint, request, redirect, url_for, render_template_string, flash, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
-from models import User, Group, Category, db
+from models import User, Category, db
 from app.auth import (
     validate_email, validate_password, validate_username, 
-    legacy_authenticate, check_legacy_auth,
     SIGNUP_TEMPLATE, LOGIN_TEMPLATE
 )
 from datetime import datetime
@@ -154,15 +153,6 @@ def login():
     
     return render_template_string(LOGIN_TEMPLATE, legacy_enabled=legacy_enabled)
 
-@auth_bp.route('/legacy-login', methods=['POST'])
-def legacy_login():
-    """Legacy shared password login for migration period"""
-    if not current_app.config.get('LEGACY_AUTH_ENABLED', True):
-        flash('Legacy login is disabled', 'error')
-        return redirect(url_for('auth.login'))
-    
-    return redirect(url_for('legacy.shared_login'))
-
 @auth_bp.route('/logout')
 def logout():
     """Logout route"""
@@ -171,7 +161,7 @@ def logout():
         flash('You have been logged out successfully', 'success')
     
     # Also clear legacy session
-    session.pop('authenticated', None)
+    session.pop('legacy_authenticated', None)
     
     return redirect(url_for('auth.login'))
 
@@ -279,7 +269,6 @@ PROFILE_TEMPLATE = '''
 <head>
     <title>Profile - Expense Tracker</title>
     <style>
-        /* Add your CSS styling here */
         body { font-family: Arial, sans-serif; margin: 20px; }
         .profile-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         .btn { padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }

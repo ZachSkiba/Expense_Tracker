@@ -130,8 +130,8 @@
         </div>
         
         <div class="migration-notice">
-            <h4>⚠️ Migration Notice</h4>
-            <p>This is the old shared access mode. Consider <a href="{{ url_for('auth.signup') }}" style="color: #92400e; font-weight: 600;">creating your own account</a> for better features!</p>
+            <h4>⚠️ Temporary Access</h4>
+            <p>This is the old shared system. Soon we'll switch to individual accounts with better features!</p>
         </div>
         
         <div class="flash-messages">
@@ -158,126 +158,6 @@
         <div class="auth-link">
             Want your own account? <a href="{{ url_for('auth.signup') }}">Sign Up Here</a><br>
             Already have an account? <a href="{{ url_for('auth.login') }}">Sign In</a>
-        </div>
-    </div>
-</body>
-</html>
-
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Shared Tracker - Expense Tracker</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #1a202c;
-        }
-        .header {
-            background: white;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 { color: #2d3748; }
-        .nav-links a {
-            margin-left: 1rem;
-            color: #4a5568;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-        .nav-links a:hover { background: #edf2f7; }
-        .main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-        .card {
-            background: white;
-            border-radius: 12px;
-            padding: 1.5rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
-            margin-bottom: 1.5rem;
-        }
-        .migration-banner {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 1.5rem;
-            border-radius: 12px;
-            margin-bottom: 2rem;
-            text-align: center;
-        }
-        .migration-banner h3 {
-            font-size: 1.25rem;
-            margin-bottom: 0.5rem;
-        }
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            text-decoration: none;
-            border-radius: 6px;
-            font-size: 0.875rem;
-            transition: all 0.2s;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            margin: 0 0.5rem;
-        }
-        .btn:hover { background: rgba(255, 255, 255, 0.3); }
-        .legacy-notice {
-            background: #fef3c7;
-            color: #92400e;
-            padding: 1rem;
-            border-radius: 8px;
-            border: 1px solid #fde68a;
-            font-size: 0.875rem;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <h1>🏠 Shared Expense Tracker</h1>
-        <div class="nav-links">
-            <a href="{{ url_for('expenses.add_expense') }}">Add Expense</a>
-            <a href="{{ url_for('balances.get_balances_api') }}">Balances</a>
-            <a href="{{ url_for('manage.management') }}">Manage</a>
-            <a href="{{ url_for('legacy.logout') }}">Logout</a>
-        </div>
-    </div>
-
-    <div class="main">
-        <div class="migration-banner">
-            <h3>🆕 Upgrade to Personal Accounts!</h3>
-            <p>Get your own expense tracker with groups, better security, and more features</p>
-            <div style="margin-top: 1rem;">
-                <a href="{{ url_for('auth.signup') }}" class="btn">Create My Account</a>
-                <a href="{{ url_for('auth.login') }}" class="btn">I Already Have One</a>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>You're using the legacy shared tracker</h3>
-            <div class="legacy-notice">
-                <strong>Note:</strong> This is the old roommate sharing system. 
-                All data entered here is shared with everyone who has the password.
-                <br><br>
-                <strong>Recommended:</strong> Create your own account for better privacy and features!
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>Quick Actions</h3>
-            <p>Continue using the shared tracker as before:</p>
-            <div style="margin-top: 1rem;">
-                <a href="{{ url_for('expenses.add_expense') }}">🏠 Home</a>
-                <a href="{{ url_for('expenses.expenses') }}">📊 View Expenses</a>
-                <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Settlements</a>
-                <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
-            </div>
         </div>
     </div>
 </body>

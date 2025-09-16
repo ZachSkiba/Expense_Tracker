@@ -1,4 +1,4 @@
-# app/__init__.py - Updated with authentication system
+# app/__init__.py - Updated with FIXED authentication system
 
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
@@ -35,7 +35,7 @@ def create_app():
         StartupRecurringProcessor.process_startup_recurring_payments(app)
 
     # Import auth functions for legacy support
-    from app.auth import check_legacy_auth, legacy_authenticate, SHARED_PASSWORD
+    from app.auth import check_legacy_auth
 
     # Security headers
     @app.after_request
