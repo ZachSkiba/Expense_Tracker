@@ -1,13 +1,14 @@
-# app/routes/auth.py - Authentication routes (FIXED)
+# app/routes/auth.py - Authentication routes (FIXED for unified models)
 
 from flask import Blueprint, request, redirect, url_for, render_template_string, flash, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
-from models import User, Category, db
+from models import User, Category, db  # FIXED: Import from unified models
 from app.auth import (
     validate_email, validate_password, validate_username, 
     SIGNUP_TEMPLATE, LOGIN_TEMPLATE
 )
 from datetime import datetime
+from sqlalchemy.exc import IntegrityError
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
@@ -18,7 +19,7 @@ def signup():
         return redirect(url_for('dashboard.home'))
     
     if request.method == 'POST':
-        # Get form data
+        # Get form data and clean it
         name = request.form.get('name', '').strip()
         username = request.form.get('username', '').strip()
         email = request.form.get('email', '').strip().lower()
@@ -28,27 +29,45 @@ def signup():
         # Validation
         errors = []
         
+        # Name validation
         if not name:
             errors.append("Full name is required")
         elif len(name) < 2:
             errors.append("Full name must be at least 2 characters")
         
+        # Username validation
         if not username:
             errors.append("Username is required")
         else:
             valid, msg = validate_username(username)
             if not valid:
                 errors.append(msg)
-            elif User.query.filter_by(username=username).first():
-                errors.append("Username already taken")
+            else:
+                # Check if username already exists
+                try:
+                    existing_user = User.query.filter_by(username=username).first()
+                    if existing_user:
+                        errors.append("Username already taken")
+                except Exception as e:
+                    current_app.logger.error(f"Database error checking username: {e}")
+                    errors.append("Database error. Please try again.")
         
+        # Email validation
         if not email:
             errors.append("Email is required")
         elif not validate_email(email):
             errors.append("Please enter a valid email address")
-        elif User.query.filter_by(email=email).first():
-            errors.append("Email already registered")
+        else:
+            # Check if email already exists
+            try:
+                existing_user = User.query.filter_by(email=email).first()
+                if existing_user:
+                    errors.append("Email already registered")
+            except Exception as e:
+                current_app.logger.error(f"Database error checking email: {e}")
+                errors.append("Database error. Please try again.")
         
+        # Password validation
         if not password:
             errors.append("Password is required")
         else:
@@ -56,6 +75,7 @@ def signup():
             if not valid:
                 errors.append(msg)
         
+        # Confirm password
         if password != confirm_password:
             errors.append("Passwords do not match")
         
@@ -65,17 +85,20 @@ def signup():
                 flash(error, 'error')
             return render_template_string(SIGNUP_TEMPLATE), 400
         
+        # Create new user
         try:
-            # Create new user
             user = User(
                 name=name,
                 username=username,
-                email=email
+                email=email,
+                is_active=True,
+                created_at=datetime.utcnow()
             )
             user.set_password(password)
             
+            # Add to database
             db.session.add(user)
-            db.session.flush()  # Get user ID
+            db.session.flush()  # Get user ID without committing
             
             # Create default personal categories for the user
             default_categories = [
@@ -96,6 +119,7 @@ def signup():
                 )
                 db.session.add(category)
             
+            # Commit everything
             db.session.commit()
             
             # Log the user in
@@ -106,6 +130,15 @@ def signup():
             flash(f'Welcome to Expense Tracker, {user.name}!', 'success')
             return redirect(url_for('dashboard.home'))
             
+        except IntegrityError as e:
+            db.session.rollback()
+            current_app.logger.error(f"Database integrity error during signup: {e}")
+            if 'email' in str(e).lower():
+                flash('Email already registered', 'error')
+            elif 'username' in str(e).lower():
+                flash('Username already taken', 'error')
+            else:
+                flash('Registration error. Please try again.', 'error')
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Signup error: {e}")
@@ -130,26 +163,33 @@ def login():
             flash('Please enter both email/username and password', 'error')
             return render_template_string(LOGIN_TEMPLATE, legacy_enabled=legacy_enabled)
         
-        # Try to find user by email or username
-        user = None
-        if '@' in email_or_username:
-            user = User.query.filter_by(email=email_or_username.lower()).first()
-        else:
-            user = User.query.filter_by(username=email_or_username).first()
-        
-        # Check credentials
-        if user and user.check_password(password) and user.is_active:
-            login_user(user, remember=False)
-            user.last_login = datetime.utcnow()
-            db.session.commit()
+        try:
+            # Try to find user by email or username
+            user = None
+            if '@' in email_or_username:
+                # Look for email first
+                user = User.query.filter_by(email=email_or_username.lower()).first()
+            else:
+                # Look for username
+                user = User.query.filter_by(username=email_or_username).first()
             
-            # Redirect to next page if specified, otherwise dashboard
-            next_page = request.args.get('next')
-            if next_page and next_page.startswith('/'):
-                return redirect(next_page)
-            return redirect(url_for('dashboard.home'))
-        else:
-            flash('Invalid email/username or password', 'error')
+            # Check credentials
+            if user and user.check_password(password) and user.is_active:
+                login_user(user, remember=False)
+                user.last_login = datetime.utcnow()
+                db.session.commit()
+                
+                # Redirect to next page if specified, otherwise dashboard
+                next_page = request.args.get('next')
+                if next_page and next_page.startswith('/'):
+                    return redirect(next_page)
+                return redirect(url_for('dashboard.home'))
+            else:
+                flash('Invalid email/username or password', 'error')
+                
+        except Exception as e:
+            current_app.logger.error(f"Login error: {e}")
+            flash('Login error. Please try again.', 'error')
     
     return render_template_string(LOGIN_TEMPLATE, legacy_enabled=legacy_enabled)
 
@@ -269,26 +309,35 @@ PROFILE_TEMPLATE = '''
 <head>
     <title>Profile - Expense Tracker</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        .profile-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .btn { padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .profile-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+        .btn { display: inline-block; padding: 10px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; margin-right: 10px; }
+        .btn:hover { background: #0056b3; }
+        h1, h2 { color: #2d3748; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <h1>My Profile</h1>
     <div class="profile-card">
+        <h1>My Profile</h1>
         <h2>{{ user.name }}</h2>
-        <p><strong>Username:</strong> {{ user.username }}</p>
-        <p><strong>Email:</strong> {{ user.email }}</p>
-        <p><strong>Member since:</strong> {{ user.created_at.strftime('%B %d, %Y') }}</p>
+        <p><strong>Username:</strong> {{ user.username or 'Not set' }}</p>
+        <p><strong>Email:</strong> {{ user.email or 'Not set' }}</p>
+        <p><strong>Member since:</strong> {{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'Unknown' }}</p>
+        {% if user.last_login %}
+        <p><strong>Last login:</strong> {{ user.last_login.strftime('%B %d, %Y at %I:%M %p') }}</p>
+        {% endif %}
         
         <div style="margin-top: 20px;">
             <a href="{{ url_for('auth.edit_profile') }}" class="btn">Edit Profile</a>
-            <a href="{{ url_for('auth.change_password') }}" class="btn" style="margin-left: 10px;">Change Password</a>
+            {% if user.password_hash %}
+            <a href="{{ url_for('auth.change_password') }}" class="btn">Change Password</a>
+            {% endif %}
         </div>
     </div>
     
-    <div style="margin-top: 20px;">
+    <div class="back-link">
         <a href="{{ url_for('dashboard.home') }}">&larr; Back to Dashboard</a>
     </div>
 </body>
@@ -301,35 +350,42 @@ EDIT_PROFILE_TEMPLATE = '''
 <head>
     <title>Edit Profile - Expense Tracker</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .form-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
         .form-group { margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
         .btn { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
         .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+        h1 { color: #2d3748; margin-bottom: 20px; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <h1>Edit Profile</h1>
-    
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div class="flash-{{ category }}">{{ message }}</div>
-    {% endfor %}
-    
-    <form method="post">
-        <div class="form-group">
-            <label>Full Name:</label>
-            <input type="text" name="name" class="form-input" value="{{ user.name }}" required>
-        </div>
+    <div class="form-container">
+        <h1>Edit Profile</h1>
         
-        <div class="form-group">
-            <label>Email:</label>
-            <input type="email" name="email" class="form-input" value="{{ user.email }}" required>
-        </div>
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
         
-        <button type="submit" class="btn">Update Profile</button>
-    </form>
+        <form method="post">
+            <div class="form-group">
+                <label>Full Name:</label>
+                <input type="text" name="name" class="form-input" value="{{ user.name }}" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Email:</label>
+                <input type="email" name="email" class="form-input" value="{{ user.email or '' }}" required>
+            </div>
+            
+            <button type="submit" class="btn">Update Profile</button>
+        </form>
+    </div>
     
-    <div style="margin-top: 20px;">
+    <div class="back-link">
         <a href="{{ url_for('auth.profile') }}">&larr; Back to Profile</a>
     </div>
 </body>
@@ -342,40 +398,47 @@ CHANGE_PASSWORD_TEMPLATE = '''
 <head>
     <title>Change Password - Expense Tracker</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .form-container { background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
         .form-group { margin-bottom: 15px; }
         .form-input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
         .btn { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
         .flash-error { background: #f8d7da; color: #721c24; padding: 10px; border-radius: 4px; margin-bottom: 15px; }
+        h1 { color: #2d3748; margin-bottom: 20px; }
+        .back-link { text-align: center; margin-top: 20px; }
+        .back-link a { color: #007bff; text-decoration: none; }
     </style>
 </head>
 <body>
-    <h1>Change Password</h1>
-    
-    {% for category, message in get_flashed_messages(with_categories=true) %}
-        <div class="flash-{{ category }}">{{ message }}</div>
-    {% endfor %}
-    
-    <form method="post">
-        <div class="form-group">
-            <label>Current Password:</label>
-            <input type="password" name="current_password" class="form-input" required>
-        </div>
+    <div class="form-container">
+        <h1>Change Password</h1>
         
-        <div class="form-group">
-            <label>New Password:</label>
-            <input type="password" name="new_password" class="form-input" required>
-        </div>
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
         
-        <div class="form-group">
-            <label>Confirm New Password:</label>
-            <input type="password" name="confirm_password" class="form-input" required>
-        </div>
-        
-        <button type="submit" class="btn">Change Password</button>
-    </form>
+        <form method="post">
+            <div class="form-group">
+                <label>Current Password:</label>
+                <input type="password" name="current_password" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label>New Password:</label>
+                <input type="password" name="new_password" class="form-input" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Confirm New Password:</label>
+                <input type="password" name="confirm_password" class="form-input" required>
+            </div>
+            
+            <button type="submit" class="btn">Change Password</button>
+        </form>
+    </div>
     
-    <div style="margin-top: 20px;">
+    <div class="back-link">
         <a href="{{ url_for('auth.profile') }}">&larr; Back to Profile</a>
     </div>
 </body>

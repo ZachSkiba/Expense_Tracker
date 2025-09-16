@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, redirect, url_for, render_template_string, flash
 from flask_login import login_required, current_user
-from models_new import User, Expense, Category, Group, db  # Import from models_new
+from models import User, Expense, Category, Group, db
 from sqlalchemy import func, desc
 from datetime import datetime
 
