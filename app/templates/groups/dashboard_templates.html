@@ -62,11 +62,10 @@
             border: 2px solid #e2e8f0;
             text-align: center;
             transition: all 0.3s;
-            cursor: pointer;
         }
         
         .option-card:hover {
-            transform: translateY(-4px);
+            transform: translateY(-2px);
             box-shadow: 0 8px 25px rgba(0,0,0,0.1);
             border-color: #4299e1;
         }
@@ -135,10 +134,15 @@
             margin-bottom: 1rem;
             display: flex;
             align-items: center;
+            justify-content: space-between;
         }
         
         .section-icon {
             margin-right: 0.5rem;
+        }
+        
+        .section-actions {
+            font-size: 0.875rem;
         }
         
         .tracker-card {
@@ -210,6 +214,29 @@
             border: 1px solid #feb2b2;
             margin-bottom: 0.5rem;
         }
+
+        .personal-tracker-form {
+            display: none;
+            margin-top: 1rem;
+            text-align: left;
+        }
+        
+        .personal-tracker-form input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+        }
+        
+        .personal-tracker-form .btn {
+            margin-right: 0.5rem;
+        }
+
+        .btn-small {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem;
+        }
     </style>
 </head>
 <body>
@@ -217,6 +244,7 @@
         <h1>💰 Expense Tracker</h1>
         <div class="nav-links">
             <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
+            <a href="{{ url_for('groups.index') }}">All Groups</a>
             <a href="{{ url_for('auth.profile') }}">Profile</a>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
         </div>
@@ -231,7 +259,7 @@
 
         <div class="welcome">
             <h2>Welcome back, {{ user.name }}!</h2>
-            <p>Choose how you want to track your expenses</p>
+            <p>Manage your personal expenses and group spending</p>
         </div>
 
         <div class="tracker-options">
@@ -242,7 +270,18 @@
                 <div class="option-description">
                     Track your own personal spending. Perfect for budgeting and monitoring your individual expenses.
                 </div>
-                <a href="#" class="btn">Start Personal Tracker</a>
+                <button onclick="togglePersonalForm()" class="btn">Create Personal Tracker</button>
+                
+                <div id="personalForm" class="personal-tracker-form">
+                    <form method="post" action="{{ url_for('dashboard.create_personal_tracker') }}">
+                        <input type="text" 
+                               name="name" 
+                               placeholder="Tracker name (optional)" 
+                               maxlength="100">
+                        <button type="submit" class="btn btn-small">Create Tracker</button>
+                        <button type="button" onclick="togglePersonalForm()" class="btn btn-secondary btn-small">Cancel</button>
+                    </form>
+                </div>
             </div>
 
             <!-- Group Tracker Option -->
@@ -259,30 +298,52 @@
 
         <div class="current-trackers">
             <!-- Personal Expense Trackers -->
+            {% if personal_trackers %}
             <div class="tracker-section">
                 <h3 class="section-title">
-                    <span class="section-icon">👤</span>
-                    Your Personal Expense Tracker
+                    <span><span class="section-icon">👤</span>Your Personal Expense Trackers ({{ personal_trackers|length }})</span>
+                    <div class="section-actions">
+                        <button onclick="togglePersonalForm()" class="btn btn-small">+ New Personal Tracker</button>
+                    </div>
                 </h3>
                 
+                {% for tracker in personal_trackers %}
                 <div class="tracker-card">
                     <div class="tracker-info">
-                        <h4><a href="#" style="color: #4299e1; text-decoration: none;">My Personal Expenses</a></h4>
-                        <p>${{ "%.2f"|format(personal_monthly_total) }} spent this month</p>
-                        <p>{{ personal_expenses|length }} recent transactions</p>
+                        <h4><a href="{{ url_for('groups.detail', group_id=tracker.id) }}" style="color: #4299e1; text-decoration: none;">{{ tracker.name }}</a></h4>
+                        <p>Created {{ tracker.created_at.strftime('%b %d, %Y') }}</p>
+                        <p>Personal expense tracker</p>
                     </div>
                     <div class="tracker-actions">
-                        <a href="#" class="btn">Open Tracker</a>
+                        <a href="{{ url_for('groups.detail', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span><span class="section-icon">👤</span>Your Personal Expense Trackers</span>
+                </h3>
+                
+                <div class="empty-state">
+                    <p>No personal trackers yet</p>
+                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create your first personal expense tracker to start budgeting</p>
+                    <div style="margin-top: 1rem;">
+                        <button onclick="togglePersonalForm()" class="btn">Create Personal Tracker</button>
                     </div>
                 </div>
             </div>
+            {% endif %}
 
             <!-- Group Expense Trackers -->
             {% if user_groups %}
             <div class="tracker-section">
                 <h3 class="section-title">
-                    <span class="section-icon">👥</span>
-                    Your Group Expense Trackers ({{ user_groups|length }})
+                    <span><span class="section-icon">👥</span>Your Group Expense Trackers ({{ user_groups|length }})</span>
+                    <div class="section-actions">
+                        <a href="{{ url_for('groups.create') }}" class="btn btn-small">+ New Group</a>
+                    </div>
                 </h3>
                 
                 {% for group in user_groups %}
@@ -313,8 +374,7 @@
             {% else %}
             <div class="tracker-section">
                 <h3 class="section-title">
-                    <span class="section-icon">👥</span>
-                    Your Group Expense Trackers
+                    <span><span class="section-icon">👥</span>Your Group Expense Trackers</span>
                 </h3>
                 
                 <div class="empty-state">
@@ -329,5 +389,18 @@
             {% endif %}
         </div>
     </div>
+
+    <script>
+        function togglePersonalForm() {
+            const form = document.getElementById('personalForm');
+            if (form.style.display === 'none' || !form.style.display) {
+                form.style.display = 'block';
+                form.querySelector('input').focus();
+            } else {
+                form.style.display = 'none';
+                form.querySelector('input').value = '';
+            }
+        }
+    </script>
 </body>
 </html>

@@ -12,9 +12,10 @@ from sqlalchemy.exc import IntegrityError
 
 auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
-    """User registration route"""
+    """User registration route - UPDATED to not create personal categories automatically"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.home'))
     
@@ -96,30 +97,8 @@ def signup():
             )
             user.set_password(password)
             
-            # Add to database
+            # Add user to database (NO automatic category creation)
             db.session.add(user)
-            db.session.flush()  # Get user ID without committing
-            
-            # Create default personal categories for the user
-            default_categories = [
-                'Groceries',
-                'Transportation',
-                'Rent',
-                'Entertainment',
-                'Utilities',
-                'Healthcare',
-                'Other'
-            ]
-            
-            for cat_name in default_categories:
-                category = Category(
-                    name=cat_name,
-                    user_id=user.id,
-                    is_default=False
-                )
-                db.session.add(category)
-            
-            # Commit everything
             db.session.commit()
             
             # Log the user in
@@ -127,7 +106,7 @@ def signup():
             user.last_login = datetime.utcnow()
             db.session.commit()
             
-            flash(f'Welcome to Expense Tracker, {user.name}!', 'success')
+            flash(f'Welcome to Expense Tracker, {user.name}! Create your first expense tracker to get started.', 'success')
             return redirect(url_for('dashboard.home'))
             
         except IntegrityError as e:
