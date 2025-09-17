@@ -1,6 +1,5 @@
 """
-Startup processor for recurring payments - FIXED END DATE VERSION
-Now properly handles end dates by setting sentinel date and inactive status
+Startup processor for recurring payments - FIXED to not auto-add new users
 """
 
 import logging
@@ -139,7 +138,7 @@ class StartupRecurringProcessor:
     def _create_expense_from_recurring_startup(recurring_payment, expense_date):
         """
         Create an expense record from a recurring payment for startup processing
-        UNIFIED: Now matches the service method exactly
+        FIXED: Only use explicitly defined participants, don't auto-add all users
         """
         from models import ExpenseParticipant, User
         
@@ -168,19 +167,35 @@ class StartupRecurringProcessor:
         
         logger.info(f"      Added expense to session with ID: {expense.id}")
         
-        # Add participants
+        # FIXED: Only use explicitly defined participants
         participant_ids = recurring_payment.get_participant_ids()
-        if not participant_ids:
-            # If no participants specified, use all users
-            participant_ids = [user.id for user in User.query.all()]
-            logger.info(f"      No specific participants, using all users: {participant_ids}")
-        else:
-            logger.info(f"      Using specified participants: {participant_ids}")
         
-        amount_per_person = recurring_payment.amount / len(participant_ids)
+        if not participant_ids:
+            # FIXED: If no participants specified, only include the payer
+            # This prevents auto-adding new users to existing legacy expenses
+            participant_ids = [recurring_payment.user_id]
+            logger.info(f"      No specific participants, using only payer: {participant_ids}")
+        else:
+            logger.info(f"      Using explicitly defined participants: {participant_ids}")
+        
+        # Validate that all participant users still exist
+        valid_participants = []
+        for user_id in participant_ids:
+            user = User.query.get(user_id)
+            if user:
+                valid_participants.append(user_id)
+            else:
+                logger.warning(f"      Participant user {user_id} no longer exists, skipping")
+        
+        if not valid_participants:
+            # Fallback to just the payer if no valid participants
+            valid_participants = [recurring_payment.user_id]
+            logger.info(f"      No valid participants found, using only payer: {valid_participants}")
+        
+        amount_per_person = recurring_payment.amount / len(valid_participants)
         logger.info(f"      Amount per person: ${amount_per_person:.2f}")
         
-        for user_id in participant_ids:
+        for user_id in valid_participants:
             participant = ExpenseParticipant(
                 expense_id=expense.id,
                 user_id=user_id,

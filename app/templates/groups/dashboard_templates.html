@@ -28,95 +28,172 @@
             transition: all 0.2s;
         }
         .nav-links a:hover { background: #edf2f7; }
-        .main { padding: 2rem; max-width: 1200px; margin: 0 auto; }
-        .welcome { margin-bottom: 2rem; }
-        .welcome h2 { color: #2d3748; margin-bottom: 0.5rem; }
-        .welcome p { color: #718096; }
-        .dashboard-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        .card {
+        .main { padding: 2rem; max-width: 1000px; margin: 0 auto; }
+        .welcome { 
+            text-align: center;
+            margin-bottom: 3rem;
+            padding: 2rem;
             background: white;
             border-radius: 12px;
-            padding: 1.5rem;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            border: 1px solid #e2e8f0;
         }
-        .card h3 {
-            color: #2d3748;
-            margin-bottom: 1rem;
-            font-size: 1.125rem;
-        }
-        .stat-card {
-            text-align: center;
-            padding: 2rem 1rem;
-        }
-        .stat-value {
+        .welcome h2 { 
+            color: #2d3748; 
+            margin-bottom: 0.5rem; 
             font-size: 2rem;
+        }
+        .welcome p { 
+            color: #718096; 
+            font-size: 1.1rem;
+        }
+        
+        .tracker-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+        
+        .option-card {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 2px solid #e2e8f0;
+            text-align: center;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+        
+        .option-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+            border-color: #4299e1;
+        }
+        
+        .option-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+        
+        .option-title {
+            font-size: 1.5rem;
             font-weight: bold;
-            color: #2b6cb0;
+            color: #2d3748;
             margin-bottom: 0.5rem;
         }
-        .stat-label { color: #718096; font-size: 0.875rem; }
-        .expense-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid #e2e8f0;
+        
+        .option-description {
+            color: #718096;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
         }
-        .expense-item:last-child { border-bottom: none; }
-        .expense-info h4 { color: #2d3748; font-size: 0.875rem; margin-bottom: 0.25rem; }
-        .expense-info p { color: #718096; font-size: 0.75rem; }
-        .expense-amount { font-weight: bold; color: #e53e3e; }
-        .group-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            margin-bottom: 0.75rem;
-            transition: all 0.2s;
-        }
-        .group-item:hover { background: #f7fafc; }
-        .group-info h4 { color: #2d3748; margin-bottom: 0.25rem; }
-        .group-info p { color: #718096; font-size: 0.875rem; }
-        .group-balance {
-            text-align: right;
-            font-weight: bold;
-        }
-        .balance-positive { color: #38a169; }
-        .balance-negative { color: #e53e3e; }
+        
         .btn {
             display: inline-block;
-            padding: 0.5rem 1rem;
+            padding: 0.75rem 2rem;
             background: #4299e1;
             color: white;
             text-decoration: none;
-            border-radius: 6px;
-            font-size: 0.875rem;
+            border-radius: 8px;
+            font-weight: 500;
             transition: all 0.2s;
             border: none;
             cursor: pointer;
+            font-size: 1rem;
         }
-        .btn:hover { background: #3182ce; }
+        
+        .btn:hover { 
+            background: #3182ce;
+            transform: translateY(-1px);
+        }
+        
         .btn-secondary {
             background: #718096;
-            color: white;
+            margin-left: 0.5rem;
         }
-        .btn-secondary:hover { background: #4a5568; }
+        
+        .btn-secondary:hover { 
+            background: #4a5568; 
+        }
+        
+        .current-trackers {
+            margin-top: 3rem;
+        }
+        
+        .tracker-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            color: #2d3748;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-icon {
+            margin-right: 0.5rem;
+        }
+        
+        .tracker-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+        
+        .tracker-card:hover { 
+            background: white;
+            border-color: #cbd5e0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .tracker-info h4 { 
+            color: #2d3748; 
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .tracker-info p { 
+            color: #718096; 
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .tracker-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .tracker-balance {
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        .balance-positive { color: #38a169; }
+        .balance-negative { color: #e53e3e; }
+        
         .empty-state {
             text-align: center;
             padding: 2rem;
             color: #718096;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 2px dashed #e2e8f0;
         }
-        .flash-messages {
-            margin-bottom: 1rem;
-        }
+        
+        .flash-messages { margin-bottom: 1rem; }
         .flash-success {
             background: #f0fff4;
             color: #22543d;
@@ -140,7 +217,6 @@
         <h1>💰 Expense Tracker</h1>
         <div class="nav-links">
             <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
-            <a href="{{ url_for('groups.index') }}">Groups</a>
             <a href="{{ url_for('auth.profile') }}">Profile</a>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
         </div>
@@ -155,102 +231,103 @@
 
         <div class="welcome">
             <h2>Welcome back, {{ user.name }}!</h2>
-            <p>Here's your expense overview</p>
+            <p>Choose how you want to track your expenses</p>
         </div>
 
-        <div class="dashboard-grid">
-            <!-- Personal Expenses Summary -->
-            <div class="card stat-card">
-                <h3>Personal Spending (This Month)</h3>
-                <div class="stat-value">${{ "%.2f"|format(personal_monthly_total) }}</div>
-                <div class="stat-label">Total spent</div>
-                <div style="margin-top: 1rem;">
-                    <a href="#" class="btn">Add Personal Expense</a>
+        <div class="tracker-options">
+            <!-- Personal Tracker Option -->
+            <div class="option-card">
+                <div class="option-icon">👤</div>
+                <div class="option-title">Personal Expenses</div>
+                <div class="option-description">
+                    Track your own personal spending. Perfect for budgeting and monitoring your individual expenses.
+                </div>
+                <a href="#" class="btn">Start Personal Tracker</a>
+            </div>
+
+            <!-- Group Tracker Option -->
+            <div class="option-card">
+                <div class="option-icon">👥</div>
+                <div class="option-title">Group Expenses</div>
+                <div class="option-description">
+                    Share expenses with roommates, friends, or family. Split bills and track who owes what.
+                </div>
+                <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
+                <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
+            </div>
+        </div>
+
+        <div class="current-trackers">
+            <!-- Personal Expense Trackers -->
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span class="section-icon">👤</span>
+                    Your Personal Expense Tracker
+                </h3>
+                
+                <div class="tracker-card">
+                    <div class="tracker-info">
+                        <h4><a href="#" style="color: #4299e1; text-decoration: none;">My Personal Expenses</a></h4>
+                        <p>${{ "%.2f"|format(personal_monthly_total) }} spent this month</p>
+                        <p>{{ personal_expenses|length }} recent transactions</p>
+                    </div>
+                    <div class="tracker-actions">
+                        <a href="#" class="btn">Open Tracker</a>
+                    </div>
                 </div>
             </div>
 
-            <!-- Groups Summary -->
-            <div class="card stat-card">
-                <h3>My Groups</h3>
-                <div class="stat-value">{{ user_groups|length }}</div>
-                <div class="stat-label">Active groups</div>
-                <div style="margin-top: 1rem;">
-                    <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
-                    <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
+            <!-- Group Expense Trackers -->
+            {% if user_groups %}
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span class="section-icon">👥</span>
+                    Your Group Expense Trackers ({{ user_groups|length }})
+                </h3>
+                
+                {% for group in user_groups %}
+                <div class="tracker-card">
+                    <div class="tracker-info">
+                        <h4><a href="{{ url_for('groups.detail', group_id=group.id) }}" style="color: #4299e1; text-decoration: none;">{{ group.name }}</a></h4>
+                        <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
+                        {% if group.description %}
+                        <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="tracker-balance">
+                        {% set balance = group_balances.get(group.id, 0) %}
+                        {% if balance > 0 %}
+                            <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
+                            <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
+                        {% elif balance < 0 %}
+                            <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
+                            <div style="font-size: 0.75rem; color: #718096;">You owe</div>
+                        {% else %}
+                            <div>$0.00</div>
+                            <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span class="section-icon">👥</span>
+                    Your Group Expense Trackers
+                </h3>
+                
+                <div class="empty-state">
+                    <p>No group trackers yet</p>
+                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create or join a group to start tracking shared expenses</p>
+                    <div style="margin-top: 1rem;">
+                        <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
+                        <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
+                    </div>
                 </div>
             </div>
+            {% endif %}
         </div>
-
-        <div class="dashboard-grid">
-            <!-- Recent Personal Expenses -->
-            <div class="card">
-                <h3>Recent Personal Expenses</h3>
-                {% if personal_expenses %}
-                    {% for expense in personal_expenses %}
-                    <div class="expense-item">
-                        <div class="expense-info">
-                            <h4>{{ expense.category_obj.name }}</h4>
-                            <p>{{ expense.date.strftime('%b %d, %Y') }}</p>
-                        </div>
-                        <div class="expense-amount">${{ "%.2f"|format(expense.amount) }}</div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>No personal expenses yet</p>
-                        <a href="#" class="btn" style="margin-top: 1rem;">Add Your First Expense</a>
-                    </div>
-                {% endif %}
-            </div>
-
-            <!-- My Groups -->
-            <div class="card">
-                <h3>My Groups</h3>
-                {% if user_groups %}
-                    {% for group in user_groups %}
-                    <div class="group-item">
-                        <div class="group-info">
-                            <h4><a href="{{ url_for('groups.detail', group_id=group.id) }}">{{ group.name }}</a></h4>
-                            <p>{{ group.get_member_count() }} members</p>
-                        </div>
-                        <div class="group-balance">
-                            {% set balance = group_balances.get(group.id, 0) %}
-                            {% if balance > 0 %}
-                                <span class="balance-positive">+${{ "%.2f"|format(balance) }}</span>
-                            {% elif balance < 0 %}
-                                <span class="balance-negative">-${{ "%.2f"|format(-balance) }}</span>
-                            {% else %}
-                                <span>$0.00</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        <p>You haven't joined any groups yet</p>
-                        <div style="margin-top: 1rem;">
-                            <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
-                            <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
-                        </div>
-                    </div>
-                {% endif %}
-            </div>
-        </div>
-
-        {% if group_activities %}
-        <div class="card">
-            <h3>Recent Group Activity</h3>
-            {% for activity in group_activities %}
-            <div class="expense-item">
-                <div class="expense-info">
-                    <h4>{{ activity.expense.category_obj.name }} in {{ activity.group.name }}</h4>
-                    <p>{{ activity.user.name }} • {{ activity.expense.date.strftime('%b %d, %Y') }}</p>
-                </div>
-                <div class="expense-amount">${{ "%.2f"|format(activity.expense.amount) }}</div>
-            </div>
-            {% endfor %}
-        </div>
-        {% endif %}
     </div>
 </body>
 </html>
