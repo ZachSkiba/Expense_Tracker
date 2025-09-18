@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ group.name }}Expense Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/balance-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/roommate-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settlements-table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/expense-filter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/recurring-payments.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimization.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+    <div class="header-left">
+        <h1>
+            🏠 {{ group.name }} Expense Tracker
+        </h1>
+    </div>
+
+    <div class="header-center">
+        <nav class="header-nav">
+            <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
+            <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Payments</a>
+            <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
+            <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
+        </nav>
+    </div>
+
+    <div class="header-right">
+        <div class="status-indicator">
+                {% if group.get_member_count() == 1 %}Personal{% else %}{{ group.get_member_count() }} members{% endif %}
+            </div>
+</div>
+
+ <div class="group-header">
+        <div>
+            <h2>{{ group.name }}</h2>
+            {% if group.description %}<p style="margin: 0; opacity: 0.9;">{{ group.description }}</p>{% endif %}
+        </div>
+        <div>
+            <a href="{{ url_for('dashboard.home') }}" style="color: white; text-decoration: none;">← Back to Dashboard</a>
+        </div>
+    </div>
+
+    {% if error %}
+        <div class="error-message">{{ error }}</div>
+    {% endif %}
+
+    <!-- Main Layout -->
+    <div class="main-layout">
+        <!-- MODIFIED: Only show balances section for shared groups -->
+        {% if group.get_member_count() > 1 %}
+            {% include 'balances_section.html' %}
+        {% else %}
+            <!-- For personal trackers, show a simple summary -->
+            <div class="left-section">
+                <h3 style="color: #2c3e50; margin-bottom: 15px;">Personal Tracker</h3>
+                <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">Track your personal expenses</p>
+            </div>
+        {% endif %}
+
+    <!-- Expenses Section -->
+    <div class="expenses-section">
+        <!-- The expenses table will go here -->
+        {% include "_expenses_table.html" %}
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div id="addExpenseModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Expense</h2>
+                <button class="close-btn" onclick="closeModal('addExpenseModal')">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <form method="POST" action="{{ url_for('expenses.group_tracker', group_id=group.id) }}" id="expense-form">
+                <div class="form-group">
+                    <label class="required">Amount</label>
+                    <input type="number" step="0.01" min="0.01" name="amount" value="{{ amount or '' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="required">Category</label>
+                    <select id="category-select" name="category_id" required onchange="handleCategoryChange(this)">
+                        <option value="" disabled selected>Select category</option>
+                        {% for cat in categories %}
+                            <option value="{{ cat.id }}" {% if selected_category_id == cat.id|string %}selected{% endif %}>
+                                {{ cat.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div id="category-desc-container" class="form-group" style="display:none;">
+                    <label>Description / Store</label>
+                    <input type="text" id="category-description" name="category_description" value="{{ category_description or '' }}" autocomplete="off">
+                    <div id="suggestions-container" style="border:1px solid #ccc; display:none; max-height:150px; overflow-y:auto; position:absolute; background:white; z-index:1001;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label class="required">Paid By</label>
+                    <select id="user-select" name="user_id" required onchange="handleUserChange(this)">
+                        <option value="" disabled selected>Select user</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}" {% if selected_user_id == user.id|string %}selected{% endif %}>
+                                {{ user.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                {% if group.get_member_count() > 1 %}
+                <div class="participants-section">
+                    <div class="participants-title">Who participated in this expense?</div>
+                    <div class="participants-subtitle">Select everyone who should split this expense</div>
+                    
+                    <button type="button" class="select-all-btn" onclick="toggleAllParticipants()">Select All</button>
+
+                    <div id="participants-list" class="participants-grid">
+                        {% for user in users %}
+                        <div class="participant-checkbox">
+                            <input type="checkbox" 
+                                id="participant-{{ user.id }}" 
+                                name="participant_ids" 
+                                value="{{ user.id }}"
+                                onchange="updateSplitPreview()">
+                            <label for="participant-{{ user.id }}">{{ user.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    <div id="split-preview" class="split-preview" style="display: none;">
+                        <strong>Split Preview:</strong>
+                        <div id="split-details"></div>
+                    </div>
+                </div>
+                {% else %}
+                <!-- For personal trackers, automatically include the user -->
+                <input type="hidden" name="participant_ids" value="{{ current_user.id }}">
+                {% endif %}
+
+                <div class="form-group">
+                    <label class="required">Date</label>
+                    <input type="date" name="date" value="{{ date or '' }}">
+                </div>
+
+                <button type="submit" id="add-expense-btn"class="submit-btn">Add Expense</button>
+            </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settle Up Modal -->
+     {% if group.get_member_count() > 1 %}
+    <div id="settleUpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💰 Record Payment</h2>
+                <button class="close-btn" onclick="closeModal('settleUpModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="settlement-form">
+                    <div class="form-group">
+                        <label class="required">Amount Paid</label>
+                        <input type="number" step="0.01" min="0.01" name="amount" required autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">From</label>
+                        <select name="payer_id" required autocomplete="off">
+                            <option value="" disabled selected>Select payer</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">To</label>
+                        <select name="receiver_id" required autocomplete="off">
+                            <option value="" disabled selected>Select receiver</option>
+                            {% for user in users %}
+                                <option value="{{ user.id }}">{{ user.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Description (Optional)</label>
+                        <input type="text" name="description" placeholder="e.g., Venmo payment, cash, etc." autocomplete="off">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="required">Date</label>
+                        <input type="date" name="date" autocomplete="off">
+                    </div>
+
+                    <div id="settlement-error" class="error-message" style="display: none;"></div>
+
+                    <button type="submit" id="record-payment-btn" class="submit-btn">Record Payment</button>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recurring Payments Modal -->
+    <!-- Recurring Payments Modal -->
+    <div id="recurringPaymentsModal" class="modal large-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔄 Recurring Payments</h2>
+                <button class="close-btn" onclick="closeModal('recurringPaymentsModal')">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Add Recurring Payment Form -->
+                <div class="recurring-form-section">
+                <h3 id="recurring-form-title">Add New Recurring Payment</h3>
+                
+                <form id="recurring-payment-form">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="required">Amount</label>
+                            <input type="number" step="0.01" min="0.01" name="amount" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="required">Category</label>
+                            <select name="category_id" required>
+                                <option value="" disabled selected>Select category</option>
+                                {% for cat in categories %}
+                                    <option value="{{ cat.id }}">{{ cat.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Description / Store</label>
+                            <input type="text" name="category_description" placeholder="Optional description">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label class="required">Paid By</label>
+                            <select name="user_id" required>
+                                <option value="" disabled selected>Select user</option>
+                                {% for user in users %}
+                                    <option value="{{ user.id }}">{{ user.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="required">Frequency</label>
+                            <select name="frequency" required onchange="handleFrequencyChange(this)">
+                                <option value="" disabled selected>Select frequency</option>
+                                <option value="daily">Daily</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="monthly">Monthly</option>
+                                <option value="yearly">Yearly</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group" id="interval-group" style="display: none;">
+                            <label class="required" id="interval-label">Interval</label>
+                            <input type="number" name="interval_value" min="1" value="1">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="required">Start Date</label>
+                            <input type="date" name="start_date" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>End Date</label>
+                            <input type="date" name="end_date" placeholder="Leave blank for no end date">
+                        </div>
+                    </div>
+
+                    <div class="participants-section">
+                    <div class="participants-title">Who should split this recurring payment?</div>
+                    <div class="participants-subtitle">Select everyone who should split this expense</div>
+                    
+                    <button type="button" class="select-all-btn" onclick="toggleAllRecurringParticipants()">Select All</button>
+
+                    <div id="recurring-participants-list" class="participants-grid">
+                        {% for user in users %}
+                        <div class="participant-checkbox">
+                            <input type="checkbox" 
+                                id="recurring-participant-{{ user.id }}" 
+                                name="recurring_participant_ids" 
+                                value="{{ user.id }}">
+                            <label for="recurring-participant-{{ user.id }}">{{ user.name }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="submit-btn" id="recurring-submit-btn">Add Recurring Payment</button>
+                        <button type="button" class="cancel-btn" onclick="resetRecurringForm()">Cancel</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Current Recurring Payments Table -->
+            <div class="recurring-table-section">
+                <h3>Current Recurring Payments</h3>
+                
+                <div id="recurring-payments-table-container">
+                    <table class="recurring-payments-table">
+                        <thead>
+                            <tr>
+                                <th>Category & Description</th>
+                                <th>Amount</th>
+                                <th>Paid By</th>
+                                <th>Frequency</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Next Due</th>
+                                <th>Status</th>
+                                <th>Participants</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recurring-payments-table-body">
+                            <!-- Will be populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
+    <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
+
+    <script>
+        window.urls = {
+            addExpense: "{{ url_for('expenses.group_tracker', group_id=group.id) }}",
+            deleteExpense: "{{ url_for('expenses.delete_group_expense', group_id=group.id, expense_id=0) }}".replace('0', ''),
+            settlementsApi: "{{ url_for('settlements.add_settlement_api') }}",
+            getSettlementsApi: "{{ url_for('settlements.get_settlements_api') }}",
+            recurringPaymentsApi: "/api/recurring/payments",
+            getRecurringPaymentsApi: "/api/recurring/payments"
+        };
+        // NEW: Add group context
+        window.groupId = "{{ group.id }}";
+        window.isPersonalTracker = "{{ 'true' if group.get_member_count() == 1 else 'false' }}";
+    </script>
+
+    <!-- Load your existing JavaScript modules -->
+    <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/expense-filter.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/expense-filter-integration.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/expense-form-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/settlement-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/recurring-payments-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

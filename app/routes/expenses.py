@@ -230,51 +230,6 @@ def manage_group_users(group_id):
                          next_url=next_url,
                          section='users')
 
-@expenses_bp.route("/group/<int:group_id>/manage-categories", methods=["GET", "POST"])
-@login_required
-def manage_group_categories(group_id):
-    """Manage categories in a group"""
-    group = Group.query.get_or_404(group_id)
-    
-    # Check if user is member
-    if current_user not in group.members:
-        flash('You are not a member of this group', 'error')
-        return redirect(url_for('dashboard.home'))
-    
-    error = None
-    success = None
-    
-    if request.method == "POST":
-        action = request.form.get("action")
-        
-        if action == "add_category":
-            name = request.form.get("category_name", "").strip()
-            if name:
-                # Check if category exists in this group
-                existing = Category.query.filter_by(name=name, group_id=group_id).first()
-                if existing:
-                    error = f"Category '{name}' already exists in this group"
-                else:
-                    try:
-                        category = Category(name=name, group_id=group_id)
-                        db.session.add(category)
-                        db.session.commit()
-                        success = f"Category '{name}' added successfully!"
-                    except Exception as e:
-                        db.session.rollback()
-                        error = f"Error adding category: {str(e)}"
-    
-    # Get group categories
-    categories = Category.query.filter_by(group_id=group_id).all()
-    next_url = request.args.get('next', url_for('groups.detail', group_id=group_id))
-    
-    return render_template("group_management.html", 
-                         group=group,
-                         categories=categories,
-                         error=error,
-                         success=success,
-                         next_url=next_url,
-                         section='categories')
 
 @expenses_bp.route("/group/<int:group_id>/delete_category/<int:cat_id>")
 @login_required
@@ -388,3 +343,105 @@ def expense_details(expense_id):
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@expenses_bp.route("/group/<int:group_id>/tracker", methods=["GET", "POST"])
+@login_required
+def group_tracker(group_id):
+    """Main expense tracker for a group - reuses existing add_expense.html"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        flash('You are not a member of this group', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    # Get group data (filter by group_id)
+    users = list(group.members)  # Only group members
+    categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
+    
+    # Get recent expenses (filter by group_id)
+    expenses = Expense.query.filter_by(group_id=group_id)\
+        .order_by(Expense.date.desc()).limit(20).all()
+    
+    error = None
+    
+    if request.method == "POST":
+        # Handle category/user management redirects
+        user_id = request.form.get('user_id')
+        selected_category_id = request.form.get('category_id')
+        
+        if selected_category_id == "manage":
+            return redirect(url_for("expenses.manage_group_categories", 
+                                  group_id=group_id,
+                                  next=url_for("expenses.group_tracker", group_id=group_id)))
+
+        # Prepare expense data with group_id
+        expense_data = {
+            'amount': request.form.get('amount'),
+            'payer_id': user_id,
+            'participant_ids': request.form.getlist('participant_ids'),
+            'category_id': selected_category_id,
+            'category_description': request.form.get('category_description'),
+            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d'),
+            'group_id': group_id  # KEY: Add group context
+        }
+
+        # For personal trackers (single member), auto-set participant
+        if group.get_member_count() == 1 and not expense_data['participant_ids']:
+            expense_data['participant_ids'] = [str(current_user.id)]
+
+        # Use your existing expense service (just needs group_id support)
+        expense, errors = ExpenseService.create_group_expense(expense_data)
+        
+        if expense:
+            flash(f'Expense of ${expense.amount:.2f} added successfully!', 'success')
+            return redirect(url_for("expenses.group_tracker", group_id=group_id))
+        else:
+            error = "; ".join(errors)
+
+    # REUSE your existing template with group context
+    return render_template("add_expense_group.html",  # We'll modify this slightly
+                         error=error, 
+                         users=users, 
+                         categories=categories, 
+                         expenses=expenses,
+                         group=group,  # Add group to context
+                         current_user=current_user)
+
+# NEW: Group category management
+@expenses_bp.route("/group/<int:group_id>/manage-categories", methods=["GET", "POST"])
+@login_required
+def manage_group_categories(group_id):
+    """Manage categories for a group"""
+    group = Group.query.get_or_404(group_id)
+    
+    if current_user not in group.members:
+        flash('You are not a member of this group', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    if request.method == "POST":
+        action = request.form.get("action")
+        if action == "add_category":
+            name = request.form.get("category_name", "").strip()
+            if name:
+                existing = Category.query.filter_by(name=name, group_id=group_id).first()
+                if existing:
+                    flash(f"Category '{name}' already exists in this group", 'error')
+                else:
+                    try:
+                        category = Category(name=name, group_id=group_id)
+                        db.session.add(category)
+                        db.session.commit()
+                        flash(f"Category '{name}' added successfully!", 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f"Error adding category: {str(e)}", 'error')
+    
+    categories = Category.query.filter_by(group_id=group_id).all()
+    next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
+    
+    # You can create a simple template for this or reuse/adapt existing management template
+    return render_template("manage_categories_group.html", 
+                         group=group,
+                         categories=categories,
+                         next_url=next_url)
