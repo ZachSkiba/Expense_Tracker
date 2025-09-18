@@ -1,108 +1,327 @@
-from flask import Blueprint, render_template, request, redirect, url_for, jsonify
+# app/routes/expenses.py - UPDATED for group-based expense tracking
+
+from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, current_app
+from flask_login import login_required, current_user
 from datetime import datetime
-from models import db, Expense, User, Category, ExpenseParticipant, Balance
-from balance_service import BalanceService
-# NEW: Import the service
+from models import db, Expense, User, Category, ExpenseParticipant, Balance, Group
 from app.services.expense_service import ExpenseService
+from app.services.user_service import UserService
+from app.services.category_service import CategoryService
 
 expenses_bp = Blueprint("expenses", __name__)
 
 @expenses_bp.route("/")
+@login_required
 def home():
-    # Always recalculate balances when loading home page
-    BalanceService.recalculate_all_balances()
-    return redirect(url_for("expenses.add_expense"))
+    """Redirect to dashboard - legacy route"""
+    return redirect(url_for("dashboard.home"))
 
 @expenses_bp.route("/expenses")
+@login_required
 def expenses():
-    # Always recalculate balances when loading expenses page
-    BalanceService.recalculate_all_balances()
-    
-    # Use services for all data
-    from app.services.user_service import UserService
-    from app.services.category_service import CategoryService
-    
-    all_expenses = ExpenseService.get_all_expenses()
-    categories_data = CategoryService.get_all_data()
-    users_data = UserService.get_all_data()
+    """Legacy route - redirect to dashboard"""
+    return redirect(url_for("dashboard.home"))
 
-    return render_template("expenses.html", 
-                         expenses=all_expenses, 
-                         categories=categories_data, 
-                         users=users_data,
-                         show_participants=True)  # Show participants on view all expenses page
-
-@expenses_bp.route("/store_suggestions")
-def store_suggestions():
-    query = request.args.get("q", "").strip()
-    # Use service instead of direct query
-    suggestions = ExpenseService.get_store_suggestions(query)
-    return {"suggestions": suggestions}
-
-@expenses_bp.route("/add-expense", methods=["GET", "POST"])
-def add_expense():
-    # Always recalculate balances when loading add expense page
-    BalanceService.recalculate_all_balances()
+# Group-specific expense routes
+@expenses_bp.route("/group/<int:group_id>/expenses")
+@login_required
+def group_expenses(group_id):
+    """View all expenses for a specific group"""
+    group = Group.query.get_or_404(group_id)
     
-    from app.services.user_service import UserService
-    from app.services.category_service import CategoryService
+    # Check if user is member
+    if current_user not in group.members:
+        flash('You are not a member of this group', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    # Get group expenses
+    expenses = Expense.query.filter_by(group_id=group_id)\
+        .order_by(Expense.date.desc()).all()
+    
+    # Get group categories and members
+    categories = Category.query.filter_by(group_id=group_id).all()
+    users = list(group.members)
+    
+    return render_template("group_expenses.html", 
+                         expenses=expenses, 
+                         categories=categories, 
+                         users=users,
+                         group=group,
+                         show_participants=True)
+
+@expenses_bp.route("/group/<int:group_id>/add-expense", methods=["GET", "POST"])
+@login_required
+def add_group_expense(group_id):
+    """Add expense to a specific group"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        flash('You are not a member of this group', 'error')
+        return redirect(url_for('dashboard.home'))
     
     error = None
-    all_expenses = ExpenseService.get_all_expenses()
-    users_data = UserService.get_all_data()
-    categories_data = CategoryService.get_all_data()
-
+    
+    # Get recent expenses for this group
+    recent_expenses = Expense.query.filter_by(group_id=group_id)\
+        .order_by(Expense.date.desc()).limit(10).all()
+    
+    # Get group members and categories
+    users = list(group.members)
+    categories = Category.query.filter_by(group_id=group_id).all()
+    
     if request.method == "POST":
-        # Handle manage redirects first
+        # Handle redirects to management
         user_id = request.form.get('user_id')
         selected_category_id = request.form.get('category_id')
         
         if user_id == "manage":
-            return redirect(url_for("users.manage_users", next=url_for("expenses.add_expense")))
+            return redirect(url_for("expenses.manage_group_users", 
+                                  group_id=group_id,
+                                  next=url_for("expenses.add_group_expense", group_id=group_id)))
         if selected_category_id == "manage":
-            return redirect(url_for("categories.manage_categories", next=url_for("expenses.add_expense")))
+            return redirect(url_for("expenses.manage_group_categories", 
+                                  group_id=group_id,
+                                  next=url_for("expenses.add_group_expense", group_id=group_id)))
 
-        # Prepare expense data for service
+        # Prepare expense data
         expense_data = {
             'amount': request.form.get('amount'),
             'payer_id': user_id,
             'participant_ids': request.form.getlist('participant_ids'),
             'category_id': selected_category_id,
             'category_description': request.form.get('category_description'),
-            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d')
+            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d'),
+            'group_id': group_id  # Add group context
         }
 
-        # Use service to create expense (which will recalculate all balances)
-        expense, errors = ExpenseService.create_expense(expense_data)
+        # Create expense using service
+        expense, errors = ExpenseService.create_group_expense(expense_data)
         
         if expense:
-            return redirect(url_for("expenses.add_expense"))
+            flash(f'Expense of ${expense.amount:.2f} added successfully!', 'success')
+            return redirect(url_for("expenses.add_group_expense", group_id=group_id))
         else:
-            # Handle errors
             error = "; ".join(errors)
-            return render_template("add_expense.html", 
-                                 error=error, 
-                                 users=users_data, 
-                                 categories=categories_data, 
-                                 expenses=all_expenses,
-                                 show_participants=False,  # Don't show participants on main page
-                                 # Preserve form data
-                                 selected_category_id=selected_category_id,
-                                 amount=expense_data.get('amount'),
-                                 category_description=expense_data.get('category_description'),
-                                 date=expense_data.get('date'))
 
-    return render_template("add_expense.html", 
-                         error=None, 
-                         users=users_data, 
-                         categories=categories_data, 
-                         expenses=all_expenses,
-                         show_participants=False)  # Don't show participants on main page
+    return render_template("group_add_expense.html", 
+                         error=error, 
+                         users=users, 
+                         categories=categories, 
+                         expenses=recent_expenses,
+                         group=group,
+                         show_participants=False)
+
+@expenses_bp.route("/store_suggestions")
+@login_required
+def store_suggestions():
+    """Get store suggestions - can be filtered by group if needed"""
+    query = request.args.get("q", "").strip()
+    group_id = request.args.get("group_id", type=int)
+    
+    # Use service with optional group filtering
+    suggestions = ExpenseService.get_store_suggestions(query, group_id)
+    return {"suggestions": suggestions}
+
+@expenses_bp.route("/group/<int:group_id>/delete_expense/<int:expense_id>", methods=["POST"])
+@login_required
+def delete_group_expense(group_id, expense_id):
+    """Delete expense from a group"""
+    group = Group.query.get_or_404(group_id)
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Verify user is member and expense belongs to group
+    if current_user not in group.members or expense.group_id != group_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    # Use service to delete (will recalculate balances)
+    success, error = ExpenseService.delete_expense(expense_id)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': error})
+
+@expenses_bp.route("/group/<int:group_id>/edit_expense/<int:expense_id>", methods=["POST"])
+@login_required
+def edit_group_expense(group_id, expense_id):
+    """Edit expense in a group"""
+    group = Group.query.get_or_404(group_id)
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Verify user is member and expense belongs to group
+    if current_user not in group.members or expense.group_id != group_id:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'Invalid request'}), 400
+
+    # Use service to update (will recalculate balances)
+    success, error = ExpenseService.update_expense(expense_id, data)
+    
+    if success:
+        return jsonify({'success': True})
+    else:
+        return jsonify({'success': False, 'error': error}), 500
+
+@expenses_bp.route("/group/<int:group_id>/expense_details/<int:expense_id>")
+@login_required
+def group_expense_details(group_id, expense_id):
+    """Get detailed expense information for group expense"""
+    group = Group.query.get_or_404(group_id)
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Verify user is member and expense belongs to group
+    if current_user not in group.members or expense.group_id != group_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        participants_data = []
+        for participant in expense.participants:
+            participants_data.append({
+                'user_id': participant.user_id,
+                'user_name': participant.user.name,
+                'amount_owed': participant.amount_owed
+            })
+        
+        expense_data = {
+            'id': expense.id,
+            'amount': expense.amount,
+            'category': expense.category_obj.name,
+            'description': expense.category_description,
+            'payer': expense.user.name,
+            'payer_id': expense.user_id,
+            'date': expense.date.strftime('%Y-%m-%d'),
+            'participants': participants_data
+        }
+        
+        return jsonify({'expense': expense_data})
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+# Group management routes
+@expenses_bp.route("/group/<int:group_id>/manage-users", methods=["GET", "POST"])
+@login_required
+def manage_group_users(group_id):
+    """Manage users in a group (admin only)"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is admin
+    if not current_user.is_group_admin(group):
+        flash('Only group admins can manage users', 'error')
+        return redirect(url_for('groups.detail', group_id=group_id))
+    
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        if action == "add_user":
+            # For groups, we don't add new users - they join via invite codes
+            flash('Users must join using the group invite code', 'info')
+    
+    # Get current members
+    users = list(group.members)
+    next_url = request.args.get('next', url_for('groups.detail', group_id=group_id))
+    
+    return render_template("group_management.html", 
+                         group=group,
+                         users=users, 
+                         next_url=next_url,
+                         section='users')
+
+@expenses_bp.route("/group/<int:group_id>/manage-categories", methods=["GET", "POST"])
+@login_required
+def manage_group_categories(group_id):
+    """Manage categories in a group"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        flash('You are not a member of this group', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    error = None
+    success = None
+    
+    if request.method == "POST":
+        action = request.form.get("action")
+        
+        if action == "add_category":
+            name = request.form.get("category_name", "").strip()
+            if name:
+                # Check if category exists in this group
+                existing = Category.query.filter_by(name=name, group_id=group_id).first()
+                if existing:
+                    error = f"Category '{name}' already exists in this group"
+                else:
+                    try:
+                        category = Category(name=name, group_id=group_id)
+                        db.session.add(category)
+                        db.session.commit()
+                        success = f"Category '{name}' added successfully!"
+                    except Exception as e:
+                        db.session.rollback()
+                        error = f"Error adding category: {str(e)}"
+    
+    # Get group categories
+    categories = Category.query.filter_by(group_id=group_id).all()
+    next_url = request.args.get('next', url_for('groups.detail', group_id=group_id))
+    
+    return render_template("group_management.html", 
+                         group=group,
+                         categories=categories,
+                         error=error,
+                         success=success,
+                         next_url=next_url,
+                         section='categories')
+
+@expenses_bp.route("/group/<int:group_id>/delete_category/<int:cat_id>")
+@login_required
+def delete_group_category(group_id, cat_id):
+    """Delete category from group"""
+    group = Group.query.get_or_404(group_id)
+    category = Category.query.get_or_404(cat_id)
+    
+    # Verify category belongs to group and user is member
+    if category.group_id != group_id or current_user not in group.members:
+        flash('Unauthorized', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    # Check if category has expenses
+    if category.expenses:
+        flash(f"Cannot delete category '{category.name}' because it has existing expenses.", 'error')
+    else:
+        try:
+            db.session.delete(category)
+            db.session.commit()
+            flash(f"Category '{category.name}' deleted successfully!", 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting category: {str(e)}", 'error')
+    
+    return redirect(url_for('expenses.manage_group_categories', group_id=group_id))
+
+# Legacy routes for backward compatibility (redirect to dashboard)
+@expenses_bp.route("/add-expense", methods=["GET", "POST"])
+@login_required
+def add_expense():
+    """Legacy route - redirect to dashboard"""
+    flash('Please select a tracker from your dashboard to add expenses', 'info')
+    return redirect(url_for('dashboard.home'))
 
 @expenses_bp.route("/delete_expense/<int:expense_id>", methods=["POST"])
+@login_required
 def delete_expense(expense_id):
-    """Delete expense and recalculate all balances"""
-    # Use service instead of direct database operations (which will recalculate all balances)
+    """Legacy route - still works for backward compatibility"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Check if user has access (member of group or personal expense)
+    if expense.group_id:
+        group = Group.query.get(expense.group_id)
+        if not group or current_user not in group.members:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
     success, error = ExpenseService.delete_expense(expense_id)
     
     if success:
@@ -111,14 +330,21 @@ def delete_expense(expense_id):
         return jsonify({'success': False, 'error': error})
 
 @expenses_bp.route("/edit_expense/<int:expense_id>", methods=["POST"])
+@login_required
 def edit_expense(expense_id):
-    """Edit expense and recalculate all balances"""
+    """Legacy route - still works for backward compatibility"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Check if user has access
+    if expense.group_id:
+        group = Group.query.get(expense.group_id)
+        if not group or current_user not in group.members:
+            return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
     data = request.get_json()
-
     if not data:
         return jsonify({'success': False, 'error': 'Invalid request'}), 400
 
-    # Use service instead of direct database operations (which will recalculate all balances)
     success, error = ExpenseService.update_expense(expense_id, data)
     
     if success:
@@ -127,11 +353,18 @@ def edit_expense(expense_id):
         return jsonify({'success': False, 'error': error}), 500
 
 @expenses_bp.route("/expense_details/<int:expense_id>")
+@login_required
 def expense_details(expense_id):
-    """API endpoint to get detailed expense information including participants"""
+    """Legacy route - still works with access control"""
+    expense = Expense.query.get_or_404(expense_id)
+    
+    # Check if user has access
+    if expense.group_id:
+        group = Group.query.get(expense.group_id)
+        if not group or current_user not in group.members:
+            return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
-        expense = Expense.query.get_or_404(expense_id)
-        
         participants_data = []
         for participant in expense.participants:
             participants_data.append({
