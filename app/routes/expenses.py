@@ -3,6 +3,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, jsonify, flash, current_app
 from flask_login import login_required, current_user
 from datetime import datetime
+
+from sqlalchemy import desc
 from models import db, Expense, User, Category, ExpenseParticipant, Balance, Group
 from app.services.expense_service import ExpenseService
 from app.services.user_service import UserService
@@ -230,7 +232,6 @@ def manage_group_users(group_id):
                          next_url=next_url,
                          section='users')
 
-
 @expenses_bp.route("/group/<int:group_id>/delete_category/<int:cat_id>")
 @login_required
 def delete_group_category(group_id, cat_id):
@@ -344,10 +345,12 @@ def expense_details(expense_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
-@expenses_bp.route("/group/<int:group_id>/tracker", methods=["GET", "POST"])
+# In your app/routes/expenses.py - Fix the group_tracker route
+
+@expenses_bp.route('/group/<int:group_id>/tracker')
 @login_required
 def group_tracker(group_id):
-    """Main expense tracker for a group - reuses existing add_expense.html"""
+    """Main expense tracker page for a specific group"""
     group = Group.query.get_or_404(group_id)
     
     # Check if user is member
@@ -355,58 +358,55 @@ def group_tracker(group_id):
         flash('You are not a member of this group', 'error')
         return redirect(url_for('dashboard.home'))
     
-    # Get group data (filter by group_id)
-    users = list(group.members)  # Only group members
-    categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
+    # Get group categories
+    categories = Category.query.filter_by(group_id=group_id).all()
     
-    # Get recent expenses (filter by group_id)
+    # Get group members
+    users = group.members
+    
+    # Get recent expenses for the group
     expenses = Expense.query.filter_by(group_id=group_id)\
-        .order_by(Expense.date.desc()).limit(20).all()
+        .order_by(desc(Expense.date)).limit(50).all()
     
-    error = None
+    # FIXED: Convert SQLAlchemy objects to dictionaries for JSON serialization
+    categories_data = []
+    for cat in categories:
+        categories_data.append({
+            'id': cat.id,
+            'name': cat.name,
+            'is_default': cat.is_default
+        })
     
-    if request.method == "POST":
-        # Handle category/user management redirects
-        user_id = request.form.get('user_id')
-        selected_category_id = request.form.get('category_id')
-        
-        if selected_category_id == "manage":
-            return redirect(url_for("expenses.manage_group_categories", 
-                                  group_id=group_id,
-                                  next=url_for("expenses.group_tracker", group_id=group_id)))
-
-        # Prepare expense data with group_id
-        expense_data = {
-            'amount': request.form.get('amount'),
-            'payer_id': user_id,
-            'participant_ids': request.form.getlist('participant_ids'),
-            'category_id': selected_category_id,
-            'category_description': request.form.get('category_description'),
-            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d'),
-            'group_id': group_id  # KEY: Add group context
-        }
-
-        # For personal trackers (single member), auto-set participant
-        if group.get_member_count() == 1 and not expense_data['participant_ids']:
-            expense_data['participant_ids'] = [str(current_user.id)]
-
-        # Use your existing expense service (just needs group_id support)
-        expense, errors = ExpenseService.create_group_expense(expense_data)
-        
-        if expense:
-            flash(f'Expense of ${expense.amount:.2f} added successfully!', 'success')
-            return redirect(url_for("expenses.group_tracker", group_id=group_id))
-        else:
-            error = "; ".join(errors)
-
-    # REUSE your existing template with group context
-    return render_template("add_expense_group.html",  # We'll modify this slightly
-                         error=error, 
-                         users=users, 
-                         categories=categories, 
-                         expenses=expenses,
-                         group=group,  # Add group to context
-                         current_user=current_user)
+    users_data = []
+    for user in users:
+        users_data.append({
+            'id': user.id,
+            'name': user.name
+        })
+    
+    expenses_data = []
+    for exp in expenses:
+        expenses_data.append({
+            'id': exp.id,
+            'amount': float(exp.amount),
+            'category_name': exp.category_obj.name if exp.category_obj else 'Unknown',
+            'category_description': exp.category_description,
+            'user_name': exp.user.name if exp.user else 'Unknown',
+            'date': exp.date.strftime('%Y-%m-%d'),
+            'payer_id': exp.user_id
+        })
+    
+    return render_template("add_expense_group.html",
+        group=group,
+        categories=categories,  # Keep original objects for template loops
+        users=users,           # Keep original objects for template loops
+        expenses=expenses,     # Keep original objects for template loops
+        # Add JSON-serializable data for JavaScript
+        categories_json=categories_data,
+        users_json=users_data,
+        expenses_json=expenses_data,
+        current_user=current_user
+    )
 
 # NEW: Group category management
 @expenses_bp.route("/group/<int:group_id>/manage-categories", methods=["GET", "POST"])

@@ -157,7 +157,8 @@ def detail(group_id):
         group_categories=group_categories,
         monthly_total=monthly_total,
         user_balance=user_balance,
-        is_admin=is_admin
+        is_admin=is_admin,
+        abs=abs
     )
 
 @groups_bp.route('/<int:group_id>/leave', methods=['POST'])

@@ -1,3 +1,5 @@
+# models.py - FIXED: secrets.choices -> secrets.choice and other fixes
+
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -7,6 +9,7 @@ from dateutil.relativedelta import relativedelta
 import json
 import secrets
 import string
+import random  # Add this import as backup
 
 db = SQLAlchemy()
 
@@ -148,9 +151,15 @@ class Group(db.Model):
     
     @staticmethod
     def generate_invite_code():
-        """Generate a unique invite code"""        
+        """Generate a unique invite code - FIXED: secrets.choices -> secrets.choice"""        
         while True:
-            code = ''.join(secrets.choices(string.ascii_uppercase + string.digits, k=8))
+            try:
+                # Use secrets.choice (correct method name)
+                code = ''.join(secrets.choice(string.ascii_uppercase + string.digits) for _ in range(8))
+            except AttributeError:
+                # Fallback for older Python versions
+                code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+            
             if not Group.query.filter_by(invite_code=code).first():
                 return code
     
@@ -249,6 +258,7 @@ class Expense(db.Model):
         """Check if this is a group expense"""
         return self.group_id is not None
 
+# FIXED: Add group_id to ExpenseParticipant table
 class ExpenseParticipant(db.Model):
     """Track who participated in each expense and their share"""
     __tablename__ = "expense_participant"
@@ -256,11 +266,16 @@ class ExpenseParticipant(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     expense_id = db.Column(db.Integer, db.ForeignKey("expense.id"), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    
+    # ADDED: Group context for easier querying
+    group_id = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=True)
+    
     amount_owed = db.Column(db.Float, nullable=False)  # How much this participant owes for this expense
     
     # relationships
     expense = db.relationship("Expense", back_populates="participants")
     user = db.relationship("User", back_populates="expense_participants")
+    group = db.relationship("Group")  # Add group relationship
 
 class Balance(db.Model):
     """Track running balances between users"""
