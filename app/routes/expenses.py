@@ -347,7 +347,7 @@ def expense_details(expense_id):
     
 # In your app/routes/expenses.py - Fix the group_tracker route
 
-@expenses_bp.route('/group/<int:group_id>/tracker')
+@expenses_bp.route('/group/<int:group_id>/tracker', methods=['GET', 'POST'])
 @login_required
 def group_tracker(group_id):
     """Main expense tracker page for a specific group"""
@@ -358,17 +358,56 @@ def group_tracker(group_id):
         flash('You are not a member of this group', 'error')
         return redirect(url_for('dashboard.home'))
     
+    error = None
+    
+    # Handle POST request (adding new expense)
+    if request.method == 'POST':
+        # Handle redirects to management
+        user_id = request.form.get('user_id')
+        selected_category_id = request.form.get('category_id')
+        
+        if user_id == "manage":
+            return redirect(url_for("expenses.manage_group_users", 
+                                  group_id=group_id,
+                                  next=url_for("expenses.group_tracker", group_id=group_id)))
+        if selected_category_id == "manage":
+            return redirect(url_for("expenses.manage_group_categories", 
+                                  group_id=group_id,
+                                  next=url_for("expenses.group_tracker", group_id=group_id)))
+
+        # Prepare expense data
+        expense_data = {
+            'amount': request.form.get('amount'),
+            'payer_id': user_id,
+            'participant_ids': request.form.getlist('participant_ids'),
+            'category_id': selected_category_id,
+            'category_description': request.form.get('category_description'),
+            'date': request.form.get('date') or datetime.today().strftime('%Y-%m-%d'),
+            'group_id': group_id
+        }
+
+        # Create expense using service
+        expense, errors = ExpenseService.create_group_expense(expense_data)
+        
+        if expense:
+            flash(f'Expense of ${expense.amount:.2f} added successfully!', 'success')
+            return redirect(url_for("expenses.group_tracker", group_id=group_id))
+        else:
+            error = "; ".join(errors)
+    
+    # GET request - show the tracker page
+    
     # Get group categories
     categories = Category.query.filter_by(group_id=group_id).all()
     
     # Get group members
-    users = group.members
+    users = list(group.members)
     
     # Get recent expenses for the group
     expenses = Expense.query.filter_by(group_id=group_id)\
         .order_by(desc(Expense.date)).limit(50).all()
     
-    # FIXED: Convert SQLAlchemy objects to dictionaries for JSON serialization
+    # Convert SQLAlchemy objects to dictionaries for JSON serialization
     categories_data = []
     for cat in categories:
         categories_data.append({
@@ -397,6 +436,7 @@ def group_tracker(group_id):
         })
     
     return render_template("add_expense_group.html",
+        error=error,
         group=group,
         categories=categories,  # Keep original objects for template loops
         users=users,           # Keep original objects for template loops
@@ -405,7 +445,13 @@ def group_tracker(group_id):
         categories_json=categories_data,
         users_json=users_data,
         expenses_json=expenses_data,
-        current_user=current_user
+        current_user=current_user,
+        # Add form data for persistence on errors
+        amount=request.form.get('amount', '') if request.method == 'POST' else '',
+        selected_category_id=request.form.get('category_id', '') if request.method == 'POST' else '',
+        category_description=request.form.get('category_description', '') if request.method == 'POST' else '',
+        selected_user_id=request.form.get('user_id', '') if request.method == 'POST' else '',
+        date=request.form.get('date', '') if request.method == 'POST' else ''
     )
 
 # NEW: Group category management

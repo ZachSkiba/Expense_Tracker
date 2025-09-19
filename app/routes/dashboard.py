@@ -13,15 +13,17 @@ dashboard_bp = Blueprint('dashboard', __name__)
 def home():
     """Dashboard showing personal trackers and groups"""
     
-    # Get user's groups (includes both personal trackers and shared groups)
+    # Get user's groups
     user_groups = current_user.groups
     
-    # Separate personal trackers from shared groups
+    # Separate based on description pattern (since personal trackers have specific description)
     personal_trackers = []
     shared_groups = []
     
     for group in user_groups:
-        if group.get_member_count() == 1 and group.creator_id == current_user.id:
+        # Personal trackers created via dashboard have this specific description pattern
+        if (group.description and 
+            "Personal expense tracker for" in group.description):
             personal_trackers.append(group)
         else:
             shared_groups.append(group)
@@ -32,12 +34,11 @@ def home():
         balance = current_user.get_group_balance(group.id)
         group_balances[group.id] = balance
     
-    # FIXED: Pass all required template variables
     return render_template(
         'groups/dashboard_templates.html',
         user=current_user,
         personal_trackers=personal_trackers,
-        user_groups=shared_groups,  # Only shared groups for the groups section
+        user_groups=shared_groups,
         group_balances=group_balances
     )
 
@@ -50,6 +51,11 @@ def create_personal_tracker():
     tracker_name = request.form.get('name', '').strip()
     if not tracker_name:
         tracker_name = f"{current_user.name}'s Personal Expenses"
+    
+    # ENSURE the name indicates it's personal
+    if not ("Personal" in tracker_name or "personal" in tracker_name.lower()):
+        if not tracker_name.endswith("'s Expenses"):
+            tracker_name = f"{tracker_name} - Personal"
     
     # Check if name already exists for this user
     existing_tracker = Group.query.filter_by(
@@ -88,7 +94,7 @@ def create_personal_tracker():
         default_categories = [
             'Groceries',
             'Transportation', 
-            'Rent & Housing',
+            'Rent',
             'Utilities',
             'Entertainment',
             'Healthcare',
@@ -110,68 +116,12 @@ def create_personal_tracker():
         db.session.commit()
         
         flash(f'Personal tracker "{tracker_name}" created successfully!', 'success')
-        return redirect(url_for('expenses.group_tracker', group_id=tracker.id))  # FIXED: Go to tracker directly
+        return redirect(url_for('expenses.group_tracker', group_id=tracker.id))
         
     except Exception as e:
         db.session.rollback()
         print(f"Error creating personal tracker: {e}")
         import traceback
-        traceback.print_exc()  # Print full error for debugging
+        traceback.print_exc()
         flash('An error occurred while creating your personal tracker', 'error')
         return redirect(url_for('dashboard.home'))
-    
-    # Add this temporary debug route to your dashboard.py to test
-
-@dashboard_bp.route('/debug-create-test', methods=['GET', 'POST'])
-@login_required
-def debug_create_test():
-    """Debug route to test group creation"""
-    if request.method == 'POST':
-        print("=== DEBUG: POST request received ===")
-        print(f"Form data: {request.form}")
-        
-        # Try to create a simple group
-        try:
-            test_group = Group(
-                name="Test Group",
-                description="Debug test group",
-                creator_id=current_user.id,
-                invite_code=Group.generate_invite_code()
-            )
-            
-            db.session.add(test_group)
-            db.session.flush()
-            
-            print(f"Group created with ID: {test_group.id}")
-            
-            # Add member
-            test_group.add_member(current_user, role='admin')
-            
-            # Create one test category
-            category = Category(
-                name='Test Category',
-                group_id=test_group.id,
-                is_default=True
-            )
-            db.session.add(category)
-            
-            db.session.commit()
-            print("=== DEBUG: Group created successfully ===")
-            
-            flash('Debug group created successfully!', 'success')
-            return redirect(url_for('dashboard.home'))
-            
-        except Exception as e:
-            db.session.rollback()
-            print(f"=== DEBUG: Error creating group: {e} ===")
-            import traceback
-            traceback.print_exc()
-            flash(f'Debug error: {str(e)}', 'error')
-            return redirect(url_for('dashboard.home'))
-    
-    # GET request - show simple form
-    return '''
-    <form method="post">
-        <button type="submit">Create Debug Group</button>
-    </form>
-    '''

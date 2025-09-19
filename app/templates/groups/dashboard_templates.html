@@ -310,12 +310,12 @@
                 {% for tracker in personal_trackers %}
                 <div class="tracker-card">
                     <div class="tracker-info">
-                        <h4><a href="{{ url_for('groups.detail', group_id=tracker.id) }}" style="color: #4299e1; text-decoration: none;">{{ tracker.name }}</a></h4>
+                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" style="color: #4299e1; text-decoration: none;">{{ tracker.name }}</a></h4>
                         <p>Created {{ tracker.created_at.strftime('%b %d, %Y') }}</p>
                         <p>Personal expense tracker</p>
                     </div>
                     <div class="tracker-actions">
-                        <a href="{{ url_for('groups.detail', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
+                        <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
                     </div>
                 </div>
                 {% endfor %}
@@ -346,29 +346,32 @@
                 </h3>
                 
                 {% for group in user_groups %}
-                <div class="tracker-card">
-                    <div class="tracker-info">
-                        <h4><a href="{{ url_for('groups.detail', group_id=group.id) }}" style="color: #4299e1; text-decoration: none;">{{ group.name }}</a></h4>
-                        <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
-                        {% if group.description %}
-                        <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
-                        {% endif %}
-                    </div>
-                    <div class="tracker-balance">
-                        {% set balance = group_balances.get(group.id, 0) %}
-                        {% if balance > 0 %}
-                            <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
-                            <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
-                        {% elif balance < 0 %}
-                            <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
-                            <div style="font-size: 0.75rem; color: #718096;">You owe</div>
-                        {% else %}
-                            <div>$0.00</div>
-                            <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
-                        {% endif %}
-                    </div>
+            <div class="tracker-card">
+                <div class="tracker-info">
+                    <h4><a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" style="color: #4299e1; text-decoration: none;">{{ group.name }}</a></h4>
+                    <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
+                    {% if group.description %}
+                    <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
+                    {% endif %}
                 </div>
-                {% endfor %}
+                <div class="tracker-actions">
+                    <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn btn-small">Open Tracker</a>
+                </div>
+                <div class="tracker-balance">
+                    {% set balance = group_balances.get(group.id, 0) %}
+                    {% if balance > 0 %}
+                        <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
+                        <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
+                    {% elif balance < 0 %}
+                        <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
+                        <div style="font-size: 0.75rem; color: #718096;">You owe</div>
+                    {% else %}
+                        <div>$0.00</div>
+                        <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
             </div>
             {% else %}
             <div class="tracker-section">

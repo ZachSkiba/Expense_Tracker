@@ -38,7 +38,7 @@ def create():
             # Create the group
             group = Group(
                 name=name,
-                description=description,
+                description=description if description else f"Shared expense group: {name}",
                 creator_id=current_user.id,
                 invite_code=Group.generate_invite_code()
             )
@@ -52,11 +52,15 @@ def create():
             # Create default categories for the group
             default_categories = [
                 'Groceries',
-                'Rent & Utilities', 
-                'Dining Out',
-                'Transportation',
+                'Transportation', 
+                'Rent',
+                'Utilities',
                 'Entertainment',
-                'Household Items',
+                'Healthcare',
+                'Dining Out',
+                'Shopping',
+                'Education',
+                'Travel',
                 'Other'
             ]
             
@@ -71,7 +75,8 @@ def create():
             db.session.commit()
             
             flash(f'Group "{name}" created successfully!', 'success')
-            return redirect(url_for('groups.detail', group_id=group.id))
+            # FIXED: Go to the expense tracker, not group detail
+            return redirect(url_for('expenses.group_tracker', group_id=group.id))
             
         except Exception as e:
             db.session.rollback()
