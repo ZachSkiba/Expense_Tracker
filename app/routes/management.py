@@ -10,7 +10,7 @@ def manage_data(group_id):
     group = Group.query.get_or_404(group_id)
     error = None
     success = None
-    next_url = request.form.get("next") or request.args.get("next") or url_for("expenses.add_expense")
+    next_url = request.form.get("next") or request.args.get("next") or url_for("expenses.group_expenses", group_id=group.id)
 
     if request.method == "POST":
         action = request.form.get("action")

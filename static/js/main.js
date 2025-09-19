@@ -1,4 +1,4 @@
-// Main JavaScript initialization - UPDATED VERSION (Consistent styling fixes)
+// Main JavaScript initialization - UPDATED with group-aware API calls
 document.addEventListener('DOMContentLoaded', function() {
     // Get page context from body data attribute or URL
     const pageName = document.body.dataset.page || getPageFromURL();
@@ -83,7 +83,7 @@ function initializeForPage(pageName, urls) {
     }
 }
 
-// SINGLE data loading function called once after initialization
+// UPDATED: Group-aware data loading function
 async function loadInitialData() {
     try {
         // Only load balances data if we have the required containers
@@ -137,13 +137,21 @@ async function loadInitialData() {
     }
 }
 
-// Load balances data from API - SINGLE CALL VERSION
+// UPDATED: Group-aware balance data loading
 async function loadBalancesData() {
     try {
+        // Get group ID from global variable if available
+        const groupId = window.groupId;
+        
+        // Build API URLs with group context if available
+        const balancesUrl = groupId ? `/api/balances/${groupId}` : '/api/balances';
+        const suggestionsUrl = groupId ? `/api/settlement-suggestions/${groupId}` : '/api/settlement-suggestions';
+        
+        console.log('[DEBUG] Loading balances data for group:', groupId || 'all');
         
         const [balancesResponse, suggestionsResponse] = await Promise.all([
-            fetch('/api/balances'),
-            fetch('/api/settlement-suggestions')
+            fetch(balancesUrl),
+            fetch(suggestionsUrl)
         ]);
         
         if (!balancesResponse.ok || !suggestionsResponse.ok) {
@@ -153,13 +161,14 @@ async function loadBalancesData() {
         const balancesData = await balancesResponse.json();
         const suggestionsData = await suggestionsResponse.json();
     
-        
         updateBalancesDisplay(balancesData.balances);
         updateSettlementSuggestionsDisplay(suggestionsData.suggestions);
         updateHeaderStatus(balancesData.balances);
         
+        console.log('[DEBUG] Group-specific data loaded successfully');
+        
     } catch (error) {
-        console.error('[ERROR] Error loading data:', error);
+        console.error('[ERROR] Error loading group data:', error);
         const container = document.getElementById('balances-container');
         if (container) {
             container.innerHTML = 
@@ -211,7 +220,7 @@ function updateSettlementSuggestionsDisplay(suggestions) {
         return;
     }
 
-    // **FIXED**: Use consistent styling that matches the original format
+    // Use consistent styling that matches the original format
     const suggestionItems = suggestions.map(suggestion => `
         <div class="settlement-item">
             <strong>${suggestion.from}</strong> should pay <strong>${suggestion.to}</strong> 
@@ -289,7 +298,7 @@ window.AppUtils = {
     },
     
     formatCurrency: function(amount) {
-        return `$${parseFloat(amount).toFixed(2)}`;
+        return `${parseFloat(amount).toFixed(2)}`;
     },
     
     validatePositiveNumber: function(value, fieldName = 'Value') {
@@ -405,7 +414,7 @@ function updateSplitPreview() {
     }
 }
 
-// **UPDATED**: Global settlement refresh function that settlement manager can call
+// UPDATED: Global settlement refresh function that settlement manager can call
 window.globalRefreshBalances = async function() {
     try {
         // Use the same load function that main.js uses initially
@@ -416,7 +425,7 @@ window.globalRefreshBalances = async function() {
             await window.balanceManager.refresh();
         }
         
-    
+        console.log('[DEBUG] Global balance refresh completed');
     } catch (error) {
         console.error('[ERROR] Global balance refresh failed:', error);
     }
@@ -440,5 +449,4 @@ document.addEventListener("DOMContentLoaded", () => {
     preventMultipleSubmissions("expense-form", "add-expense-btn");
     preventMultipleSubmissions("settlement-form", "record-payment-btn");
     preventMultipleSubmissions("recurring-form", "recurring-submit-btn");
-   
 });
