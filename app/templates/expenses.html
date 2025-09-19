@@ -62,8 +62,8 @@
   <div class="header">
       <h1>💰 Expense Tracker</h1>
       <nav class="header-nav">
-          <a href="{{ url_for('expenses.add_expense') }}" class="btn-nav">⬅ Main Page</a>
-          <a href="{{ url_for('manage.management') }}" class="btn-nav">⚙️ Settings</a>
+          <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn-nav">⬅ Main Page</a>
+          <a href="{{ url_for('manage.management', group_id=group.id) }}" class="btn-nav">⚙️ Settings</a>
       </nav>
   </div>
 

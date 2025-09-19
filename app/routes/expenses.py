@@ -42,12 +42,19 @@ def group_expenses(group_id):
     
     # Get group categories and members
     categories = Category.query.filter_by(group_id=group_id).all()
-    users = list(group.members)
+    categories_data = [
+        {"id": c.id, "name": c.name} for c in categories
+    ]
     
-    return render_template("group_expenses.html", 
+    users_data = [
+    {"id": u.id, "name": u.name, "email": u.email}
+    for u in group.members
+]
+    
+    return render_template("expenses.html", 
                          expenses=expenses, 
-                         categories=categories, 
-                         users=users,
+                         categories=categories_data, 
+                         users=users_data,
                          group=group,
                          show_participants=True)
 
@@ -350,7 +357,10 @@ def expense_details(expense_id):
 @expenses_bp.route('/group/<int:group_id>/tracker', methods=['GET', 'POST'])
 @login_required
 def group_tracker(group_id):
-    """Main expense tracker page for a specific group"""
+    """
+    UNIFIED expense tracker for both personal and group trackers.
+    Personal trackers are just groups with one member.
+    """
     group = Group.query.get_or_404(group_id)
     
     # Check if user is member
@@ -434,7 +444,8 @@ def group_tracker(group_id):
             'date': exp.date.strftime('%Y-%m-%d'),
             'payer_id': exp.user_id
         })
-    
+
+    # Use the ADD EXPENSE GROUP template
     return render_template("add_expense_group.html",
         error=error,
         group=group,

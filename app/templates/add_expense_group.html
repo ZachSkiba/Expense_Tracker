@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>{{ group.name }} Expense Tracker</title>
+    <title>{{ group.name }} - Expense Tracker</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/balance-styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/roommate-styles.css') }}">
@@ -43,11 +43,12 @@
 
     <!-- Main Layout -->
     <div class="main-layout">
-        <!-- Left Section: Balances (only for groups with multiple members) -->
+        <!-- Left Section: Balances or Personal Stats -->
         {% if group.get_member_count() > 1 %}
+            <!-- Group Balances Section -->
             {% include 'balances_section.html' %}
         {% else %}
-            <!-- For personal trackers, show a simple summary -->
+            <!-- Personal Tracker Summary -->
             <div class="left-section">
                 <h3 style="color: #2c3e50; margin-bottom: 15px;">Personal Expense Tracker</h3>
                 <p style="color: #666; font-size: 0.9em; margin-bottom: 15px;">Track your personal expenses and manage your budget</p>
@@ -64,6 +65,12 @@
                         <div class="balance-label">Total Expenses</div>
                         <div class="balance-amount personal">
                             <span id="expense-count">{{ expenses|length }}</span> items
+                        </div>
+                    </div>
+                    <div class="balance-card">
+                        <div class="balance-label">All Time Total</div>
+                        <div class="balance-amount personal">
+                            $<span id="all-time-total">0.00</span>
                         </div>
                     </div>
                 </div>
@@ -114,6 +121,7 @@
 
     <!-- Expenses Section -->
     <div class="expenses-section">
+        {% set show_participants = (group.get_member_count() > 1) %}
         {% include "_expenses_table.html" %}
     </div>
 
@@ -163,6 +171,7 @@
                     </div>
 
                     {% if group.get_member_count() > 1 %}
+                    <!-- Group Participants Section -->
                     <div class="participants-section">
                         <div class="participants-title">Who participated in this expense?</div>
                         <div class="participants-subtitle">Select everyone who should split this expense</div>
@@ -188,7 +197,7 @@
                         </div>
                     </div>
                     {% else %}
-                    <!-- For personal trackers, automatically include the user -->
+                    <!-- Personal Tracker - automatically include the user -->
                     <input type="hidden" name="participant_ids" value="{{ current_user.id }}">
                     {% endif %}
 
@@ -213,6 +222,8 @@
             </div>
             <div class="modal-body">
                 <form id="settlement-form">
+                    <input type="hidden" name="group_id" value="{{ group.id }}">
+                    
                     <div class="form-group">
                         <label class="required">Amount Paid</label>
                         <input type="number" step="0.01" min="0.01" name="amount" required autocomplete="off">
@@ -271,6 +282,8 @@
                     <h3 id="recurring-form-title">Add New Recurring Payment</h3>
                     
                     <form id="recurring-payment-form">
+                        <input type="hidden" name="group_id" value="{{ group.id }}">
+                        
                         <div class="form-row">
                             <div class="form-group">
                                 <label class="required">Amount</label>
@@ -335,6 +348,8 @@
                             </div>
                         </div>
 
+                        {% if group.get_member_count() > 1 %}
+                        <!-- Group Participants Section -->
                         <div class="participants-section">
                             <div class="participants-title">Who should split this recurring payment?</div>
                             <div class="participants-subtitle">Select everyone who should split this expense</div>
@@ -353,6 +368,10 @@
                                 {% endfor %}
                             </div>
                         </div>
+                        {% else %}
+                        <!-- Personal Tracker - automatically include the user -->
+                        <input type="hidden" name="recurring_participant_ids" value="{{ current_user.id }}">
+                        {% endif %}
 
                         <div class="form-actions">
                             <button type="submit" class="submit-btn" id="recurring-submit-btn">Add Recurring Payment</button>
@@ -377,7 +396,9 @@
                                     <th>End Date</th>
                                     <th>Next Due</th>
                                     <th>Status</th>
+                                    {% if group.get_member_count() > 1 %}
                                     <th>Participants</th>
+                                    {% endif %}
                                     <th>Actions</th>
                                 </tr>
                             </thead>
@@ -399,23 +420,27 @@
         window.urls = {
             addExpense: "{{ url_for('expenses.group_tracker', group_id=group.id) }}",
             deleteExpense: "{{ url_for('expenses.delete_group_expense', group_id=group.id, expense_id=0) }}".replace('0', ''),
+            editExpense: "{{ url_for('expenses.edit_group_expense', group_id=group.id, expense_id=0) }}".replace('0', ''),
+            expenseDetails: "{{ url_for('expenses.group_expense_details', group_id=group.id, expense_id=0) }}".replace('0', ''),
             settlementsApi: "{{ url_for('settlements.add_settlement_api') }}",
             getSettlementsApi: "{{ url_for('settlements.get_settlements_api') }}",
             recurringPaymentsApi: "/api/recurring/payments",
-            getRecurringPaymentsApi: "/api/recurring/payments"
+            getRecurringPaymentsApi: "/api/recurring/payments",
+            storeSuggestions: "{{ url_for('expenses.store_suggestions') }}?group_id={{ group.id }}",
+            manageCategories: "{{ url_for('expenses.manage_group_categories', group_id=group.id) }}",
+            manageUsers: "{{ url_for('expenses.manage_group_users', group_id=group.id) }}"
         };
-        // Add group context
-        window.groupId = "{{ group.id }}";
-        window.isPersonalTracker = "{{ 'true' if group.get_member_count() == 1 else 'false' }}";
     </script>
-
+    
     <!-- Load JavaScript modules -->
     <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/expense-filter.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/expense-filter-integration.js') }}"></script>
     <script src="{{ url_for('static', filename='js/modules/expense-form-manager.js') }}"></script>
+    {% if group.get_member_count() > 1 %}
     <script src="{{ url_for('static', filename='js/modules/settlement-manager.js') }}"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='js/modules/recurring-payments-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

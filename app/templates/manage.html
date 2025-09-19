@@ -13,8 +13,8 @@
         </div>
         <div class="header-center">
             <nav class="header-nav">
-                <a href="{{ url_for('expenses.add_expense') }}">🏠 Home</a>
-                <a href="{{ url_for('expenses.expenses') }}">📊 View Expenses</a>
+                <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">🏠 Home</a>
+                <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View Expenses</a>
                 <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Settlements</a>
                 <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
             </nav>
