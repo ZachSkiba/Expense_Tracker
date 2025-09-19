@@ -15,16 +15,17 @@
     <div class="header">
     <div class="header-left">
         <h1>
-            🏠 403 Expense Tracker
+            🏠 {{ group.name }}
         </h1>
     </div>
 
     <div class="header-center">
         <nav class="header-nav">
-            <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
-            <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Payments</a>
-            <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
-            <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
+            <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View All Expenses</a>
+            <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Payments</a>
+            <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
+            <a href="{{ url_for('dashboard.home') }}">🏠 Dashboard</a>
+            <a href="{{ url_for('manage.management', group_id=group.id) }}">⚙️ Settings</a>
         </nav>
     </div>
 
@@ -322,10 +323,10 @@
 
     <script>
         window.urls = {
-            addExpense: "{{ url_for('expenses.add_expense') }}",
-            management: "{{ url_for('management.manage_data') }}",
-            settlementsApi: "{{ url_for('settlements.add_settlement_api') }}",
-            getSettlementsApi: "{{ url_for('settlements.get_settlements_api') }}",
+            addExpense: "{{ url_for('expenses.group_expenses', group_id=group.id) }}",
+            management: "{{ url_for('management.manage_data', group_id=group.id) }}",
+            settlementsApi: "{{ url_for('settlements.add_settlement_api', group_id=group.id) }}",
+            getSettlementsApi: "{{ url_for('settlements.get_settlements_api', group_id=group.id) }}",
             recurringPaymentsApi: "/api/recurring/payments",
             getRecurringPaymentsApi: "/api/recurring/payments"
         };

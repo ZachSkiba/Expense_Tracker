@@ -1,18 +1,20 @@
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for
 from app.services.settlement_service import SettlementService
 from app.services.user_service import UserService
-from models import db, Settlement, User
+from models import Group, db, Settlement, User
 from balance_service import BalanceService
 from datetime import datetime
 
 settlements_bp = Blueprint("settlements", __name__)
 
-@settlements_bp.route("/api/settlements", methods=["POST"])
-def add_settlement_api():
+@settlements_bp.route("/api/settlements/<int:group_id>", methods=["POST"])
+def add_settlement_api(group_id):
     """API endpoint to add new settlement"""
+    group = Group.query.get_or_404(group_id)
     try:
         data = request.get_json()
-        
+        data['group_id'] = group.id  # Associate settlement with group
+
         # Validate required fields
         required_fields = ['amount', 'payer_id', 'receiver_id']
         for field in required_fields:
@@ -34,12 +36,13 @@ def add_settlement_api():
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-@settlements_bp.route("/api/settlements", methods=["GET"])
-def get_settlements_api():
+@settlements_bp.route("/api/settlements/<int:group_id>", methods=["GET"])
+def get_settlements_api(group_id):
     """API endpoint to get recent settlements (ACTUAL PAYMENT HISTORY)"""
+    group = Group.query.get_or_404(group_id)
     try:
         limit = request.args.get('limit', 10, type=int)
-        settlements = SettlementService.get_recent_settlements(limit)
+        settlements = SettlementService.get_recent_settlements(group.id, limit)
         return jsonify({'settlements': settlements}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500

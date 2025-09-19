@@ -1,11 +1,13 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app.services.user_service import UserService
 from app.services.category_service import CategoryService
+from models import User, Category, Group
 
 management_bp = Blueprint("management", __name__)
 
-@management_bp.route("/management", methods=["GET", "POST"])
-def manage_data():
+@management_bp.route("/management/<int:group_id>", methods=["GET", "POST"])
+def manage_data(group_id):
+    group = Group.query.get_or_404(group_id)
     error = None
     success = None
     next_url = request.form.get("next") or request.args.get("next") or url_for("expenses.add_expense")
@@ -36,7 +38,8 @@ def manage_data():
                          categories=categories, 
                          error=error, 
                          success=success,
-                         next_url=next_url)
+                         next_url=next_url,
+                         group=group)
 
 @management_bp.route("/management/delete_user/<int:user_id>")
 def delete_user(user_id):

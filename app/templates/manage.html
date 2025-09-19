@@ -15,8 +15,9 @@
             <nav class="header-nav">
                 <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">🏠 Home</a>
                 <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View Expenses</a>
-                <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Settlements</a>
-                <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
+                <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Settlements</a>
+                <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
+                <a href="{{ url_for('dashboard.home') }}">🏠 Dashboard</a>
             </nav>
         </div>
     </div>
@@ -27,8 +28,8 @@
             <div class="section-header">
                 <h2 class="section-title">Quick Actions</h2>
             </div>
-            
-            <a href="{{ url_for('expenses.add_expense') }}" class="setting-item">
+
+            <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon primary">🏠</div>
                     <div class="setting-info">
@@ -41,7 +42,7 @@
                 </div>
             </a>
 
-            <a href="{{ url_for('expenses.expenses') }}" class="setting-item">
+            <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}" class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon primary">📊</div>
                     <div class="setting-info">
@@ -54,7 +55,7 @@
                 </div>
             </a>
 
-            <a href="{{ url_for('balances.combined_balances_settlements') }}" class="setting-item">
+            <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}" class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon success">💰</div>
                     <div class="setting-info">
@@ -67,7 +68,7 @@
                 </div>
             </a>
 
-            <a href="{{ url_for('management.manage_data') }}" class="setting-item">
+            <a href="{{ url_for('management.manage_data', group_id=group.id) }}" class="setting-item">
                 <div class="setting-left">
                     <div class="setting-icon warning">🛠️</div>
                     <div class="setting-info">

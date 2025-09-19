@@ -3,7 +3,7 @@ from flask import Blueprint, request, jsonify, render_template, redirect, url_fo
 from balance_service import BalanceService
 from app.services.settlement_service import SettlementService
 from app.services.user_service import UserService
-from models import db, User, Category
+from models import Group, db, User, Category
 from datetime import datetime
 
 balances_bp = Blueprint("balances", __name__)
@@ -89,11 +89,12 @@ def recalculate_balances():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-    
-@balances_bp.route("/balances-settlements", methods=["GET", "POST"])
-def combined_balances_settlements():
+
+@balances_bp.route("/balances-settlements/<int:group_id>", methods=["GET", "POST"])
+def combined_balances_settlements(group_id):
     """Combined balances and settlements management page"""
     # Always recalculate balances when page loads
+    group = Group.query.get_or_404(group_id)
     BalanceService.recalculate_all_balances()
     
     error = None
@@ -139,4 +140,5 @@ def combined_balances_settlements():
                          payer_id=request.form.get('payer_id') if error else None,
                          receiver_id=request.form.get('receiver_id') if error else None,
                          description=request.form.get('description') if error else None,
-                         date=request.form.get('date') if error else None)
+                         date=request.form.get('date') if error else None,
+                         group=group)

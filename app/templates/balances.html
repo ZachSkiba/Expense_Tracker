@@ -2,12 +2,12 @@
 <html>
 <head>
     <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0; url={{ url_for('balances.combined_balances_settlements') }}">
+    <meta http-equiv="refresh" content="0; url={{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">
 </head>
 <body>
-    <p>Redirecting to <a href="{{ url_for('balances.combined_balances_settlements') }}">Balances & Payments</a>...</p>
+    <p>Redirecting to <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">Balances & Payments</a>...</p>
     <script>
-        window.location.href = "{{ url_for('balances.combined_balances_settlements') }}";
+        window.location.href = "{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}";
     </script>
 </body>
 </html>

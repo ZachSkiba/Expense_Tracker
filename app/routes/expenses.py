@@ -446,17 +446,12 @@ def group_tracker(group_id):
         })
 
     # Use the ADD EXPENSE GROUP template
-    return render_template("add_expense_group.html",
+    return render_template("add_expense.html",
         error=error,
         group=group,
-        categories=categories,  # Keep original objects for template loops
-        users=users,           # Keep original objects for template loops
-        expenses=expenses,     # Keep original objects for template loops
-        # Add JSON-serializable data for JavaScript
-        categories_json=categories_data,
-        users_json=users_data,
-        expenses_json=expenses_data,
-        current_user=current_user,
+        categories=categories_data,  # Keep original objects for template loops
+        users=users_data,           # Keep original objects for template loops
+        expenses=expenses_data,     # Keep original objects for template loops
         # Add form data for persistence on errors
         amount=request.form.get('amount', '') if request.method == 'POST' else '',
         selected_category_id=request.form.get('category_id', '') if request.method == 'POST' else '',

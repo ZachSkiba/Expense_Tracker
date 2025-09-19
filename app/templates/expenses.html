@@ -78,8 +78,8 @@
 
   <script>
       window.urls = {
-          addExpense: "{{ url_for('expenses.add_expense') }}",
-          management: "{{ url_for('management.manage_data') }}"
+          addExpense: "{{ url_for('expenses.group_expenses', group_id=group.id) }}",
+          management: "{{ url_for('management.manage_data', group_id=group.id) }}"
       };
   </script>
 
