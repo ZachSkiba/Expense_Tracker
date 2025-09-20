@@ -1,3 +1,5 @@
+# app/services/settlement_service.py - UPDATED to be group-aware
+
 from models import db, Settlement, User
 from balance_service import BalanceService
 from datetime import datetime
@@ -7,13 +9,8 @@ class SettlementService:
     @staticmethod
     def create_settlement(settlement_data):
         """
-        Create a settlement/payment between users and recalculate all balances
-        
-        Args:
-            settlement_data: dict with keys: amount, payer_id, receiver_id, description, date
-        
-        Returns:
-            tuple: (settlement_object, errors_list)
+        Create a settlement/payment between users and recalculate balances
+        UPDATED: Now group-aware
         """
         errors = []
         
@@ -23,6 +20,7 @@ class SettlementService:
         receiver_id = settlement_data.get('receiver_id')
         description = settlement_data.get('description', '').strip()
         date_str = settlement_data.get('date')
+        group_id = settlement_data.get('group_id')  # NEW: Group context
         
         # Validation
         try:
@@ -59,6 +57,8 @@ class SettlementService:
         try:
             payer_id = int(payer_id)
             receiver_id = int(receiver_id)
+            if group_id:
+                group_id = int(group_id)
         except ValueError:
             errors.append("Invalid user selection")
             return None, errors
@@ -70,20 +70,39 @@ class SettlementService:
             errors.append("Invalid user selection")
             return None, errors
         
+        # If group specified, verify users are group members
+        if group_id:
+            from models import Group
+            group = Group.query.get(group_id)
+            if not group:
+                errors.append("Invalid group")
+                return None, errors
+            
+            if payer not in group.members or receiver not in group.members:
+                errors.append("Both users must be group members")
+                return None, errors
+        
         try:
             # Create settlement record
             settlement = Settlement(
                 amount=amount,
                 payer_id=payer_id,
                 receiver_id=receiver_id,
+                group_id=group_id,  # NEW: Add group context
                 description=description if description else None,
                 date=settlement_date
             )
             db.session.add(settlement)
             db.session.commit()
             
-            # Recalculate ALL balances from scratch to ensure accuracy
-            BalanceService.recalculate_all_balances()
+            # Recalculate balances - group-aware or all balances
+            if group_id:
+                # Use the new group-specific recalculation
+                from app.services.expense_service import ExpenseService
+                ExpenseService._recalculate_group_balances(group_id)
+            else:
+                # Legacy: recalculate all balances
+                BalanceService.recalculate_all_balances()
             
             return settlement, []
             
@@ -92,17 +111,19 @@ class SettlementService:
             return None, [f"Failed to create settlement: {str(e)}"]
     
     @staticmethod
-    def get_all_settlements():
-        """Get all settlements ordered by date (newest first)"""
-        return Settlement.query.order_by(Settlement.date.desc(), Settlement.created_at.desc()).all()
+    def get_all_settlements(group_id=None):
+        """Get settlements, optionally filtered by group"""
+        query = Settlement.query.order_by(Settlement.date.desc(), Settlement.created_at.desc())
+        
+        if group_id:
+            query = query.filter_by(group_id=group_id)
+        
+        return query.all()
     
     @staticmethod
-    def get_recent_settlements(limit=10):
-        """Get recent settlements for display"""
-        settlements = Settlement.query.order_by(
-            Settlement.date.desc(), 
-            Settlement.created_at.desc()
-        ).limit(limit).all()
+    def get_recent_settlements(group_id=None, limit=10):
+        """Get recent settlements for display, optionally filtered by group"""
+        settlements = SettlementService.get_all_settlements(group_id)[:limit]
         
         result = []
         for settlement in settlements:
@@ -121,23 +142,23 @@ class SettlementService:
     @staticmethod
     def delete_settlement(settlement_id):
         """
-        Delete settlement and recalculate all balances
-        
-        Args:
-            settlement_id: int
-        
-        Returns:
-            tuple: (success_boolean, error_message)
+        Delete settlement and recalculate balances
+        UPDATED: Now group-aware
         """
         try:
             settlement = Settlement.query.get_or_404(settlement_id)
+            group_id = settlement.group_id
             
             # Delete settlement
             db.session.delete(settlement)
             db.session.commit()
             
-            # Recalculate ALL balances from scratch to ensure accuracy
-            BalanceService.recalculate_all_balances()
+            # Recalculate balances for affected group or all
+            if group_id:
+                from app.services.expense_service import ExpenseService
+                ExpenseService._recalculate_group_balances(group_id)
+            else:
+                BalanceService.recalculate_all_balances()
             
             return True, None
             
@@ -148,17 +169,12 @@ class SettlementService:
     @staticmethod
     def update_settlement(settlement_id, update_data):
         """
-        Update settlement and recalculate all balances
-        
-        Args:
-            settlement_id: int
-            update_data: dict with fields to update
-        
-        Returns:
-            tuple: (success_boolean, error_message)
+        Update settlement and recalculate balances
+        UPDATED: Now group-aware
         """
         try:
             settlement = Settlement.query.get_or_404(settlement_id)
+            group_id = settlement.group_id
             
             # Update fields
             if 'amount' in update_data:
@@ -182,8 +198,12 @@ class SettlementService:
             
             db.session.commit()
             
-            # Recalculate ALL balances from scratch to ensure accuracy
-            BalanceService.recalculate_all_balances()
+            # Recalculate balances for affected group or all
+            if group_id:
+                from app.services.expense_service import ExpenseService
+                ExpenseService._recalculate_group_balances(group_id)
+            else:
+                BalanceService.recalculate_all_balances()
             
             return True, None
             
@@ -192,9 +212,9 @@ class SettlementService:
             return False, str(e)
     
     @staticmethod
-    def get_settlement_data():
+    def get_settlement_data(group_id=None):
         """Get all settlements as list of dicts for JSON/template use"""
-        settlements = SettlementService.get_all_settlements()
+        settlements = SettlementService.get_all_settlements(group_id)
         return [{
             'id': s.id,
             'amount': s.amount,

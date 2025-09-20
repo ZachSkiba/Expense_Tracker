@@ -3,9 +3,9 @@ from flask import Blueprint, render_template
 
 from models import Group
 
-manage_bp = Blueprint("manage", __name__)
+manage_bp = Blueprint("manage", __name__, url_prefix='/settings')
 
-@manage_bp.route("/manage/<int:group_id>")
-def management(group_id):
+@manage_bp.route("/<int:group_id>")
+def settings(group_id):
     group = Group.query.get_or_404(group_id)
-    return render_template("manage.html", group=group)
+    return render_template("settings.html", group=group)

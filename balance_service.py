@@ -1,4 +1,6 @@
-from models import db, User, Expense, ExpenseParticipant, Balance, Settlement
+# balance_service.py - UPDATED to be group-aware
+
+from models import db, User, Expense, ExpenseParticipant, Balance, Settlement, Group
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import func
@@ -10,9 +12,10 @@ class BalanceService:
     
     @staticmethod
     def create_expense_with_participants(amount, payer_id, participant_ids, category_id, 
-                                       category_description=None, date=None, split_type='equal'):
+                                       category_description=None, date=None, split_type='equal', group_id=None):
         """
-        Create a new expense and recalculate all balances
+        Create a new expense and recalculate balances
+        UPDATED: Now group-aware
         """
         try:
             # Validate inputs
@@ -29,7 +32,8 @@ class BalanceService:
                 category_id=category_id,
                 category_description=category_description,
                 date=date or datetime.now().date(),
-                split_type=split_type
+                split_type=split_type,
+                group_id=group_id  # Add group context
             )
             db.session.add(expense)
             db.session.flush()  # Get the expense ID
@@ -47,14 +51,21 @@ class BalanceService:
                 participant = ExpenseParticipant(
                     expense_id=expense.id,
                     user_id=participant_id,
-                    amount_owed=participant_amounts[participant_id]
+                    amount_owed=participant_amounts[participant_id],
+                    group_id=group_id  # Add group context
                 )
                 db.session.add(participant)
             
             db.session.commit()
             
-            # Recalculate ALL balances to ensure accuracy
-            BalanceService.recalculate_all_balances()
+            # Recalculate balances for the affected group or all balances
+            if group_id:
+                # Use the new group-specific recalculation from ExpenseService
+                from app.services.expense_service import ExpenseService
+                ExpenseService._recalculate_group_balances(group_id)
+            else:
+                # Legacy: recalculate all balances
+                BalanceService.recalculate_all_balances()
             
             return expense
             
@@ -64,13 +75,13 @@ class BalanceService:
             return None
     
     @staticmethod
-    def _update_user_balance(user_id, amount):
-        """Update a single user's balance"""
+    def _update_user_balance(user_id, amount, group_id=None):
+        """Update a single user's balance (group-aware)"""
         
-        # Get or create balance record
-        balance = Balance.query.filter_by(user_id=user_id).first()
+        # Get or create balance record for this user and group
+        balance = Balance.query.filter_by(user_id=user_id, group_id=group_id).first()
         if not balance:
-            balance = Balance(user_id=user_id, amount=0.0)
+            balance = Balance(user_id=user_id, group_id=group_id, amount=0.0)
             db.session.add(balance)
         
         # Update balance
@@ -78,14 +89,28 @@ class BalanceService:
         balance.last_updated = datetime.utcnow()
     
     @staticmethod
-    def get_all_balances():
-        """Get current balances for all users - READ ONLY, no recalculation"""
-        balances = db.session.query(
+    def get_all_balances(group_id=None):
+        """
+        Get current balances - can be filtered by group
+        UPDATED: Group-aware
+        """
+        query = db.session.query(
             User.id,
             User.name,
             Balance.amount,
             Balance.last_updated
-        ).outerjoin(Balance, User.id == Balance.user_id).all()
+        ).outerjoin(Balance, User.id == Balance.user_id)
+        
+        # Filter by group if specified
+        if group_id:
+            query = query.filter(Balance.group_id == group_id)
+            # Also ensure we only get users who are members of this group
+            group = Group.query.get(group_id)
+            if group:
+                member_ids = [member.id for member in group.members]
+                query = query.filter(User.id.in_(member_ids))
+        
+        balances = query.all()
         
         result = []
         for user_id, user_name, balance_amount, last_updated in balances:
@@ -100,12 +125,12 @@ class BalanceService:
         return result
     
     @staticmethod
-    def get_settlement_suggestions():
+    def get_settlement_suggestions(group_id=None):
         """
-        Calculate optimal settlements to minimize transactions - READ ONLY
-        This returns WHO SHOULD PAY WHOM, not actual payment history
+        Calculate optimal settlements - can be filtered by group
+        UPDATED: Group-aware
         """
-        balances = BalanceService.get_all_balances()
+        balances = BalanceService.get_all_balances(group_id)
         
         # Separate creditors (positive balance) and debtors (negative balance)
         creditors = [(b['user_name'], b['balance']) for b in balances if b['balance'] > 0.01]
@@ -146,32 +171,19 @@ class BalanceService:
     @staticmethod
     def recalculate_all_balances():
         """
-        THREAD-SAFE: Recalculate all balances from scratch including both expenses AND settlements
-        
-        Balance Calculation Logic:
-        1. Start all balances at $0
-        2. For each expense: Payer gets +amount, each participant gets -their_share
-        3. For each settlement: Payer gets +amount (owes less), Receiver gets -amount (owed less)
-        
-        Example walkthrough:
-        - Jake pays $100, Jake & Zach participate 50/50
-        - After expense: Jake +$50, Zach -$50
-        - Zach pays Jake $20
-        - After settlement: Jake +$30, Zach -$30 ✓
+        LEGACY METHOD: Recalculate all balances from scratch (no group filtering)
+        This is kept for backward compatibility
         """
         with BalanceService._lock:
             try:
-                
-                
                 # Use a database transaction to ensure consistency
                 with db.session.begin():
                     # Delete all existing balances
                     db.session.query(Balance).delete()
                     db.session.flush()
 
-                    # Process all expenses first
+                    # Process all expenses
                     expenses = db.session.query(Expense).all()
-                    
                     
                     for expense in expenses:
                         participants = expense.participants
@@ -179,23 +191,21 @@ class BalanceService:
                             continue
                         
                         # Credit the payer with the full amount they paid
-                        BalanceService._update_user_balance(expense.user_id, expense.amount)
+                        BalanceService._update_user_balance(expense.user_id, expense.amount, expense.group_id)
                         
                         # Debit each participant their share
                         for participant in participants:
-                            BalanceService._update_user_balance(participant.user_id, -participant.amount_owed)
+                            BalanceService._update_user_balance(participant.user_id, -participant.amount_owed, expense.group_id)
                             
                     # Process all settlements
                     settlements = db.session.query(Settlement).all()
                     
                     for settlement in settlements:
-                        # SETTLEMENT LOGIC:
-                        # When Zach (payer_id) pays Jake (receiver_id) $20:
-                        # - Zach's balance increases by $20 (he owes $20 less)
-                        # - Jake's balance decreases by $20 (he is owed $20 less)
-                        
-                        BalanceService._update_user_balance(settlement.payer_id, settlement.amount)     # Payer owes less (+)
-                        BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount) # Receiver owed less (-)
+                        # When someone pays someone else:
+                        # - Payer's balance increases (owes less)
+                        # - Receiver's balance decreases (owed less)
+                        BalanceService._update_user_balance(settlement.payer_id, settlement.amount, settlement.group_id)
+                        BalanceService._update_user_balance(settlement.receiver_id, -settlement.amount, settlement.group_id)
                         
                 # Transaction automatically commits here if no exceptions
                 return True
@@ -204,7 +214,18 @@ class BalanceService:
                 print(f"[ERROR] Error recalculating balances: {e}")
                 # Transaction automatically rolls back on exception
                 return False
+    
+    @staticmethod
+    def get_group_balances(group_id):
+        """Convenience method to get balances for a specific group"""
+        return BalanceService.get_all_balances(group_id)
+    
+    @staticmethod
+    def get_group_settlement_suggestions(group_id):
+        """Convenience method to get settlement suggestions for a specific group"""
+        return BalanceService.get_settlement_suggestions(group_id)
         
+    # Keep other existing methods unchanged for compatibility
     @staticmethod
     def reverse_balances_for_expense(expense):
         """

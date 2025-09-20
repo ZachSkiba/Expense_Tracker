@@ -1,19 +1,26 @@
-"""
-Blueprint for recurring payments management - DEBUG VERSION
-Add better error handling and logging for PUT requests
-"""
+# Fix 1: Update recurring.py routes to be group-aware
+# Replace your app/routes/recurring.py with this updated version:
+
 from flask import Blueprint, request, jsonify
-from models import db, RecurringPayment, User, Category
+from models import db, RecurringPayment, User, Category, Group
 from app.services.recurring_service import RecurringPaymentService
 from datetime import datetime, date
+from flask_login import current_user
 
 recurring = Blueprint('recurring', __name__, url_prefix='/api/recurring')
 
-@recurring.route('/payments', methods=['GET'])
-def get_recurring_payments_api():
-    """Get all recurring payments with details"""
+@recurring.route('/payments/<int:group_id>', methods=['GET'])
+def get_recurring_payments_api(group_id):
+    """Get all recurring payments for a specific group"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check user access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
-        recurring_payments = RecurringPayment.query.join(User).join(Category).filter(
+        # Get recurring payments for this group only
+        recurring_payments = RecurringPayment.query.filter_by(group_id=group_id).join(User).join(Category).filter(
             RecurringPayment.is_active == True
         ).all()
         
@@ -22,7 +29,10 @@ def get_recurring_payments_api():
             participant_ids = payment.get_participant_ids()
             participants = []
             if participant_ids:
-                participants = [user.name for user in User.query.filter(User.id.in_(participant_ids)).all()]
+                # Only get participants that are members of this group
+                participants = [user.name for user in User.query.filter(
+                    User.id.in_(participant_ids)
+                ).all() if user in group.members]
             
             payments_data.append({
                 'id': payment.id,
@@ -40,6 +50,7 @@ def get_recurring_payments_api():
                 'is_active': payment.is_active,
                 'participant_ids': participant_ids,
                 'participants': participants,
+                'group_id': payment.group_id,
                 'created_at': payment.created_at.isoformat(),
                 'last_updated': payment.last_updated.isoformat()
             })
@@ -50,57 +61,27 @@ def get_recurring_payments_api():
         })
     
     except Exception as e:
-        print(f"Error getting recurring payments: {e}")
+        print(f"Error getting recurring payments for group {group_id}: {e}")
         return jsonify({
             'success': False,
             'message': 'Error loading recurring payments'
         }), 500
 
-@recurring.route('/payments/<int:payment_id>', methods=['GET'])
-def get_recurring_payment_api(payment_id):
-    """Get a specific recurring payment"""
-    try:
-        payment = RecurringPayment.query.get_or_404(payment_id)
-        
-        participant_ids = payment.get_participant_ids()
-        participants = []
-        if participant_ids:
-            participants = [{'id': user.id, 'name': user.name} for user in User.query.filter(User.id.in_(participant_ids)).all()]
-        
-        payment_data = {
-            'id': payment.id,
-            'amount': payment.amount,
-            'category_id': payment.category_id,
-            'category_description': payment.category_description,
-            'user_id': payment.user_id,
-            'frequency': payment.frequency,
-            'interval_value': payment.interval_value,
-            'start_date': payment.start_date.isoformat(),
-            'next_due_date': payment.next_due_date.isoformat(),
-            'end_date': payment.end_date.isoformat() if payment.end_date else None,
-            'is_active': payment.is_active,
-            'participant_ids': participant_ids,
-            'participants': participants
-        }
-        
-        return jsonify({
-            'success': True,
-            'recurring_payment': payment_data
-        })
+@recurring.route('/payments/<int:group_id>', methods=['POST'])
+def create_recurring_payment_api(group_id):
+    """Create a new recurring payment for a specific group"""
+    group = Group.query.get_or_404(group_id)
     
-    except Exception as e:
-        print(f"Error getting recurring payment: {e}")
-        return jsonify({
-            'success': False,
-            'message': 'Error loading recurring payment'
-        }), 500
-
-@recurring.route('/payments', methods=['POST'])
-def recurring_payments_api():
-    """Create a new recurring payment"""
+    # Check user access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
         data = request.json
-        print(f"[CREATE] Received data for recurring payment: {data}")  # Debug log
+        print(f"[CREATE] Received data for recurring payment in group {group_id}: {data}")
+        
+        # Add group_id to data
+        data['group_id'] = group_id
         
         # Validate required fields
         required_fields = ['amount', 'category_id', 'user_id', 'frequency', 'start_date']
@@ -111,6 +92,24 @@ def recurring_payments_api():
                     'message': f'Missing required field: {field}'
                 }), 400
         
+        # Validate that user and participants are group members
+        payer = User.query.get(data['user_id'])
+        if not payer or payer not in group.members:
+            return jsonify({
+                'success': False,
+                'message': 'Payer must be a group member'
+            }), 400
+        
+        participant_ids = data.get('participant_ids', [])
+        if participant_ids:
+            participants = User.query.filter(User.id.in_(participant_ids)).all()
+            for participant in participants:
+                if participant not in group.members:
+                    return jsonify({
+                        'success': False,
+                        'message': f'All participants must be group members'
+                    }), 400
+        
         # Add "Recurring" to description if not already there
         description = data.get('category_description', '').strip()
         if description:
@@ -120,12 +119,12 @@ def recurring_payments_api():
             description = "Recurring"
         data['category_description'] = description
         
-        print(f"[CREATE] Updated description: {description}")  # Debug log
+        print(f"[CREATE] Updated description: {description}")
         
         # Create recurring payment using service
         recurring_payment = RecurringPaymentService.create_recurring_payment(data)
         
-        print(f"[CREATE] Created recurring payment with ID: {recurring_payment.id}")  # Debug log
+        print(f"[CREATE] Created recurring payment with ID: {recurring_payment.id}")
         
         return jsonify({
             'success': True,
@@ -149,14 +148,17 @@ def recurring_payments_api():
             'message': 'Error creating recurring payment'
         }), 500
 
-@recurring.route('/payments/<int:payment_id>', methods=['PUT'])
-def update_recurring_payment_api(payment_id):
+@recurring.route('/payments/<int:group_id>/<int:payment_id>', methods=['PUT'])
+def update_recurring_payment_api(group_id, payment_id):
     """Update an existing recurring payment"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check user access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
-        # Log the incoming request
-        print(f"[UPDATE_ROUTE] PUT request received for payment {payment_id}")
-        print(f"[UPDATE_ROUTE] Content-Type: {request.content_type}")
-        print(f"[UPDATE_ROUTE] Request method: {request.method}")
+        print(f"[UPDATE_ROUTE] PUT request received for payment {payment_id} in group {group_id}")
         
         # Get and validate JSON data
         if not request.is_json:
@@ -176,13 +178,13 @@ def update_recurring_payment_api(payment_id):
             
         print(f"[UPDATE_ROUTE] Received data: {data}")
         
-        # Check if recurring payment exists
-        existing_payment = RecurringPayment.query.get(payment_id)
+        # Check if recurring payment exists and belongs to the group
+        existing_payment = RecurringPayment.query.filter_by(id=payment_id, group_id=group_id).first()
         if not existing_payment:
-            print(f"[UPDATE_ROUTE] ERROR: Payment {payment_id} not found")
+            print(f"[UPDATE_ROUTE] ERROR: Payment {payment_id} not found in group {group_id}")
             return jsonify({
                 'success': False,
-                'message': f'Recurring payment {payment_id} not found'
+                'message': f'Recurring payment {payment_id} not found in this group'
             }), 404
         
         print(f"[UPDATE_ROUTE] Found existing payment: {existing_payment.id}")
@@ -217,8 +219,6 @@ def update_recurring_payment_api(payment_id):
     except ValueError as e:
         db.session.rollback()
         print(f"[UPDATE_ROUTE] ValueError: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': str(e)
@@ -234,10 +234,24 @@ def update_recurring_payment_api(payment_id):
             'message': f'Error updating recurring payment: {str(e)}'
         }), 500
 
-@recurring.route('/payments/<int:payment_id>', methods=['DELETE'])
-def delete_recurring_payment_api(payment_id):
+@recurring.route('/payments/<int:group_id>/<int:payment_id>', methods=['DELETE'])
+def delete_recurring_payment_api(group_id, payment_id):
     """Delete (deactivate) a recurring payment"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check user access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
+        # Verify payment belongs to group
+        payment = RecurringPayment.query.filter_by(id=payment_id, group_id=group_id).first()
+        if not payment:
+            return jsonify({
+                'success': False,
+                'message': 'Payment not found in this group'
+            }), 404
+        
         recurring_payment = RecurringPaymentService.delete_recurring_payment(payment_id)
         
         return jsonify({
@@ -252,13 +266,25 @@ def delete_recurring_payment_api(payment_id):
             'message': 'Error deleting recurring payment'
         }), 500
 
-@recurring.route('/payments/<int:payment_id>/process', methods=['POST'])
-def process_recurring_payment_api(payment_id):
-    """Manually process a recurring payment to create an expense - WORKS REGARDLESS OF DUE DATE"""
+@recurring.route('/payments/<int:group_id>/<int:payment_id>/process', methods=['POST'])
+def process_recurring_payment_api(group_id, payment_id):
+    """Manually process a recurring payment to create an expense"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check user access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
     try:
-        print(f"Processing recurring payment {payment_id}")
+        print(f"Processing recurring payment {payment_id} for group {group_id}")
         
-        recurring_payment = RecurringPayment.query.get_or_404(payment_id)
+        # Verify payment belongs to group
+        recurring_payment = RecurringPayment.query.filter_by(id=payment_id, group_id=group_id).first()
+        if not recurring_payment:
+            return jsonify({
+                'success': False,
+                'message': 'Payment not found in this group'
+            }), 404
         
         if not recurring_payment.is_active:
             return jsonify({
@@ -275,7 +301,8 @@ def process_recurring_payment_api(payment_id):
         # Check if already processed for today
         existing_expense = Expense.query.filter(
             Expense.recurring_payment_id == recurring_payment.id,
-            Expense.date == expense_date
+            Expense.date == expense_date,
+            Expense.group_id == group_id
         ).first()
         
         if existing_expense:
@@ -308,9 +335,35 @@ def process_recurring_payment_api(payment_id):
             'message': 'Error processing recurring payment'
         }), 500
 
+@recurring.route('/process-due/<int:group_id>', methods=['POST'])
+def process_group_due_payments(group_id):
+    """Process all due recurring payments for a specific group"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check user access (or allow system access)
+    if current_user.is_authenticated and current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        created_expenses = RecurringPaymentService.process_group_due_payments(group_id)
+        
+        return jsonify({
+            'success': True,
+            'message': f'Processed {len(created_expenses)} due recurring payments for group',
+            'expenses_created': len(created_expenses)
+        })
+    
+    except Exception as e:
+        print(f"Error processing due payments for group {group_id}: {e}")
+        return jsonify({
+            'success': False,
+            'message': 'Error processing due payments'
+        }), 500
+
+# Keep the old endpoints for backward compatibility (they can redirect or process all groups)
 @recurring.route('/process-due', methods=['POST'])
 def process_all_due_payments():
-    """Process all due recurring payments (for background job)"""
+    """Process all due recurring payments (for background job) - processes all groups"""
     try:
         created_expenses = RecurringPaymentService.process_due_payments()
         

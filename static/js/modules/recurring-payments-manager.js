@@ -90,14 +90,20 @@ class RecurringPaymentsManager {
         if (!this.validateForm(data)) {
             return;
         }
-        
-        try {
-            this.isSubmitting = true;
-            this.setLoadingState(true);
-            
+
+        const groupId = window.groupId;
+    if (!groupId) {
+        this.showErrorMessage('Group ID not found. Please refresh the page.');
+        return;
+    }
+
+    try {
+        this.isSubmitting = true;
+        this.setLoadingState(true);
+
             // Only create new recurring payments, never update from form
             console.log('CREATING new recurring payment');
-            const response = await this.createRecurringPayment(data);
+            const response = await this.createRecurringPayment(data, groupId);
             
             console.log('Server response:', response);
             
@@ -189,9 +195,9 @@ class RecurringPaymentsManager {
         
         return true;
     }
-    
-    async createRecurringPayment(data) {
-        const response = await fetch(window.urls.recurringPaymentsApi, {
+
+    async createRecurringPayment(data, groupId) {
+        const response = await fetch(`${window.urls.recurringPaymentsApi}/${groupId}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -812,8 +818,15 @@ class RecurringPaymentsManager {
     
     async loadRecurringPayments() {
         try {
-            const response = await fetch(window.urls.getRecurringPaymentsApi);
-            const data = await response.json();
+            const groupId = window.groupId;
+        if (!groupId) {
+            console.error('Group ID not found');
+            return;
+        }
+        
+        // Use group-specific endpoint
+        const response = await fetch(`${window.urls.getRecurringPaymentsApi}/${groupId}`);
+        const data = await response.json();
             
             if (data.success) {
                 this.renderRecurringPaymentsTable(data.recurring_payments);

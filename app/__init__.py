@@ -106,11 +106,11 @@ def create_app():
     app.register_blueprint(legacy_bp)  # For migration support
     
     # Existing blueprints (may need updates for multi-user)
+    app.register_blueprint(management_bp)
     app.register_blueprint(manage_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
-    app.register_blueprint(management_bp)
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
     app.register_blueprint(groups_bp)

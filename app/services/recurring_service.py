@@ -13,27 +13,27 @@ logger = logging.getLogger(__name__)
 class RecurringPaymentService:
     
     @staticmethod
-    def process_due_payments(check_date=None):
+    def process_group_due_payments(group_id, check_date=None):
         """
-        FIXED: Check for due recurring payments and create expense records
-        Properly handles end dates by setting sentinel date and inactive status
+        Process due recurring payments for a specific group
         """
         if check_date is None:
             check_date = datetime.now().date()
         
-        logger.info(f"🔄 PROCESSING: Checking for due/overdue recurring payments up to {check_date}...")
+        logger.info(f"🔄 PROCESSING: Checking for due/overdue recurring payments for group {group_id} up to {check_date}...")
         
-        # Get all active recurring payments that are due or overdue
+        # Get all active recurring payments for this group that are due or overdue
         due_payments = RecurringPayment.query.filter(
+            RecurringPayment.group_id == group_id,
             RecurringPayment.is_active == True,
             RecurringPayment.next_due_date <= check_date
         ).all()
         
         if not due_payments:
-            logger.info("✅ PROCESSING: No due or overdue recurring payments found")
+            logger.info(f"✅ PROCESSING: No due or overdue recurring payments found for group {group_id}")
             return []
         
-        logger.info(f"📋 PROCESSING: Found {len(due_payments)} payments to check:")
+        logger.info(f"📋 PROCESSING: Found {len(due_payments)} payments to check for group {group_id}:")
         
         created_expenses = []
         processed_count = 0
@@ -49,9 +49,9 @@ class RecurringPaymentService:
             current_due_date = recurring_payment.next_due_date
             payment_expenses = []
             
-            # FIXED: Process expenses while respecting end_date
+            # Process expenses while respecting end_date
             while current_due_date <= check_date:
-                # CRITICAL: Check if current_due_date is beyond end_date BEFORE processing
+                # Check if current_due_date is beyond end_date BEFORE processing
                 if recurring_payment.end_date and current_due_date > recurring_payment.end_date:
                     logger.info(f"      🔚 Current due date {current_due_date} is beyond end date {recurring_payment.end_date}, stopping processing")
                     break
@@ -59,7 +59,8 @@ class RecurringPaymentService:
                 # Check if expense already exists for this date
                 existing_expense = Expense.query.filter(
                     Expense.recurring_payment_id == recurring_payment.id,
-                    Expense.date == current_due_date
+                    Expense.date == current_due_date,
+                    Expense.group_id == group_id  # NEW: Check group_id too
                 ).first()
                 
                 if existing_expense:
@@ -94,8 +95,7 @@ class RecurringPaymentService:
                     logger.error(f"      ⚠️  Date calculation error: {old_due_date} -> {current_due_date}")
                     break
             
-            # FIXED: After processing, check if payment should be deactivated
-            # Calculate what the NEXT due date would be
+            # After processing, check if payment should be deactivated
             if payment_expenses:  # If we processed any expenses
                 last_processed_date = payment_expenses[-1].date
                 next_would_be_due = recurring_payment.calculate_next_due_date(last_processed_date)
@@ -106,9 +106,9 @@ class RecurringPaymentService:
             # Check if the next due date would be beyond the end date
             if recurring_payment.end_date and next_would_be_due > recurring_payment.end_date:
                 # Payment has ended - deactivate it and set sentinel date
-                sentinel_date = datetime(9999, 1, 1)  # Day after end date as sentinel
+                sentinel_date = datetime(9999, 1, 1)
                 recurring_payment.is_active = False
-                recurring_payment.next_due_date = sentinel_date  # Set sentinel date
+                recurring_payment.next_due_date = sentinel_date
                 recurring_payment.last_updated = datetime.utcnow()
                 logger.info(f"      🔚 Next due date {next_would_be_due} would be beyond end date {recurring_payment.end_date}")
                 logger.info(f"      🔚 Set payment as inactive with sentinel date: {sentinel_date}")
@@ -124,9 +124,9 @@ class RecurringPaymentService:
         # Commit all changes
         if processed_count > 0 or skipped_count > 0:
             db.session.commit()
-            logger.info(f"✅ PROCESSING: Processed {processed_count} payments, skipped {skipped_count} (already existed)")
+            logger.info(f"✅ PROCESSING: Processed {processed_count} payments for group {group_id}, skipped {skipped_count} (already existed)")
         else:
-            logger.info("ℹ️  PROCESSING: No changes made")
+            logger.info(f"ℹ️  PROCESSING: No changes made for group {group_id}")
         
         return created_expenses
     
@@ -134,7 +134,7 @@ class RecurringPaymentService:
     def _create_expense_for_date(recurring_payment, expense_date):
         """
         Create an expense record from a recurring payment for a specific date
-        FIXED: Only use explicitly defined participants, don't auto-add all users
+        UPDATED: Now includes group_id in the expense
         """
         # Ensure description has "Recurring" in it
         description = recurring_payment.category_description or ""
@@ -145,7 +145,7 @@ class RecurringPaymentService:
         
         logger.info(f"         Creating expense with description: '{description}'")
         
-        # Create the expense
+        # Create the expense with group_id
         expense = Expense(
             amount=recurring_payment.amount,
             category_id=recurring_payment.category_id,
@@ -153,7 +153,8 @@ class RecurringPaymentService:
             user_id=recurring_payment.user_id,
             date=expense_date,
             split_type='equal',
-            recurring_payment_id=recurring_payment.id
+            recurring_payment_id=recurring_payment.id,
+            group_id=recurring_payment.group_id  # NEW: Include group_id
         )
         
         db.session.add(expense)
@@ -161,25 +162,29 @@ class RecurringPaymentService:
         
         logger.info(f"         Added expense to session with ID: {expense.id}")
         
-        # FIXED: Only use explicitly defined participants
+        # Only use explicitly defined participants
         participant_ids = recurring_payment.get_participant_ids()
         
         if not participant_ids:
-            # FIXED: If no participants specified, only include the payer
-            # This prevents auto-adding new users to existing legacy expenses
+            # If no participants specified, only include the payer
             participant_ids = [recurring_payment.user_id]
             logger.info(f"         No specific participants, using only payer: {participant_ids}")
         else:
             logger.info(f"         Using explicitly defined participants: {participant_ids}")
         
-        # Validate that all participant users still exist
+        # Validate that all participant users still exist and are in the group
+        from models import Group
+        group = Group.query.get(recurring_payment.group_id)
+        if not group:
+            raise Exception(f"Group {recurring_payment.group_id} not found")
+        
         valid_participants = []
         for user_id in participant_ids:
             user = User.query.get(user_id)
-            if user:
+            if user and user in group.members:
                 valid_participants.append(user_id)
             else:
-                logger.warning(f"         Participant user {user_id} no longer exists, skipping")
+                logger.warning(f"         Participant user {user_id} no longer exists or not in group, skipping")
         
         if not valid_participants:
             # Fallback to just the payer if no valid participants
@@ -213,11 +218,15 @@ class RecurringPaymentService:
     
     @staticmethod
     def create_recurring_payment(data):
-        """Create a new recurring payment - WITH COMPREHENSIVE PAST EXPENSE CREATION"""
+        """Create a new recurring payment - WITH GROUP CONTEXT"""
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         current_date = datetime.now().date()
+        group_id = data.get('group_id')  # NEW: Get group_id
         
-        logger.info(f"[CREATE] Start date: {start_date}, Current date: {current_date}")
+        if not group_id:
+            raise ValueError("Group ID is required")
+        
+        logger.info(f"[CREATE] Start date: {start_date}, Current date: {current_date}, Group: {group_id}")
         
         # Ensure description has "Recurring" in it
         description = data.get('category_description', '').strip()
@@ -236,7 +245,8 @@ class RecurringPaymentService:
             start_date=start_date,
             next_due_date=start_date,
             end_date=datetime.strptime(data['end_date'], '%Y-%m-%d').date() if data.get('end_date') else None,
-            is_active=True
+            is_active=True,
+            group_id=group_id  # NEW: Set group_id
         )
         
         # Set participants
@@ -253,7 +263,7 @@ class RecurringPaymentService:
             db.session.commit()
             
             # Use the same unified logic to create all past expenses
-            created_expenses = RecurringPaymentService.process_due_payments(current_date)
+            created_expenses = RecurringPaymentService.process_group_due_payments(group_id, current_date)
             logger.info(f"[CREATE] Created {len(created_expenses)} past expenses")
         else:
             db.session.commit()
@@ -367,3 +377,22 @@ class RecurringPaymentService:
             'recurring_payment': recurring_payment,
             'participants': participants
         }
+    
+    @staticmethod
+    def process_due_payments(check_date=None):
+        """
+        Process due payments for ALL groups (for system-wide processing)
+        """
+        if check_date is None:
+            check_date = datetime.now().date()
+        
+        from models import Group
+        all_groups = Group.query.all()
+        
+        all_created_expenses = []
+        
+        for group in all_groups:
+            group_expenses = RecurringPaymentService.process_group_due_payments(group.id, check_date)
+            all_created_expenses.extend(group_expenses)
+        
+        return all_created_expenses

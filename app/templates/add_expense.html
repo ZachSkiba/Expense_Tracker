@@ -25,7 +25,7 @@
             <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Payments</a>
             <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
             <a href="{{ url_for('dashboard.home') }}">🏠 Dashboard</a>
-            <a href="{{ url_for('manage.management', group_id=group.id) }}">⚙️ Settings</a>
+            <a href="{{ url_for('manage.settings', group_id=group.id) }}">⚙️ Settings</a>
         </nav>
     </div>
 
@@ -328,8 +328,6 @@
             settlementsApi: "{{ url_for('settlements.add_settlement_api', group_id=group.id) }}",
             getSettlementsApi: "{{ url_for('settlements.get_settlements_api', group_id=group.id) }}",
             storeSuggestions: "{{ url_for('expenses.store_suggestions') }}?group_id={{ group.id }}",
-            manageCategories: "{{ url_for('expenses.manage_group_categories', group_id=group.id) }}",
-            manageUsers: "{{ url_for('expenses.manage_group_users', group_id=group.id) }}", 
             recurringPaymentsApi: "/api/recurring/payments",
             getRecurringPaymentsApi: "/api/recurring/payments"
         };
