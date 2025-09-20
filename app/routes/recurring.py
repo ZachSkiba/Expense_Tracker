@@ -20,9 +20,7 @@ def get_recurring_payments_api(group_id):
     
     try:
         # Get recurring payments for this group only
-        recurring_payments = RecurringPayment.query.filter_by(group_id=group_id).join(User).join(Category).filter(
-            RecurringPayment.is_active == True
-        ).all()
+        recurring_payments = RecurringPaymentService.get_all_recurring_payments(group_id=group_id)
         
         payments_data = []
         for payment in recurring_payments:
@@ -67,6 +65,9 @@ def get_recurring_payments_api(group_id):
             'message': 'Error loading recurring payments'
         }), 500
 
+# Fix the type conversion issue in app/routes/recurring.py
+# Replace the create_recurring_payment_api function with this fixed version:
+
 @recurring.route('/payments/<int:group_id>', methods=['POST'])
 def create_recurring_payment_api(group_id):
     """Create a new recurring payment for a specific group"""
@@ -92,23 +93,45 @@ def create_recurring_payment_api(group_id):
                     'message': f'Missing required field: {field}'
                 }), 400
         
-        # Validate that user and participants are group members
-        payer = User.query.get(data['user_id'])
+        # Convert string IDs to integers for database queries
+        try:
+            user_id = int(data['user_id'])
+            category_id = int(data['category_id'])
+            participant_ids = [int(pid) for pid in data.get('participant_ids', [])]
+        except (ValueError, TypeError) as e:
+            print(f"[CREATE] Error converting IDs to integers: {e}")
+            return jsonify({
+                'success': False,
+                'message': 'Invalid ID format'
+            }), 400
+        
+        # Validate that user is a group member
+        payer = User.query.get(user_id)
         if not payer or payer not in group.members:
             return jsonify({
                 'success': False,
                 'message': 'Payer must be a group member'
             }), 400
         
-        participant_ids = data.get('participant_ids', [])
+        # Validate that participants are group members
         if participant_ids:
             participants = User.query.filter(User.id.in_(participant_ids)).all()
+            print(f"[CREATE] Found {len(participants)} participants for IDs: {participant_ids}")
+            
             for participant in participants:
                 if participant not in group.members:
                     return jsonify({
                         'success': False,
-                        'message': f'All participants must be group members'
+                        'message': f'All participants must be group members. {participant.name} is not in this group.'
                     }), 400
+        
+        # Validate that category exists
+        category = Category.query.get(category_id)
+        if not category:
+            return jsonify({
+                'success': False,
+                'message': 'Invalid category selected'
+            }), 400
         
         # Add "Recurring" to description if not already there
         description = data.get('category_description', '').strip()
@@ -120,6 +143,7 @@ def create_recurring_payment_api(group_id):
         data['category_description'] = description
         
         print(f"[CREATE] Updated description: {description}")
+        print(f"[CREATE] Participant IDs (converted to int): {participant_ids}")
         
         # Create recurring payment using service
         recurring_payment = RecurringPaymentService.create_recurring_payment(data)

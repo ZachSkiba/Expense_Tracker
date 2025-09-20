@@ -328,8 +328,8 @@
             settlementsApi: "{{ url_for('settlements.add_settlement_api', group_id=group.id) }}",
             getSettlementsApi: "{{ url_for('settlements.get_settlements_api', group_id=group.id) }}",
             storeSuggestions: "{{ url_for('expenses.store_suggestions') }}?group_id={{ group.id }}",
-            recurringPaymentsApi: "/api/recurring/payments",
-            getRecurringPaymentsApi: "/api/recurring/payments"
+            recurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
+            getRecurringPaymentsApi: "/api/recurring/payments/{{ group.id }}"
         };
         window.groupId = "{{ group.id }}";
     </script>

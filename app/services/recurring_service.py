@@ -221,7 +221,7 @@ class RecurringPaymentService:
         """Create a new recurring payment - WITH GROUP CONTEXT"""
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         current_date = datetime.now().date()
-        group_id = data.get('group_id')  # NEW: Get group_id
+        group_id = int(data.get('group_id'))  # NEW: Get group_id
         
         if not group_id:
             raise ValueError("Group ID is required")
@@ -362,9 +362,17 @@ class RecurringPaymentService:
         return recurring_payment
     
     @staticmethod
-    def get_all_recurring_payments():
-        """Get all recurring payments with user and category info"""
-        return RecurringPayment.query.join(User).join(Category).all()
+    def get_all_recurring_payments(group_id=None, only_active=True):
+        """Get all recurring payments, optionally filtered by group and active status"""
+        query = RecurringPayment.query
+
+        if group_id is not None:
+            query = query.filter_by(group_id=group_id)
+
+        if only_active:
+            query = query.filter_by(is_active=True)
+
+        return query.all()  # No joins, safer
     
     @staticmethod
     def get_recurring_payment_with_participants(recurring_payment_id):
