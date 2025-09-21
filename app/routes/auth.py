@@ -4,8 +4,7 @@ from flask import Blueprint, request, redirect, url_for, render_template_string,
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Category, db  # FIXED: Import from unified models
 from app.auth import (
-    validate_email, validate_password, validate_username, 
-    SIGNUP_TEMPLATE, LOGIN_TEMPLATE
+    validate_email, validate_password, validate_display_name
 )
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
@@ -37,11 +36,10 @@ def signup():
             errors.append("Full name must be at least 2 characters")
         
         # Display name validation
-        if not display_name:
-            errors.append("Display name is required")
-        elif len(display_name) < 2:
-            errors.append("Display name must be at least 2 characters")
-        
+        validate_display_name_result, msg = validate_display_name(display_name)
+        if not validate_display_name_result:
+            errors.append(msg)
+
         # Email validation
         if not email:
             errors.append("Email is required")
@@ -620,14 +618,6 @@ UPDATED_LOGIN_TEMPLATE = '''
             </div>
             <button type="submit" class="btn">Sign In</button>
         </form>
-        
-        {% if legacy_enabled %}
-        <div class="legacy-option">
-            <p class="legacy-text">Still using the old shared system?</p>
-            <a href="{{ url_for('legacy.shared_login') }}" class="btn btn-secondary">Continue with Shared Access</a>
-        </div>
-        {% endif %}
-        
         <div class="auth-link">
             Don't have an account? <a href="{{ url_for('auth.signup') }}">Sign Up</a>
         </div>
