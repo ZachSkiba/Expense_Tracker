@@ -1,5 +1,5 @@
 """
-Service for handling recurring payment logic - FIXED to not auto-add new users
+Service for handling recurring payment logic - FIXED with balance updates and proper group filtering
 """
 from datetime import datetime, date, timedelta
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
@@ -16,6 +16,7 @@ class RecurringPaymentService:
     def process_group_due_payments(group_id, check_date=None):
         """
         Process due recurring payments for a specific group
+        FIXED: Now properly updates balances and settlements after creating expenses
         """
         if check_date is None:
             check_date = datetime.now().date()
@@ -60,7 +61,7 @@ class RecurringPaymentService:
                 existing_expense = Expense.query.filter(
                     Expense.recurring_payment_id == recurring_payment.id,
                     Expense.date == current_due_date,
-                    Expense.group_id == group_id  # NEW: Check group_id too
+                    Expense.group_id == group_id  # Check group_id too
                 ).first()
                 
                 if existing_expense:
@@ -121,10 +122,21 @@ class RecurringPaymentService:
                 if payment_expenses:
                     logger.info(f"      📅 Updated next due date: {old_next_due} → {recurring_payment.next_due_date}")
         
-        # Commit all changes
+        # Commit all changes BEFORE updating balances
         if processed_count > 0 or skipped_count > 0:
             db.session.commit()
             logger.info(f"✅ PROCESSING: Processed {processed_count} payments for group {group_id}, skipped {skipped_count} (already existed)")
+            
+            # FIXED: Update balances and settlements for the group after creating expenses
+            if created_expenses:
+                try:
+                    logger.info(f"💰 BALANCES: Updating balances for group {group_id} after creating {len(created_expenses)} expenses")
+                    BalanceService.calculate_group_balances(group_id)
+                    logger.info(f"✅ BALANCES: Successfully updated balances for group {group_id}")
+                except Exception as e:
+                    logger.error(f"❌ BALANCES: Error updating balances for group {group_id}: {e}")
+                    # Don't fail the whole operation if balance update fails
+                    
         else:
             logger.info(f"ℹ️  PROCESSING: No changes made for group {group_id}")
         
@@ -134,7 +146,7 @@ class RecurringPaymentService:
     def _create_expense_for_date(recurring_payment, expense_date):
         """
         Create an expense record from a recurring payment for a specific date
-        UPDATED: Now includes group_id in the expense
+        FIXED: Properly includes group_id and ensures all required fields
         """
         # Ensure description has "Recurring" in it
         description = recurring_payment.category_description or ""
@@ -143,9 +155,13 @@ class RecurringPaymentService:
         elif not description.strip():
             description = "Recurring"
         
-        logger.info(f"         Creating expense with description: '{description}'")
+        logger.info(f"         Creating expense with description: '{description}' for group {recurring_payment.group_id}")
         
-        # Create the expense with group_id
+        # FIXED: Ensure group_id is properly set
+        if not recurring_payment.group_id:
+            raise Exception(f"Recurring payment {recurring_payment.id} has no group_id - cannot create expense")
+        
+        # Create the expense with proper group_id
         expense = Expense(
             amount=recurring_payment.amount,
             category_id=recurring_payment.category_id,
@@ -154,13 +170,13 @@ class RecurringPaymentService:
             date=expense_date,
             split_type='equal',
             recurring_payment_id=recurring_payment.id,
-            group_id=recurring_payment.group_id  # NEW: Include group_id
+            group_id=recurring_payment.group_id  # CRITICAL: Include group_id
         )
         
         db.session.add(expense)
         db.session.flush()  # Get the expense ID
         
-        logger.info(f"         Added expense to session with ID: {expense.id}")
+        logger.info(f"         Added expense to session with ID: {expense.id} for group: {recurring_payment.group_id}")
         
         # Only use explicitly defined participants
         participant_ids = recurring_payment.get_participant_ids()
@@ -179,20 +195,26 @@ class RecurringPaymentService:
             raise Exception(f"Group {recurring_payment.group_id} not found")
         
         valid_participants = []
+        group_member_ids = [member.id for member in group.members]
+        
         for user_id in participant_ids:
             user = User.query.get(user_id)
-            if user and user in group.members:
+            if user and user.id in group_member_ids:
                 valid_participants.append(user_id)
+                logger.info(f"         ✅ Participant user {user_id} ({user.name}) is valid group member")
             else:
-                logger.warning(f"         Participant user {user_id} no longer exists or not in group, skipping")
+                logger.warning(f"         ⚠️  Participant user {user_id} no longer exists or not in group, skipping")
         
         if not valid_participants:
             # Fallback to just the payer if no valid participants
-            valid_participants = [recurring_payment.user_id]
-            logger.info(f"         No valid participants found, using only payer: {valid_participants}")
+            if recurring_payment.user_id in group_member_ids:
+                valid_participants = [recurring_payment.user_id]
+                logger.info(f"         Using only payer as fallback: {valid_participants}")
+            else:
+                raise Exception(f"Payer user {recurring_payment.user_id} is not in group {recurring_payment.group_id}")
         
         amount_per_person = recurring_payment.amount / len(valid_participants)
-        logger.info(f"         Amount per person: ${amount_per_person:.2f}")
+        logger.info(f"         Amount per person: ${amount_per_person:.2f} (split among {len(valid_participants)} participants)")
         
         for user_id in valid_participants:
             participant = ExpenseParticipant(
@@ -213,18 +235,42 @@ class RecurringPaymentService:
     
     @staticmethod
     def _create_expense_from_recurring_manual(recurring_payment, expense_date):
-        """Legacy method - now uses unified logic"""
-        return RecurringPaymentService._create_expense_for_date(recurring_payment, expense_date)
+        """
+        Legacy method - now uses unified logic
+        FIXED: Also updates balances after manual processing
+        """
+        expense = RecurringPaymentService._create_expense_for_date(recurring_payment, expense_date)
+        
+        # Update balances after manual processing
+        try:
+            db.session.commit()  # Commit the expense first
+            logger.info(f"💰 MANUAL: Updating balances for group {recurring_payment.group_id} after manual processing")
+            BalanceService.calculate_group_balances(recurring_payment.group_id)
+            logger.info(f"✅ MANUAL: Successfully updated balances for group {recurring_payment.group_id}")
+        except Exception as e:
+            logger.error(f"❌ MANUAL: Error updating balances: {e}")
+            # Don't fail the operation, but log the error
+            
+        return expense
     
     @staticmethod
     def create_recurring_payment(data):
-        """Create a new recurring payment - WITH GROUP CONTEXT"""
+        """
+        Create a new recurring payment - WITH GROUP CONTEXT
+        FIXED: Better group validation and balance updates
+        """
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d').date()
         current_date = datetime.now().date()
-        group_id = int(data.get('group_id'))  # NEW: Get group_id
+        group_id = int(data.get('group_id'))
         
         if not group_id:
             raise ValueError("Group ID is required")
+        
+        # Validate group exists
+        from models import Group
+        group = Group.query.get(group_id)
+        if not group:
+            raise ValueError(f"Group {group_id} not found")
         
         logger.info(f"[CREATE] Start date: {start_date}, Current date: {current_date}, Group: {group_id}")
         
@@ -246,7 +292,7 @@ class RecurringPaymentService:
             next_due_date=start_date,
             end_date=datetime.strptime(data['end_date'], '%Y-%m-%d').date() if data.get('end_date') else None,
             is_active=True,
-            group_id=group_id  # NEW: Set group_id
+            group_id=group_id  # Set group_id
         )
         
         # Set participants
@@ -262,9 +308,9 @@ class RecurringPaymentService:
             # Temporarily commit the recurring payment so process_due_payments can find it
             db.session.commit()
             
-            # Use the same unified logic to create all past expenses
+            # Use the same unified logic to create all past expenses (includes balance updates)
             created_expenses = RecurringPaymentService.process_group_due_payments(group_id, current_date)
-            logger.info(f"[CREATE] Created {len(created_expenses)} past expenses")
+            logger.info(f"[CREATE] Created {len(created_expenses)} past expenses with balance updates")
         else:
             db.session.commit()
         
@@ -306,7 +352,7 @@ class RecurringPaymentService:
                 new_end_date = datetime.strptime(data['end_date'], '%Y-%m-%d').date()
                 recurring_payment.end_date = new_end_date
                 
-                # FIXED: If updating end_date, check if payment should now be inactive
+                # If updating end_date, check if payment should now be inactive
                 if recurring_payment.next_due_date and recurring_payment.next_due_date > new_end_date:
                     sentinel_date = datetime(9999, 1, 1)
                     recurring_payment.is_active = False
@@ -325,7 +371,7 @@ class RecurringPaymentService:
             new_next_due = datetime.strptime(data['next_due_date'], '%Y-%m-%d').date()
             recurring_payment.next_due_date = new_next_due
             
-            # FIXED: If updating next_due_date, check if it's beyond end_date
+            # If updating next_due_date, check if it's beyond end_date
             if recurring_payment.end_date and new_next_due > recurring_payment.end_date:
                 sentinel_date = datetime(9999, 1, 1)
                 recurring_payment.is_active = False
@@ -372,7 +418,7 @@ class RecurringPaymentService:
         if only_active:
             query = query.filter_by(is_active=True)
 
-        return query.all()  # No joins, safer
+        return query.all()
     
     @staticmethod
     def get_recurring_payment_with_participants(recurring_payment_id):
@@ -390,6 +436,7 @@ class RecurringPaymentService:
     def process_due_payments(check_date=None):
         """
         Process due payments for ALL groups (for system-wide processing)
+        FIXED: Ensures all groups get their balances updated
         """
         if check_date is None:
             check_date = datetime.now().date()
@@ -398,9 +445,16 @@ class RecurringPaymentService:
         all_groups = Group.query.all()
         
         all_created_expenses = []
+        groups_with_updates = []
         
         for group in all_groups:
+            logger.info(f"🏢 Processing recurring payments for group {group.id} ({group.name})")
             group_expenses = RecurringPaymentService.process_group_due_payments(group.id, check_date)
             all_created_expenses.extend(group_expenses)
+            
+            if group_expenses:
+                groups_with_updates.append(group.id)
+        
+        logger.info(f"✅ SYSTEM-WIDE: Processed {len(all_created_expenses)} expenses across {len(groups_with_updates)} groups")
         
         return all_created_expenses

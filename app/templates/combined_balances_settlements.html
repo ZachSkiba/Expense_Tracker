@@ -16,7 +16,7 @@
     <div class="header-navigation">
         <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="header-nav-link">⬅ Main Page</a>
         <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}" class="header-nav-link">📊 View Expenses</a>
-        <a href="{{ url_for('manage.management', group_id=group.id) }}" class="header-nav-link">⚙️ Management</a>
+        <a href="{{ url_for('manage.settings', group_id=group.id) }}" class="header-nav-link">⚙️ Settings</a>
     </div>
 </div>
 

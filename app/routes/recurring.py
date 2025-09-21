@@ -1,11 +1,15 @@
-# Fix 1: Update recurring.py routes to be group-aware
-# Replace your app/routes/recurring.py with this updated version:
+# Fixed recurring.py routes with proper group context and balance updates
 
 from flask import Blueprint, request, jsonify
 from models import db, RecurringPayment, User, Category, Group
 from app.services.recurring_service import RecurringPaymentService
+from balance_service import BalanceService
 from datetime import datetime, date
 from flask_login import current_user
+import logging
+
+# Set up logging
+logger = logging.getLogger(__name__)
 
 recurring = Blueprint('recurring', __name__, url_prefix='/api/recurring')
 
@@ -59,18 +63,18 @@ def get_recurring_payments_api(group_id):
         })
     
     except Exception as e:
-        print(f"Error getting recurring payments for group {group_id}: {e}")
+        logger.error(f"Error getting recurring payments for group {group_id}: {e}")
         return jsonify({
             'success': False,
             'message': 'Error loading recurring payments'
         }), 500
 
-# Fix the type conversion issue in app/routes/recurring.py
-# Replace the create_recurring_payment_api function with this fixed version:
-
 @recurring.route('/payments/<int:group_id>', methods=['POST'])
 def create_recurring_payment_api(group_id):
-    """Create a new recurring payment for a specific group"""
+    """
+    Create a new recurring payment for a specific group
+    FIXED: Ensures proper group context and balance updates
+    """
     group = Group.query.get_or_404(group_id)
     
     # Check user access
@@ -79,7 +83,7 @@ def create_recurring_payment_api(group_id):
     
     try:
         data = request.json
-        print(f"[CREATE] Received data for recurring payment in group {group_id}: {data}")
+        logger.info(f"[CREATE] Received data for recurring payment in group {group_id}: {data}")
         
         # Add group_id to data
         data['group_id'] = group_id
@@ -99,7 +103,7 @@ def create_recurring_payment_api(group_id):
             category_id = int(data['category_id'])
             participant_ids = [int(pid) for pid in data.get('participant_ids', [])]
         except (ValueError, TypeError) as e:
-            print(f"[CREATE] Error converting IDs to integers: {e}")
+            logger.error(f"[CREATE] Error converting IDs to integers: {e}")
             return jsonify({
                 'success': False,
                 'message': 'Invalid ID format'
@@ -116,7 +120,7 @@ def create_recurring_payment_api(group_id):
         # Validate that participants are group members
         if participant_ids:
             participants = User.query.filter(User.id.in_(participant_ids)).all()
-            print(f"[CREATE] Found {len(participants)} participants for IDs: {participant_ids}")
+            logger.info(f"[CREATE] Found {len(participants)} participants for IDs: {participant_ids}")
             
             for participant in participants:
                 if participant not in group.members:
@@ -142,13 +146,21 @@ def create_recurring_payment_api(group_id):
             description = "Recurring"
         data['category_description'] = description
         
-        print(f"[CREATE] Updated description: {description}")
-        print(f"[CREATE] Participant IDs (converted to int): {participant_ids}")
+        logger.info(f"[CREATE] Updated description: {description}")
+        logger.info(f"[CREATE] Participant IDs (converted to int): {participant_ids}")
         
-        # Create recurring payment using service
+        # Create recurring payment using service (includes balance updates)
         recurring_payment = RecurringPaymentService.create_recurring_payment(data)
         
-        print(f"[CREATE] Created recurring payment with ID: {recurring_payment.id}")
+        logger.info(f"[CREATE] Created recurring payment with ID: {recurring_payment.id}")
+        
+        # FIXED: Force balance recalculation to ensure expenses appear in tables
+        try:
+            logger.info(f"[CREATE] Forcing balance recalculation for group {group_id}")
+            BalanceService.calculate_group_balances(group_id)
+            logger.info(f"[CREATE] Balance recalculation completed for group {group_id}")
+        except Exception as e:
+            logger.warning(f"[CREATE] Balance calculation warning: {e}")
         
         return jsonify({
             'success': True,
@@ -157,14 +169,14 @@ def create_recurring_payment_api(group_id):
         })
     
     except ValueError as e:
-        print(f"[CREATE] ValueError creating recurring payment: {e}")
+        logger.error(f"[CREATE] ValueError creating recurring payment: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
         }), 400
     
     except Exception as e:
-        print(f"[CREATE] Error creating recurring payment: {e}")
+        logger.error(f"[CREATE] Error creating recurring payment: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -182,11 +194,11 @@ def update_recurring_payment_api(group_id, payment_id):
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
-        print(f"[UPDATE_ROUTE] PUT request received for payment {payment_id} in group {group_id}")
+        logger.info(f"[UPDATE_ROUTE] PUT request received for payment {payment_id} in group {group_id}")
         
         # Get and validate JSON data
         if not request.is_json:
-            print(f"[UPDATE_ROUTE] ERROR: Request is not JSON")
+            logger.error(f"[UPDATE_ROUTE] ERROR: Request is not JSON")
             return jsonify({
                 'success': False,
                 'message': 'Request must be JSON'
@@ -194,24 +206,24 @@ def update_recurring_payment_api(group_id, payment_id):
         
         data = request.get_json()
         if not data:
-            print(f"[UPDATE_ROUTE] ERROR: No JSON data received")
+            logger.error(f"[UPDATE_ROUTE] ERROR: No JSON data received")
             return jsonify({
                 'success': False,
                 'message': 'No data provided'
             }), 400
             
-        print(f"[UPDATE_ROUTE] Received data: {data}")
+        logger.info(f"[UPDATE_ROUTE] Received data: {data}")
         
         # Check if recurring payment exists and belongs to the group
         existing_payment = RecurringPayment.query.filter_by(id=payment_id, group_id=group_id).first()
         if not existing_payment:
-            print(f"[UPDATE_ROUTE] ERROR: Payment {payment_id} not found in group {group_id}")
+            logger.error(f"[UPDATE_ROUTE] ERROR: Payment {payment_id} not found in group {group_id}")
             return jsonify({
                 'success': False,
                 'message': f'Recurring payment {payment_id} not found in this group'
             }), 404
         
-        print(f"[UPDATE_ROUTE] Found existing payment: {existing_payment.id}")
+        logger.info(f"[UPDATE_ROUTE] Found existing payment: {existing_payment.id}")
         
         # Add "Recurring" to description if provided and not already there
         if 'category_description' in data:
@@ -222,17 +234,17 @@ def update_recurring_payment_api(group_id, payment_id):
             else:
                 description = "Recurring"
             data['category_description'] = description
-            print(f"[UPDATE_ROUTE] Updated description: {description}")
+            logger.info(f"[UPDATE_ROUTE] Updated description: {description}")
         
         # Update recurring payment using service
-        print(f"[UPDATE_ROUTE] Calling service to update payment {payment_id}")
+        logger.info(f"[UPDATE_ROUTE] Calling service to update payment {payment_id}")
         recurring_payment = RecurringPaymentService.update_recurring_payment(payment_id, data)
         
         # Commit the changes
-        print(f"[UPDATE_ROUTE] Committing changes to database")
+        logger.info(f"[UPDATE_ROUTE] Committing changes to database")
         db.session.commit()
         
-        print(f"[UPDATE_ROUTE] Successfully updated payment {payment_id}")
+        logger.info(f"[UPDATE_ROUTE] Successfully updated payment {payment_id}")
         
         return jsonify({
             'success': True,
@@ -242,7 +254,7 @@ def update_recurring_payment_api(group_id, payment_id):
     
     except ValueError as e:
         db.session.rollback()
-        print(f"[UPDATE_ROUTE] ValueError: {e}")
+        logger.error(f"[UPDATE_ROUTE] ValueError: {e}")
         return jsonify({
             'success': False,
             'message': str(e)
@@ -250,7 +262,7 @@ def update_recurring_payment_api(group_id, payment_id):
     
     except Exception as e:
         db.session.rollback()
-        print(f"[UPDATE_ROUTE] Exception: {e}")
+        logger.error(f"[UPDATE_ROUTE] Exception: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -284,7 +296,7 @@ def delete_recurring_payment_api(group_id, payment_id):
         })
     
     except Exception as e:
-        print(f"Error deleting recurring payment: {e}")
+        logger.error(f"Error deleting recurring payment: {e}")
         return jsonify({
             'success': False,
             'message': 'Error deleting recurring payment'
@@ -292,7 +304,10 @@ def delete_recurring_payment_api(group_id, payment_id):
 
 @recurring.route('/payments/<int:group_id>/<int:payment_id>/process', methods=['POST'])
 def process_recurring_payment_api(group_id, payment_id):
-    """Manually process a recurring payment to create an expense"""
+    """
+    Manually process a recurring payment to create an expense
+    FIXED: Ensures balance updates after manual processing
+    """
     group = Group.query.get_or_404(group_id)
     
     # Check user access
@@ -300,7 +315,7 @@ def process_recurring_payment_api(group_id, payment_id):
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
-        print(f"Processing recurring payment {payment_id} for group {group_id}")
+        logger.info(f"Processing recurring payment {payment_id} for group {group_id}")
         
         # Verify payment belongs to group
         recurring_payment = RecurringPayment.query.filter_by(id=payment_id, group_id=group_id).first()
@@ -320,7 +335,7 @@ def process_recurring_payment_api(group_id, payment_id):
         from models import Expense
         expense_date = date.today()
         
-        print(f"Creating expense for date: {expense_date}")
+        logger.info(f"Creating expense for date: {expense_date}")
         
         # Check if already processed for today
         existing_expense = Expense.query.filter(
@@ -335,13 +350,21 @@ def process_recurring_payment_api(group_id, payment_id):
                 'message': 'This recurring payment has already been processed for today'
             }), 400
         
-        # Create the expense directly
+        # Create the expense directly (this now includes balance updates)
         expense = RecurringPaymentService._create_expense_from_recurring_manual(recurring_payment, expense_date)
         
         # Commit the transaction
         db.session.commit()
         
-        print(f"Successfully created expense {expense.id} from recurring payment {payment_id}")
+        # FIXED: Ensure balance calculation happens after manual processing
+        try:
+            logger.info(f"[MANUAL] Updating balances for group {group_id} after manual processing")
+            BalanceService.calculate_group_balances(group_id)
+            logger.info(f"[MANUAL] Balance update completed for group {group_id}")
+        except Exception as e:
+            logger.warning(f"[MANUAL] Balance calculation warning: {e}")
+        
+        logger.info(f"Successfully created expense {expense.id} from recurring payment {payment_id}")
         
         return jsonify({
             'success': True,
@@ -351,7 +374,7 @@ def process_recurring_payment_api(group_id, payment_id):
     
     except Exception as e:
         db.session.rollback()
-        print(f"Error processing recurring payment: {e}")
+        logger.error(f"Error processing recurring payment: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
@@ -361,7 +384,10 @@ def process_recurring_payment_api(group_id, payment_id):
 
 @recurring.route('/process-due/<int:group_id>', methods=['POST'])
 def process_group_due_payments(group_id):
-    """Process all due recurring payments for a specific group"""
+    """
+    Process all due recurring payments for a specific group
+    FIXED: Proper balance updates and group context
+    """
     group = Group.query.get_or_404(group_id)
     
     # Check user access (or allow system access)
@@ -369,37 +395,116 @@ def process_group_due_payments(group_id):
         return jsonify({'error': 'Unauthorized'}), 403
     
     try:
+        logger.info(f"[GROUP_PROCESS] Processing due payments for group {group_id} ({group.name})")
         created_expenses = RecurringPaymentService.process_group_due_payments(group_id)
+        
+        logger.info(f"[GROUP_PROCESS] Created {len(created_expenses)} expenses for group {group_id}")
+        
+        # FIXED: Force balance recalculation to ensure table updates
+        if created_expenses:
+            try:
+                logger.info(f"[GROUP_PROCESS] Forcing balance recalculation for group {group_id}")
+                BalanceService.calculate_group_balances(group_id)
+                logger.info(f"[GROUP_PROCESS] Balance recalculation completed")
+            except Exception as e:
+                logger.warning(f"[GROUP_PROCESS] Balance calculation warning: {e}")
         
         return jsonify({
             'success': True,
             'message': f'Processed {len(created_expenses)} due recurring payments for group',
-            'expenses_created': len(created_expenses)
+            'expenses_created': len(created_expenses),
+            'group_id': group_id
         })
     
     except Exception as e:
-        print(f"Error processing due payments for group {group_id}: {e}")
+        logger.error(f"Error processing due payments for group {group_id}: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error processing due payments'
         }), 500
 
-# Keep the old endpoints for backward compatibility (they can redirect or process all groups)
 @recurring.route('/process-due', methods=['POST'])
 def process_all_due_payments():
-    """Process all due recurring payments (for background job) - processes all groups"""
+    """
+    Process all due recurring payments (for background job) - processes all groups
+    FIXED: Proper logging and balance updates for all groups
+    """
     try:
+        logger.info("[SYSTEM] Starting system-wide recurring payment processing")
         created_expenses = RecurringPaymentService.process_due_payments()
+        
+        logger.info(f"[SYSTEM] System-wide processing completed: {len(created_expenses)} expenses created")
         
         return jsonify({
             'success': True,
-            'message': f'Processed {len(created_expenses)} due recurring payments',
+            'message': f'Processed {len(created_expenses)} due recurring payments across all groups',
             'expenses_created': len(created_expenses)
         })
     
     except Exception as e:
-        print(f"Error processing due payments: {e}")
+        logger.error(f"[SYSTEM] Error in system-wide processing: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'message': 'Error processing due payments'
+        }), 500
+
+# FIXED: Add an admin endpoint for wake-and-process (for GitHub Actions)
+@recurring.route('/admin/wake-and-process', methods=['POST'])
+def admin_wake_and_process():
+    """
+    Admin endpoint for GitHub Actions to wake app and process all due payments
+    FIXED: Better logging and response format
+    """
+    try:
+        logger.info("[ADMIN] Admin wake-and-process endpoint called")
+        
+        # Get request info for logging
+        request_data = request.get_json() or {}
+        source = request_data.get('source', 'unknown')
+        timestamp = request_data.get('timestamp', datetime.now().isoformat())
+        
+        logger.info(f"[ADMIN] Source: {source}, Timestamp: {timestamp}")
+        
+        # Process all due recurring payments
+        created_expenses = RecurringPaymentService.process_due_payments()
+        
+        logger.info(f"[ADMIN] Processing completed: {len(created_expenses)} expenses created")
+        
+        # Build response with details
+        response_data = {
+            'success': True,
+            'message': f'Wake and process completed successfully',
+            'expenses_created': len(created_expenses),
+            'source': source,
+            'timestamp': timestamp,
+            'processed_at': datetime.now().isoformat()
+        }
+        
+        # Add expense details if any were created
+        if created_expenses:
+            response_data['expense_details'] = [
+                {
+                    'id': exp.id,
+                    'amount': float(exp.amount),
+                    'group_id': exp.group_id,
+                    'date': exp.date.isoformat(),
+                    'description': exp.category_description
+                }
+                for exp in created_expenses[:10]  # Limit to first 10 for response size
+            ]
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"[ADMIN] Error in wake-and-process: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'message': f'Error in wake and process: {str(e)}',
+            'timestamp': datetime.now().isoformat()
         }), 500
