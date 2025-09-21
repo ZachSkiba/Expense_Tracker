@@ -194,7 +194,7 @@ class ExpenseService:
                 group_id=group_id
             ).first()
             if payer_balance:
-                payer_balance.amount -= settlement.amount
+                payer_balance.amount += settlement.amount
             
             # Receiver balance increases (they received money)
             receiver_balance = Balance.query.filter_by(
@@ -202,7 +202,7 @@ class ExpenseService:
                 group_id=group_id
             ).first()
             if receiver_balance:
-                receiver_balance.amount += settlement.amount
+                receiver_balance.amount -= settlement.amount
         
         # Update timestamps
         for balance in Balance.query.filter_by(group_id=group_id).all():
