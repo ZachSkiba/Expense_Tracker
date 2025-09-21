@@ -27,12 +27,13 @@ class User(UserMixin, db.Model):
 
     id = db.Column(db.Integer, primary_key=True)
     
-    # Legacy field (keep for backward compatibility)
-    name = db.Column(db.String(100), nullable=False)  # This is display name now
+    # User identification fields
+    full_name = db.Column(db.String(100), nullable=False)  # Real full name (can be duplicate)
+    display_name = db.Column(db.String(100), nullable=False)  # Display name (can be duplicate)
+    email = db.Column(db.String(120), unique=True, nullable=False, index=True)  # Must be unique
     
-    # New authentication fields
-    email = db.Column(db.String(120), unique=True, nullable=True, index=True)  # Nullable for legacy users
-    username = db.Column(db.String(80), unique=True, nullable=True)  # Nullable for legacy users
+    
+    # Legacy authentication fields (nullable for backward compatibility)
     password_hash = db.Column(db.String(255), nullable=True)  # Nullable for legacy users
     
     # Account status
@@ -110,13 +111,18 @@ class User(UserMixin, db.Model):
     
     def is_legacy_user(self):
         """Check if this is a legacy user (no email/username)"""
-        return not self.email and not self.username
+        return not self.email
+    
+    @property
+    def name(self):
+        """Backward compatibility property - returns display_name"""
+        return self.display_name or self.full_name
     
     def __repr__(self):
-        if self.username:
+        if hasattr(self, 'username') and self.username:
             return f'<User {self.username}>'
         else:
-            return f'<User {self.name}>'
+            return f'<User {self.display_name or self.full_name}>'
 
 
 class Group(db.Model):
