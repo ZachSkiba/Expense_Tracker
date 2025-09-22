@@ -369,7 +369,7 @@
                             {% if group.creator_id == current_user.id %}
                             Transfer admin rights and leave this group permanently.
                             {% else %}
-                            Leave this group permanently. You can be re-invited later.
+                            Leave this group permanently. You can only leave if you have no outstanding balances or financial involvement.
                             {% endif %}
                         </div>
                     </div>
@@ -422,7 +422,8 @@
                         {% else %}
                         <strong>Are you sure you want to leave?</strong><br>
                         You will no longer have access to this group's expenses and data.
-                        You can be re-invited by any group member.
+                        <br><br>
+                        <strong>Note:</strong> You can only leave if you have no outstanding balances, unpaid expenses, or financial involvement in this group.
                         {% endif %}
                     </div>
                 </div>

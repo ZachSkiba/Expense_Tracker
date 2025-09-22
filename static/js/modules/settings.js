@@ -420,7 +420,109 @@ class SettingsManager {
         }
     }
 
-    showLeaveConfirmation() {
+    async showLeaveConfirmation() {
+        const leaveButton = document.querySelector('.leave-group-button');
+        
+        // Show checking state
+        if (leaveButton) {
+            leaveButton.classList.add('checking');
+            leaveButton.textContent = '🔍 Checking eligibility...';
+        }
+
+        // First check if user is eligible to leave
+        try {
+            const groupId = this.getGroupId();
+            if (!groupId) {
+                throw new Error('Group ID not found');
+            }
+
+            const response = await fetch(`/groups/${groupId}/check-leave-eligibility`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const eligibility = await response.json();
+
+            if (!eligibility.can_leave) {
+                this.showFinancialInvolvementModal(eligibility);
+                return;
+            }
+
+            // User is eligible, show normal leave confirmation
+            this.showLeaveModal();
+
+        } catch (error) {
+            console.error('Error checking leave eligibility:', error);
+            alert(`Failed to check eligibility: ${error.message}`);
+        } finally {
+            // Reset button state
+            if (leaveButton) {
+                leaveButton.classList.remove('checking');
+                leaveButton.textContent = '🚪 Leave Group';
+            }
+        }
+    }
+
+    showFinancialInvolvementModal(eligibility) {
+        // Create a custom modal for financial involvement
+        const existingModal = document.getElementById('financialInvolvementModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        const modal = document.createElement('div');
+        modal.id = 'financialInvolvementModal';
+        modal.className = 'modal-overlay';
+        modal.style.display = 'flex';
+
+        modal.innerHTML = `
+            <div class="modal-content leave-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">🚫 Cannot Leave Group</h2>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="warning-message" style="background: linear-gradient(135deg, #fef2f2, #fee2e2); border-color: rgba(239, 68, 68, 0.2);">
+                        <div class="warning-icon" style="color: #dc2626;">⚠️</div>
+                        <div class="warning-text" style="color: #991b1b;">
+                            <strong style="color: #dc2626;">You cannot leave this group due to financial involvement:</strong><br><br>
+                            ${eligibility.details.map(detail => `• ${detail}`).join('<br>')}
+                            <br><br>
+                            <strong>To leave the group, you must:</strong><br>
+                            • Settle all outstanding balances<br>
+                            • Resolve all expense-related obligations<br>
+                            • Clear all settlement history (if required by group policy)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button class="modal-btn modal-btn-cancel" onclick="this.closest('.modal-overlay').remove(); document.body.style.overflow = '';">
+                        Understood
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        document.body.style.overflow = 'hidden';
+
+        // Close on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    showLeaveModal() {
         const modal = document.getElementById('leaveConfirmationModal');
         const leaveConfirmInput = document.getElementById('leaveConfirmation');
         const newAdminSelect = document.getElementById('newAdminSelect');

@@ -1,14 +1,95 @@
-# app/routes/groups.py - Group management routes (FIXED)
+# app/routes/groups.py - Group management routes with financial validation
 
 from flask import Blueprint, jsonify, request, redirect, url_for, render_template_string, flash
 from flask_login import login_required, current_user
-from models import User, Expense, Category, Group, db, Balance, user_groups
-from sqlalchemy import func, desc
+from models import User, Expense, Category, Group, db, Balance, Settlement, ExpenseParticipant, user_groups
+from sqlalchemy import func, desc, or_
 from datetime import datetime
 from flask import current_app
-from app.services.user_service import UserService
 
 groups_bp = Blueprint('groups', __name__, url_prefix='/groups')
+
+def check_user_financial_involvement(user_id, group_id):
+    """
+    Check if user has any financial involvement that prevents leaving the group
+    Returns dict with can_leave boolean and details of involvement
+    """
+    involvement = {
+        'balances': [],
+        'expenses_paid': [],
+        'expenses_participated': [],
+        'settlements_made': [],
+        'settlements_received': []
+    }
+    
+    details = []
+    
+    # Check for non-zero balances
+    user_balance = Balance.query.filter_by(user_id=user_id, group_id=group_id).first()
+    if user_balance and abs(user_balance.amount) > 0.01:
+        involvement['balances'].append({
+            'amount': round(user_balance.amount, 2)
+        })
+        if user_balance.amount > 0:
+            details.append(f"You are owed ${abs(user_balance.amount):.2f}")
+        else:
+            details.append(f"You owe ${abs(user_balance.amount):.2f}")
+    
+    # Check for expenses they paid for
+    expenses_paid = Expense.query.filter_by(
+        user_id=user_id, 
+        group_id=group_id
+    ).count()
+    
+    if expenses_paid > 0:
+        involvement['expenses_paid'] = expenses_paid
+        details.append(f"You have paid for {expenses_paid} expense(s)")
+    
+    # Check for expenses they participated in
+    expenses_participated = db.session.query(ExpenseParticipant).join(Expense).filter(
+        ExpenseParticipant.user_id == user_id,
+        Expense.group_id == group_id,
+        ExpenseParticipant.user_id != Expense.user_id  # Exclude expenses they paid for (already counted above)
+    ).count()
+    
+    if expenses_participated > 0:
+        involvement['expenses_participated'] = expenses_participated
+        details.append(f"You have participated in {expenses_participated} expense(s)")
+    
+    # Check for settlements they made
+    settlements_made = Settlement.query.filter_by(
+        payer_id=user_id,
+        group_id=group_id
+    ).count()
+    
+    if settlements_made > 0:
+        involvement['settlements_made'] = settlements_made
+        details.append(f"You have made {settlements_made} settlement(s)")
+    
+    # Check for settlements they received
+    settlements_received = Settlement.query.filter_by(
+        receiver_id=user_id,
+        group_id=group_id
+    ).count()
+    
+    if settlements_received > 0:
+        involvement['settlements_received'] = settlements_received
+        details.append(f"You have received {settlements_received} settlement(s)")
+    
+    # User can leave only if they have no financial involvement
+    can_leave = (
+        len(involvement['balances']) == 0 and
+        involvement['expenses_paid'] == 0 and
+        involvement['expenses_participated'] == 0 and
+        involvement['settlements_made'] == 0 and
+        involvement['settlements_received'] == 0
+    )
+    
+    return {
+        'can_leave': can_leave,
+        'involvement': involvement,
+        'details': details
+    }
 
 @groups_bp.route('/')
 @login_required
@@ -126,32 +207,111 @@ def join():
     from app.templates.group_templates import get_join_group_template
     return render_template_string(get_join_group_template())
 
-@groups_bp.route('/<int:group_id>/leave', methods=['POST'])
+@groups_bp.route('/<int:group_id>/check-leave-eligibility', methods=['GET'])
 @login_required
-def leave(group_id):
-    """Leave a group"""
+def check_leave_eligibility(group_id):
+    """Check if current user can leave the group"""
     group = Group.query.get_or_404(group_id)
     
     if current_user not in group.members:
-        flash('You are not a member of this group', 'error')
-        return redirect(url_for('dashboard.home'))
+        return jsonify({'error': 'You are not a member of this group'}), 403
     
-    if group.creator_id == current_user.id:
-        flash('You cannot leave a group you created. Transfer ownership first.', 'error')
-        return redirect(url_for('dashboard.home', group_id=group_id))
+    financial_check = check_user_financial_involvement(current_user.id, group_id)
+    
+    return jsonify({
+        'can_leave': financial_check['can_leave'],
+        'details': financial_check['details'],
+        'involvement': financial_check['involvement']
+    })
+
+@groups_bp.route('/<int:group_id>/leave', methods=['POST'])
+@login_required
+def leave(group_id):
+    """Leave a group with financial involvement validation"""
+    group = Group.query.get_or_404(group_id)
+    
+    if current_user not in group.members:
+        return jsonify({'success': False, 'error': 'You are not a member of this group'}), 403
 
     try:
+        # Check for financial involvement before allowing leave
+        financial_check = check_user_financial_involvement(current_user.id, group_id)
+        if not financial_check['can_leave']:
+            return jsonify({
+                'success': False, 
+                'error': 'Cannot leave group with outstanding financial obligations',
+                'details': financial_check['details'],
+                'involvement': financial_check['involvement']
+            }), 400
+
+        data = request.get_json() if request.is_json else {}
+        is_creator = group.creator_id == current_user.id
+        is_admin = current_user.is_group_admin(group)
+        
+        # Handle creator leaving (must transfer admin rights)
+        if is_creator:
+            new_admin_id = data.get('new_admin_id')
+            if not new_admin_id:
+                return jsonify({
+                    'success': False, 
+                    'error': 'As group creator, you must select a new admin before leaving'
+                }), 400
+            
+            # Validate new admin
+            new_admin = User.query.get(new_admin_id)
+            if not new_admin:
+                return jsonify({'success': False, 'error': 'Selected user not found'}), 400
+            
+            if new_admin not in group.members:
+                return jsonify({'success': False, 'error': 'Selected user is not a group member'}), 400
+            
+            if new_admin.id == current_user.id:
+                return jsonify({'success': False, 'error': 'You cannot transfer admin rights to yourself'}), 400
+            
+            # Check if group has at least 2 members
+            if group.get_member_count() < 2:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Cannot leave group with only one member. Delete the group instead.'
+                }), 400
+            
+            # Transfer admin rights
+            group.creator_id = new_admin.id
+            
+            # Update the association table to make new admin have admin role
+            # First remove old admin role entry for new admin (if any)
+            stmt_remove = user_groups.update().where(
+                user_groups.c.user_id == new_admin.id,
+                user_groups.c.group_id == group.id
+            ).values(role='admin')
+            db.session.execute(stmt_remove)
+            
+            current_app.logger.info(f"Transferred admin rights from {current_user.name} to {new_admin.name} for group {group.name}")
+        
+        # Remove user from group
         group.remove_member(current_user)
+        
         db.session.commit()
         
-        flash(f'You have left "{group.name}"', 'success')
-        return redirect(url_for('dashboard.home'))
+        group_name = group.name
+        success_message = f'You have successfully left "{group_name}"'
+        
+        if is_creator:
+            success_message += f' and transferred admin rights to {new_admin.name}'
+        
+        return jsonify({
+            'success': True,
+            'message': success_message,
+            'redirect_url': url_for('dashboard.home')
+        })
         
     except Exception as e:
         db.session.rollback()
-        flash('An error occurred while leaving the group', 'error')
-        return redirect(url_for('dashboard.home', group_id=group_id))
-    
+        current_app.logger.error(f"Error leaving group {group_id}: {e}")
+        return jsonify({
+            'success': False, 
+            'error': 'An error occurred while leaving the group'
+        }), 500
 
 @groups_bp.route('/<int:group_id>/update', methods=['POST'])
 @login_required
@@ -203,7 +363,7 @@ def update_group(group_id):
         current_app.logger.error(f"Error updating group {group_id}: {e}")
         return jsonify({"success": False, "error": "An error occurred while updating the group"}), 500
     
-
+    
 @groups_bp.route('/<int:group_id>/delete', methods=['POST'])
 @login_required
 def delete_group(group_id):
@@ -256,90 +416,4 @@ def delete_group(group_id):
         return jsonify({
             'success': False,
             'error': 'An error occurred while deleting the group'
-        }), 500
-    
-@groups_bp.route('/<int:group_id>/leave', methods=['POST'])
-@login_required
-def leave(group_id):
-    """Leave a group with enhanced admin transfer functionality"""
-    group = Group.query.get_or_404(group_id)
-    
-    if current_user not in group.members:
-        return jsonify({'success': False, 'error': 'You are not a member of this group'}), 403
-
-    try:
-        data = request.get_json() if request.is_json else {}
-        is_creator = group.creator_id == current_user.id
-        is_admin = current_user.is_group_admin(group)
-        
-        # Handle creator leaving (must transfer admin rights)
-        if is_creator:
-            new_admin_id = data.get('new_admin_id')
-            if not new_admin_id:
-                return jsonify({
-                    'success': False, 
-                    'error': 'As group creator, you must select a new admin before leaving'
-                }), 400
-            
-            # Validate new admin
-            new_admin = User.query.get(new_admin_id)
-            if not new_admin:
-                return jsonify({'success': False, 'error': 'Selected user not found'}), 400
-            
-            if new_admin not in group.members:
-                return jsonify({'success': False, 'error': 'Selected user is not a group member'}), 400
-            
-            if new_admin.id == current_user.id:
-                return jsonify({'success': False, 'error': 'You cannot transfer admin rights to yourself'}), 400
-            
-            # Check if group has at least 2 members
-            if group.get_member_count() < 2:
-                return jsonify({
-                    'success': False, 
-                    'error': 'Cannot leave group with only one member. Delete the group instead.'
-                }), 400
-            
-            # Transfer admin rights
-            group.creator_id = new_admin.id
-            
-            # Update the association table to make new admin have admin role
-            # First remove old admin role entry for new admin (if any)
-            stmt_remove = user_groups.update().where(
-                user_groups.c.user_id == new_admin.id,
-                user_groups.c.group_id == group.id
-            ).values(role='admin')
-            db.session.execute(stmt_remove)
-            
-            current_app.logger.info(f"Transferred admin rights from {current_user.name} to {new_admin.name} for group {group.name}")
-        
-        # Remove user from group
-        group.remove_member(current_user)
-        
-        # Update balances if user had any outstanding balance
-        user_balance = Balance.query.filter_by(user_id=current_user.id, group_id=group_id).first()
-        if user_balance and abs(user_balance.amount) > 0.01:
-            current_app.logger.warning(f"User {current_user.name} left group {group.name} with outstanding balance of ${user_balance.amount}")
-            # Optionally, you could prevent leaving with outstanding balance
-            # or create a settlement record
-        
-        db.session.commit()
-        
-        group_name = group.name
-        success_message = f'You have successfully left "{group_name}"'
-        
-        if is_creator:
-            success_message += f' and transferred admin rights to {new_admin.name}'
-        
-        return jsonify({
-            'success': True,
-            'message': success_message,
-            'redirect_url': url_for('dashboard.home')
-        })
-        
-    except Exception as e:
-        db.session.rollback()
-        current_app.logger.error(f"Error leaving group {group_id}: {e}")
-        return jsonify({
-            'success': False, 
-            'error': 'An error occurred while leaving the group'
         }), 500

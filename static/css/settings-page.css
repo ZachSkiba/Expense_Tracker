@@ -1339,6 +1339,7 @@ html {
     position: relative;
     overflow: hidden;
     border-bottom: 1px solid rgba(251, 191, 36, 0.1);
+    gap: 12px
 }
 
 .leave-group-item::before {
@@ -1591,3 +1592,288 @@ html {
         margin-top: 16px;
     }
 }
+
+/* Leave Group Styles */
+        .leave-group-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 16px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid rgba(251, 191, 36, 0.1);
+        }
+
+        .leave-group-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(251, 191, 36, 0.05), rgba(245, 158, 11, 0.05));
+            transition: width 0.3s ease;
+            z-index: 1;
+        }
+
+        .leave-group-item:hover::before {
+            width: 100%;
+        }
+
+        .leave-group-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+
+        .leave-group-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 18px;
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            color: #d97706;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.15);
+            border: 1px solid rgba(217, 119, 6, 0.2);
+        }
+
+        .leave-group-item:hover .leave-group-icon {
+            transform: scale(1.05) rotate(-2deg);
+            box-shadow: 0 6px 20px rgba(217, 119, 6, 0.25);
+            background: linear-gradient(135deg, #fed7aa, #fdba74);
+        }
+
+        .leave-group-info {
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+
+        .leave-group-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #d97706;
+            margin: 0 0 6px 0;
+            line-height: 1.4;
+        }
+
+        .leave-group-description {
+            font-size: 0.9rem;
+            color: #b45309;
+            margin: 0;
+            line-height: 1.4;
+        }
+
+        .leave-group-right {
+            position: relative;
+            z-index: 2;
+        }
+
+        .leave-group-button {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+            border: 1px solid rgba(180, 83, 9, 0.4);
+        }
+
+        .leave-group-button:hover {
+            background: linear-gradient(135deg, #b45309, #92400e);
+            box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .leave-group-button:focus {
+            outline: 3px solid rgba(217, 119, 6, 0.5);
+            outline-offset: 2px;
+        }
+
+        /* Leave Modal Styles */
+        .leave-modal {
+            border: 2px solid rgba(217, 119, 6, 0.2);
+        }
+
+        .leave-modal .modal-header {
+            background: linear-gradient(135deg, rgba(254, 243, 199, 0.8), rgba(253, 230, 138, 0.6));
+            border-bottom: 1px solid rgba(251, 191, 36, 0.1);
+        }
+
+        .leave-modal .modal-title {
+            color: #d97706;
+        }
+
+        .leave-modal .warning-message {
+            background: linear-gradient(135deg, #fef3c7, #fed7aa);
+            border: 1px solid rgba(251, 191, 36, 0.2);
+        }
+
+        .leave-modal .warning-icon {
+            color: #d97706;
+        }
+
+        .leave-modal .warning-text {
+            color: #b45309;
+        }
+
+        .leave-modal .warning-text strong {
+            color: #d97706;
+        }
+
+        /* Admin Transfer Section */
+        .admin-transfer-section {
+            margin-top: 20px;
+        }
+
+        .admin-transfer-section label {
+            display: block;
+            font-weight: 600;
+            color: #374151;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+
+        .admin-select {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 1rem;
+            background: #f9fafb;
+            color: #374151;
+            transition: all 0.3s ease;
+        }
+
+        .admin-select:focus {
+            outline: none;
+            border-color: #d97706;
+            background: white;
+            box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.1);
+        }
+
+        .admin-select:valid {
+            border-color: #10b981;
+            background: #f0fdf4;
+        }
+
+        /* Leave Button Styles */
+        .modal-btn-leave {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: white;
+            box-shadow: 0 4px 12px rgba(217, 119, 6, 0.3);
+        }
+
+        .modal-btn-leave:hover:not(:disabled) {
+            background: linear-gradient(135deg, #b45309, #92400e);
+            box-shadow: 0 6px 20px rgba(217, 119, 6, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .modal-btn-leave:disabled {
+            background: linear-gradient(135deg, #9ca3af, #6b7280);
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .modal-btn-leave.loading::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 16px;
+            height: 16px;
+            margin: -8px 0 0 -8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .leave-success {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+
+        /* Financial Involvement Styles */
+        .leave-group-button.checking {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        .leave-group-button.checking::after {
+            content: '';
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            margin-left: 8px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .financial-involvement-note {
+            font-size: 0.8rem;
+            color: #d97706;
+            font-style: italic;
+            margin-top: 4px;
+        }
+
+        /* Enhanced modal for financial involvement */
+        .financial-modal .warning-message {
+            background: linear-gradient(135deg, #fef2f2, #fee2e2);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+
+        .financial-modal .warning-icon {
+            color: #dc2626;
+        }
+
+        .financial-modal .warning-text {
+            color: #991b1b;
+        }
+
+        .financial-modal .warning-text strong {
+            color: #dc2626;
+        }
+        
+        .financial-modal .modal-title {
+            color: #dc2626;
+        }
+        @media (max-width: 480px) {
+            .leave-group-item {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px 16px;
+            }
+            
+            .leave-group-left {
+                margin-bottom: 16px;
+                justify-content: center;
+            }
+            
+            .leave-group-icon {
+                margin-right: 0;
+                margin-bottom: 12px;
+            }
+            
+            .leave-group-button {
+                width: 100%;
+                padding: 14px 20px;
+            }
+        }
