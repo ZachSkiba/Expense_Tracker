@@ -535,3 +535,282 @@ html {
         rgba(226, 232, 240, 0.95) 100%);
     backdrop-filter: blur(10px);
 }
+
+.invite-code-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(241, 245, 249, 0.8);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .invite-code-item:last-child {
+            border-bottom: none;
+        }
+        
+        .invite-code-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(59, 130, 246, 0.05), rgba(139, 92, 246, 0.05));
+            transition: width 0.3s ease;
+            z-index: 1;
+        }
+        
+        .invite-code-item:hover::before {
+            width: 100%;
+        }
+        
+        .invite-code-item:hover {
+            background-color: rgba(248, 250, 252, 0.8);
+        }
+        
+        .invite-code-left {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .invite-code-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-right: 18px;
+            background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+            color: #1d4ed8;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(29, 78, 216, 0.15);
+            border: 1px solid rgba(226, 232, 240, 0.6);
+        }
+        
+        .invite-code-item:hover .invite-code-icon {
+            transform: scale(1.05) rotate(2deg);
+            box-shadow: 0 6px 20px rgba(29, 78, 216, 0.25);
+        }
+        
+        .invite-code-info {
+            flex: 1;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .invite-code-name {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin: 0 0 6px 0;
+            line-height: 1.4;
+        }
+        
+        .invite-code-description {
+            font-size: 0.9rem;
+            color: #64748b;
+            margin: 0;
+            line-height: 1.4;
+        }
+        
+        .invite-code-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .invite-code-value {
+            font-family: 'Monaco', 'Menlo', 'SF Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1d4ed8;
+            letter-spacing: 2px;
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background: rgba(219, 234, 254, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(59, 130, 246, 0.2);
+        }
+        
+        .copy-button {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        
+        .copy-button:hover {
+            background: linear-gradient(135deg, #2563eb, #1e40af);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .copy-button.copied {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .group-info-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            border-bottom: 1px solid rgba(241, 245, 249, 0.8);
+            transition: all 0.3s ease;
+        }
+        
+        .group-info-item:last-child {
+            border-bottom: none;
+        }
+        
+        .group-info-item:hover {
+            background-color: rgba(248, 250, 252, 0.5);
+        }
+        
+        .group-info-label {
+            font-size: 0.9rem;
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .group-info-value {
+            font-size: 0.9rem;
+            color: #1e293b;
+            font-weight: 600;
+            text-align: right;
+        }
+        
+        /* Edit mode styles */
+        .edit-toggle-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        
+        .edit-toggle-btn:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+            transform: translateY(-1px);
+        }
+        
+        .edit-toggle-btn.editing {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        
+        .edit-toggle-btn.editing:hover {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        
+        .edit-toggle-btn.saving {
+            background: linear-gradient(135deg, #6b7280, #4b5563);
+            cursor: not-allowed;
+        }
+        
+        .editable-item {
+            position: relative;
+        }
+        
+        .editable-item.edit-mode .editable-value {
+            display: none;
+        }
+        
+        .editable-item.edit-mode .group-info-edit {
+            display: block !important;
+        }
+        
+        .group-info-value-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex: 1;
+            margin-left: 16px;
+        }
+        
+        .editable-value {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            padding: 4px 8px;
+            border-radius: 4px;
+            min-height: 24px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .edit-mode .editable-value:hover {
+            background: rgba(59, 130, 246, 0.1);
+            color: #1d4ed8;
+        }
+        
+        .group-info-edit {
+            font-size: 0.9rem;
+            color: #1e293b;
+            font-weight: 600;
+            text-align: right;
+            border: 2px solid #3b82f6;
+            border-radius: 6px;
+            padding: 8px 12px;
+            background: white;
+            min-width: 200px;
+            resize: none;
+        }
+        
+        .group-info-edit:focus {
+            outline: none;
+            border-color: #1d4ed8;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .edit-hint {
+            font-size: 0.75rem;
+            color: #64748b;
+            font-style: italic;
+            margin-top: 4px;
+        }
+        
+        .loading-spinner {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }

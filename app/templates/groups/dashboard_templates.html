@@ -47,6 +47,91 @@
             font-size: 1.1rem;
         }
         
+        .current-trackers {
+            margin-bottom: 3rem;
+        }
+        
+        .tracker-section {
+            background: white;
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .section-title {
+            color: #2d3748;
+            font-size: 1.25rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+        }
+        
+        .section-icon {
+            margin-right: 0.5rem;
+        }
+        
+        .tracker-card {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            transition: all 0.2s;
+            background: #fafafa;
+        }
+        
+        .tracker-card:hover { 
+            background: white;
+            border-color: #cbd5e0;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        .tracker-info h4 { 
+            color: #2d3748; 
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .tracker-info h4 a {
+            color: #4299e1;
+            text-decoration: none;
+        }
+        
+        .tracker-info h4 a:hover {
+            color: #3182ce;
+        }
+        
+        .tracker-info p { 
+            color: #718096; 
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .tracker-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+        
+        .tracker-balance {
+            text-align: right;
+            font-weight: bold;
+        }
+        
+        .balance-positive { color: #38a169; }
+        .balance-negative { color: #e53e3e; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #718096;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 2px dashed #e2e8f0;
+        }
+        
         .tracker-options {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -116,85 +201,9 @@
             background: #4a5568; 
         }
         
-        .current-trackers {
-            margin-top: 3rem;
-        }
-        
-        .tracker-section {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .section-title {
-            color: #2d3748;
-            font-size: 1.25rem;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-        
-        .section-icon {
-            margin-right: 0.5rem;
-        }
-        
-        .section-actions {
+        .btn-small {
+            padding: 0.5rem 1rem;
             font-size: 0.875rem;
-        }
-        
-        .tracker-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-            background: #fafafa;
-        }
-        
-        .tracker-card:hover { 
-            background: white;
-            border-color: #cbd5e0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        
-        .tracker-info h4 { 
-            color: #2d3748; 
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-        
-        .tracker-info p { 
-            color: #718096; 
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-        
-        .tracker-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .tracker-balance {
-            text-align: right;
-            font-weight: bold;
-        }
-        
-        .balance-positive { color: #38a169; }
-        .balance-negative { color: #e53e3e; }
-        
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: #718096;
-            background: #f7fafc;
-            border-radius: 8px;
-            border: 2px dashed #e2e8f0;
         }
         
         .flash-messages { margin-bottom: 1rem; }
@@ -232,11 +241,6 @@
         .personal-tracker-form .btn {
             margin-right: 0.5rem;
         }
-
-        .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
     </style>
 </head>
 <body>
@@ -244,7 +248,6 @@
         <h1>💰 Expense Tracker</h1>
         <div class="nav-links">
             <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
-            <a href="{{ url_for('groups.index') }}">All Groups</a>
             <a href="{{ url_for('auth.profile') }}">Profile</a>
             <a href="{{ url_for('auth.logout') }}">Logout</a>
         </div>
@@ -262,7 +265,80 @@
             <p>Manage your personal expenses and group spending</p>
         </div>
 
+        <div class="current-trackers">
+            <!-- Group Expense Trackers First -->
+            {% if user_groups %}
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span class="section-icon">👥</span>Your Group Expense Trackers ({{ user_groups|length }})
+                </h3>
+                
+                {% for group in user_groups %}
+                <div class="tracker-card">
+                    <div class="tracker-info">
+                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">{{ group.name }}</a></h4>
+                        <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
+                        {% if group.description %}
+                        <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
+                        {% endif %}
+                    </div>
+                    <div class="tracker-actions">
+                        <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn btn-small">Open Tracker</a>
+                    </div>
+                    <div class="tracker-balance">
+                        {% set balance = group_balances.get(group.id, 0) %}
+                        {% if balance > 0 %}
+                            <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
+                            <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
+                        {% elif balance < 0 %}
+                            <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
+                            <div style="font-size: 0.75rem; color: #718096;">You owe</div>
+                        {% else %}
+                            <div>$0.00</div>
+                            <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Personal Expense Trackers -->
+            {% if personal_trackers %}
+            <div class="tracker-section">
+                <h3 class="section-title">
+                    <span class="section-icon">👤</span>Your Personal Expense Trackers ({{ personal_trackers|length }})
+                </h3>
+                
+                {% for tracker in personal_trackers %}
+                <div class="tracker-card">
+                    <div class="tracker-info">
+                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}">{{ tracker.name }}</a></h4>
+                        <p>Created {{ tracker.created_at.strftime('%b %d, %Y') }}</p>
+                        <p>Personal expense tracker</p>
+                    </div>
+                    <div class="tracker-actions">
+                        <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Create New Trackers Section -->
         <div class="tracker-options">
+            <!-- Group Tracker Option -->
+            <div class="option-card">
+                <div class="option-icon">👥</div>
+                <div class="option-title">Group Expenses</div>
+                <div class="option-description">
+                    Share expenses with roommates, friends, or family. Split bills and track who owes what.
+                </div>
+                <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
+                <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
+            </div>
+
             <!-- Personal Tracker Option -->
             <div class="option-card">
                 <div class="option-icon">👤</div>
@@ -283,111 +359,18 @@
                     </form>
                 </div>
             </div>
-
-            <!-- Group Tracker Option -->
-            <div class="option-card">
-                <div class="option-icon">👥</div>
-                <div class="option-title">Group Expenses</div>
-                <div class="option-description">
-                    Share expenses with roommates, friends, or family. Split bills and track who owes what.
-                </div>
-                <a href="{{ url_for('groups.create') }}" class="btn">Create Group</a>
-                <a href="{{ url_for('groups.join') }}" class="btn btn-secondary">Join Group</a>
-            </div>
         </div>
 
-        <div class="current-trackers">
-            <!-- Personal Expense Trackers -->
-            {% if personal_trackers %}
-            <div class="tracker-section">
-                <h3 class="section-title">
-                    <span><span class="section-icon">👤</span>Your Personal Expense Trackers ({{ personal_trackers|length }})</span>
-                    <div class="section-actions">
-                        <button onclick="togglePersonalForm()" class="btn btn-small">+ New Personal Tracker</button>
-                    </div>
-                </h3>
-                
-                {% for tracker in personal_trackers %}
-                <div class="tracker-card">
-                    <div class="tracker-info">
-                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" style="color: #4299e1; text-decoration: none;">{{ tracker.name }}</a></h4>
-                        <p>Created {{ tracker.created_at.strftime('%b %d, %Y') }}</p>
-                        <p>Personal expense tracker</p>
-                    </div>
-                    <div class="tracker-actions">
-                        <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
-                    </div>
-                </div>
-                {% endfor %}
+        <!-- Show empty state only if no trackers at all -->
+        {% if not user_groups and not personal_trackers %}
+        <div class="tracker-section">
+            <div class="empty-state">
+                <h3 style="color: #718096; margin-bottom: 1rem;">Welcome to Expense Tracker!</h3>
+                <p>Get started by creating your first expense tracker</p>
+                <p style="font-size: 0.875rem; margin-top: 0.5rem; color: #a0aec0;">Choose from group expenses or personal tracking above</p>
             </div>
-            {% else %}
-            <div class="tracker-section">
-                <h3 class="section-title">
-                    <span><span class="section-icon">👤</span>Your Personal Expense Trackers</span>
-                </h3>
-                
-                <div class="empty-state">
-                    <p>No personal trackers yet</p>
-                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create your first personal expense tracker to start budgeting</p>
-                    <div style="margin-top: 1rem;">
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Group Expense Trackers -->
-            {% if user_groups %}
-            <div class="tracker-section">
-                <h3 class="section-title">
-                    <span><span class="section-icon">👥</span>Your Group Expense Trackers ({{ user_groups|length }})</span>
-                    <div class="section-actions">
-                        <a href="{{ url_for('groups.create') }}" class="btn btn-small">+ New Group</a>
-                    </div>
-                </h3>
-                
-                {% for group in user_groups %}
-            <div class="tracker-card">
-                <div class="tracker-info">
-                    <h4><a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" style="color: #4299e1; text-decoration: none;">{{ group.name }}</a></h4>
-                    <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
-                    {% if group.description %}
-                    <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
-                    {% endif %}
-                </div>
-                <div class="tracker-actions">
-                    <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn btn-small">Open Tracker</a>
-                </div>
-                <div class="tracker-balance">
-                    {% set balance = group_balances.get(group.id, 0) %}
-                    {% if balance > 0 %}
-                        <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
-                        <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
-                    {% elif balance < 0 %}
-                        <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
-                        <div style="font-size: 0.75rem; color: #718096;">You owe</div>
-                    {% else %}
-                        <div>$0.00</div>
-                        <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-            </div>
-            {% else %}
-            <div class="tracker-section">
-                <h3 class="section-title">
-                    <span><span class="section-icon">👥</span>Your Group Expense Trackers</span>
-                </h3>
-                
-                <div class="empty-state">
-                    <p>No group trackers yet</p>
-                    <p style="font-size: 0.875rem; margin-top: 0.5rem;">Create or join a group to start tracking shared expenses</p>
-                    <div style="margin-top: 1rem;">
-                    </div>
-                </div>
-            </div>
-            {% endif %}
         </div>
+        {% endif %}
     </div>
 
     <script>

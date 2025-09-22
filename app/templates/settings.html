@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Settings - 403 Expense Tracker</title>
+    <title>Settings - {{ group.name}}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings-page.css') }}">
+        
 </head>
 <body>
     <!-- Header -->
@@ -23,6 +24,69 @@
     </div>
 
     <div class="settings-container">
+        <!-- Group Information & Invite Code -->
+        <div class="settings-section">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <h2 class="section-title">{{ group.name }} - Group Information</h2>
+                <button id="editToggleBtn" class="edit-toggle-btn" onclick="toggleEditMode()">
+                    <span id="editBtnText">✏️ Edit</span>
+                </button>
+            </div>
+            
+            <div class="invite-code-item">
+                <div class="invite-code-left">
+                    <div class="invite-code-icon">🔗</div>
+                    <div class="invite-code-info">
+                        <div class="invite-code-name">Invite Code</div>
+                        <div class="invite-code-description">Share this code with friends to invite them</div>
+                    </div>
+                </div>
+                <div class="invite-code-right">
+                    <div class="invite-code-value" id="inviteCode">{{ group.invite_code }}</div>
+                    <button class="copy-button" onclick="copyInviteCode()">📋 Copy</button>
+                </div>
+            </div>
+            
+            <div class="group-info-item editable-item" data-field="name">
+                <span class="group-info-label">Group Name</span>
+                <div class="group-info-value-container">
+                    <span class="group-info-value editable-value" id="groupName">{{ group.name }}</span>
+                    <input type="text" class="group-info-edit hidden" id="groupNameEdit" value="{{ group.name }}" maxlength="100">
+                </div>
+            </div>
+            
+            <div class="group-info-item editable-item" data-field="description">
+                <span class="group-info-label">Description</span>
+                <div class="group-info-value-container">
+                    <span class="group-info-value editable-value" id="groupDescription">{{ group.description or 'No description' }}</span>
+                    <textarea class="group-info-edit hidden" id="groupDescriptionEdit" maxlength="500" rows="2">{{ group.description or '' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="group-info-item">
+                <span class="group-info-label">Members</span>
+                <span class="group-info-value">{{ group.get_member_count() }} people</span>
+            </div>
+            
+            <div class="group-info-item">
+                <span class="group-info-label">Created</span>
+                <span class="group-info-value">{{ group.created_at.strftime('%B %d, %Y') }}</span>
+            </div>
+            
+            <div class="group-info-item">
+                <span class="group-info-label">Your Role</span>
+                <span class="group-info-value">
+                    {% if group.creator_id == current_user.id %}
+                        Admin (Creator)
+                    {% elif current_user.is_group_admin(group) %}
+                        Admin
+                    {% else %}
+                        Member
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+
         <!-- Quick Actions -->
         <div class="settings-section">
             <div class="section-header">
@@ -288,38 +352,11 @@
             </div>
         </div>
 
-        <!-- About -->
-        <div class="settings-section">
-            <div class="version-info">
-                <div class="version-content">
-                    <div class="app-name">403 Expense Tracker</div>
-                    <div class="version-number">Version 1.0.0</div>
-                </div>
-            </div>
-        </div>
-    </div>
 
     <script>
-        // Add simple interaction for non-functional toggle switches (visual feedback only)
-        document.addEventListener('DOMContentLoaded', function() {
-            const disabledToggles = document.querySelectorAll('.toggle-switch.disabled');
-            disabledToggles.forEach(toggle => {
-                toggle.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    // Visual feedback that it's not available yet
-                    const badge = this.parentElement.querySelector('.coming-soon-badge');
-                    if (badge) {
-                        badge.style.transform = 'scale(1.1)';
-                        badge.style.boxShadow = '0 2px 8px rgba(255, 181, 0, 0.5)';
-                        setTimeout(() => {
-                            badge.style.transform = 'scale(1)';
-                            badge.style.boxShadow = '0 1px 3px rgba(255, 181, 0, 0.3)';
-                        }, 200);
-                    }
-                });
-            });
-        });
-    </script>
+      window.groupId = "{{ group.id }}";
+  </script>
+    <!-- Include settings JavaScript module -->
+    <script src="{{ url_for('static', filename='js/modules/settings.js') }}"></script>
 </body>
 </html>

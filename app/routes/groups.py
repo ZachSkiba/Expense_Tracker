@@ -1,10 +1,11 @@
 # app/routes/groups.py - Group management routes (FIXED)
 
-from flask import Blueprint, request, redirect, url_for, render_template_string, flash
+from flask import Blueprint, jsonify, request, redirect, url_for, render_template_string, flash
 from flask_login import login_required, current_user
 from models import User, Expense, Category, Group, db
 from sqlalchemy import func, desc
 from datetime import datetime
+from flask import current_app
 
 groups_bp = Blueprint('groups', __name__, url_prefix='/groups')
 
@@ -191,3 +192,54 @@ def leave(group_id):
         db.session.rollback()
         flash('An error occurred while leaving the group', 'error')
         return redirect(url_for('groups.detail', group_id=group_id))
+    
+
+@groups_bp.route('/<int:group_id>/update', methods=['POST'])
+@login_required
+def update_group(group_id):
+    """Update group name and description from settings"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user has permission to edit (admin or creator)
+    if current_user not in group.members:
+        return jsonify({"success": False, "error": "Unauthorized"}), 403
+    
+    if not current_user.is_group_admin(group) and group.creator_id != current_user.id:
+        return jsonify({"success": False, "error": "Only group admins can edit group information"}), 403
+    
+    try:
+        data = request.get_json()
+        
+        if not data:
+            return jsonify({"success": False, "error": "No data provided"}), 400
+        
+        # Validate and update name
+        new_name = data.get('name', '').strip()
+        if not new_name:
+            return jsonify({"success": False, "error": "Group name cannot be empty"}), 400
+        
+        if len(new_name) > 100:
+            return jsonify({"success": False, "error": "Group name must be less than 100 characters"}), 400
+        
+        # Validate and update description
+        new_description = data.get('description', '').strip()
+        if len(new_description) > 500:
+            return jsonify({"success": False, "error": "Description must be less than 500 characters"}), 400
+        
+        # Update the group
+        group.name = new_name
+        group.description = new_description if new_description else None
+        
+        db.session.commit()
+        
+        return jsonify({
+            "success": True, 
+            "message": "Group updated successfully",
+            "name": group.name,
+            "description": group.description
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error updating group {group_id}: {e}")
+        return jsonify({"success": False, "error": "An error occurred while updating the group"}), 500
