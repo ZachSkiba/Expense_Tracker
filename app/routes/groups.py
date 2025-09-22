@@ -201,3 +201,58 @@ def update_group(group_id):
         db.session.rollback()
         current_app.logger.error(f"Error updating group {group_id}: {e}")
         return jsonify({"success": False, "error": "An error occurred while updating the group"}), 500
+    
+    
+@groups_bp.route('/<int:group_id>/delete', methods=['POST'])
+@login_required
+def delete_group(group_id):
+    """Delete a group (admin only)"""
+    try:
+        # Get the group
+        group = Group.query.get_or_404(group_id)
+        
+        # Check if current user is admin (creator or has admin role)
+        if not (group.creator_id == current_user.id or current_user.is_group_admin(group)):
+            return jsonify({
+                'success': False,
+                'error': 'Only group admins can delete the group'
+            }), 403
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'error': 'No data provided'
+            }), 400
+        
+        confirmation_text = data.get('confirmation', '').strip().lower()
+        
+        # Validate confirmation text
+        if confirmation_text != 'delete':
+            return jsonify({
+                'success': False,
+                'error': 'Please type "delete" to confirm deletion'
+            }), 400
+        
+        # Store group name for success message
+        group_name = group.name
+        
+        # Delete the group (this should cascade delete related records)
+        # Note: Make sure your database relationships are set up with proper cascading
+        db.session.delete(group)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Group "{group_name}" has been permanently deleted',
+            'redirect_url': url_for('dashboard.home')
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error deleting group {group_id}: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while deleting the group'
+        }), 500

@@ -17,7 +17,7 @@ db = SQLAlchemy()
 user_groups = Table('user_groups',
     db.metadata,
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
-    db.Column('group_id', db.Integer, db.ForeignKey('group.id'), primary_key=True),
+    db.Column('group_id', db.Integer, db.ForeignKey('group.id', ondelete="CASCADE"), primary_key=True),
     db.Column('joined_at', db.DateTime, default=datetime.utcnow),
     db.Column('role', db.String(20), default='member')  # 'admin', 'member'
 )
@@ -152,8 +152,10 @@ class Group(db.Model):
                             back_populates='groups')
     
     expenses = db.relationship('Expense', back_populates='group', cascade="all, delete-orphan")
-    recurring_payments = db.relationship('RecurringPayment', back_populates='group')
-    categories = db.relationship('Category', foreign_keys='Category.group_id', back_populates='group')
+    recurring_payments = db.relationship('RecurringPayment', back_populates='group', cascade="all, delete-orphan")
+    categories = db.relationship('Category', foreign_keys='Category.group_id', back_populates='group', cascade="all, delete-orphan")
+    balances = db.relationship("Balance", back_populates="group", cascade="all, delete-orphan")
+    settlements = db.relationship("Settlement", back_populates="group", cascade="all, delete-orphan")
     
     @staticmethod
     def generate_invite_code():
@@ -295,14 +297,14 @@ class Balance(db.Model):
     )
     
     # Group context for the balance (NULL for legacy/personal balances)
-    group_id = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("group.id", ondelete="CASCADE"), nullable=True)
     
     amount = db.Column(db.Float, nullable=False, default=0.0)
     last_updated = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
     # relationship to user and group
     user = db.relationship("User", back_populates="balances")
-    group = db.relationship("Group")
+    group = db.relationship("Group", back_populates="balances")
 
 class Settlement(db.Model):
     """Track settlements/payments between users"""
@@ -316,7 +318,7 @@ class Settlement(db.Model):
     receiver_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     
     # Group context (nullable for personal settlements)
-    group_id = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("group.id", ondelete="CASCADE"), nullable=True)
     
     # When and optional description
     date = db.Column(db.Date, nullable=False, default=datetime.utcnow)
@@ -326,7 +328,7 @@ class Settlement(db.Model):
     # relationships
     payer = db.relationship("User", foreign_keys=[payer_id], back_populates="settlements_made")
     receiver = db.relationship("User", foreign_keys=[receiver_id], back_populates="settlements_received")
-    group = db.relationship("Group")
+    group = db.relationship("Group", back_populates="settlements")
     
     def __repr__(self):
         return f'<Settlement {self.payer.name} -> {self.receiver.name}: ${self.amount}>'

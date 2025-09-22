@@ -1,4 +1,4 @@
-// app/js/modules/settings.js - Settings page JavaScript functionality
+// app/js/modules/settings.js - Settings page JavaScript functionality with Delete Group
 
 class SettingsManager {
     constructor() {
@@ -10,6 +10,7 @@ class SettingsManager {
     init() {
         this.setupEventListeners();
         this.setupDisabledToggles();
+        this.setupDeleteConfirmation();
     }
 
     setupEventListeners() {
@@ -21,6 +22,7 @@ class SettingsManager {
 
         // Setup existing functionality
         this.setupDisabledToggles();
+        this.setupDeleteConfirmation();
     }
 
     // Copy invite code functionality
@@ -368,6 +370,183 @@ class SettingsManager {
         });
     }
 
+    // DELETE GROUP FUNCTIONALITY
+    setupDeleteConfirmation() {
+        const confirmInput = document.getElementById('deleteConfirmation');
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        
+        if (confirmInput && confirmBtn) {
+            confirmInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim().toLowerCase();
+                const isValid = value === 'delete';
+                
+                // Update button state
+                confirmBtn.disabled = !isValid;
+                
+                // Update input styling
+                confirmInput.classList.remove('valid', 'invalid');
+                if (value.length > 0) {
+                    confirmInput.classList.add(isValid ? 'valid' : 'invalid');
+                }
+            });
+
+            // Handle Enter key in confirmation input
+            confirmInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !confirmBtn.disabled) {
+                    this.confirmDeleteGroup();
+                } else if (e.key === 'Escape') {
+                    this.hideDeleteConfirmation();
+                }
+            });
+        }
+
+        // Close modal when clicking outside
+        const modal = document.getElementById('deleteConfirmationModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideDeleteConfirmation();
+                }
+            });
+        }
+
+        // Handle Escape key globally
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('deleteConfirmationModal');
+                if (modal && modal.style.display !== 'none') {
+                    this.hideDeleteConfirmation();
+                }
+            }
+        });
+    }
+
+    showDeleteConfirmation() {
+        const modal = document.getElementById('deleteConfirmationModal');
+        const confirmInput = document.getElementById('deleteConfirmation');
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        
+        if (!modal) {
+            console.error('Delete confirmation modal not found');
+            return;
+        }
+
+        // Reset modal state
+        if (confirmInput) {
+            confirmInput.value = '';
+            confirmInput.classList.remove('valid', 'invalid');
+        }
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.classList.remove('loading');
+            confirmBtn.textContent = '🗑️ Delete Group Forever';
+        }
+
+        // Show modal with animation
+        modal.style.display = 'flex';
+        
+        // Focus on input after animation
+        setTimeout(() => {
+            if (confirmInput) {
+                confirmInput.focus();
+            }
+        }, 300);
+
+        // Prevent body scroll
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideDeleteConfirmation() {
+        const modal = document.getElementById('deleteConfirmationModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        
+        // Re-enable body scroll
+        document.body.style.overflow = '';
+    }
+
+    async confirmDeleteGroup() {
+        const confirmBtn = document.getElementById('confirmDeleteBtn');
+        const confirmInput = document.getElementById('deleteConfirmation');
+        
+        if (!confirmBtn || !confirmInput) {
+            console.error('Delete confirmation elements not found');
+            return;
+        }
+
+        // Validate confirmation text
+        const confirmationText = confirmInput.value.trim().toLowerCase();
+        if (confirmationText !== 'delete') {
+            alert('Please type "delete" to confirm deletion');
+            confirmInput.focus();
+            return;
+        }
+
+        // Show loading state
+        confirmBtn.classList.add('loading');
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Deleting...';
+
+        try {
+            const groupId = this.getGroupId();
+            if (!groupId) {
+                throw new Error('Group ID not found');
+            }
+
+            const response = await fetch(`/groups/${groupId}/delete`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    confirmation: confirmationText
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show success state
+                confirmBtn.classList.remove('loading');
+                confirmBtn.classList.add('delete-success');
+                confirmBtn.textContent = 'Deleted Successfully!';
+
+                // Show success message
+                alert(data.message || 'Group deleted successfully');
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || '/dashboard';
+                }, 1000);
+
+            } else {
+                throw new Error(data.error || 'Delete failed');
+            }
+
+        } catch (error) {
+            console.error('Error deleting group:', error);
+            
+            // Reset button state
+            confirmBtn.classList.remove('loading');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '🗑️ Delete Group Forever';
+            
+            // Show error
+            alert(`Failed to delete group: ${error.message}`);
+            
+            // Re-enable the button based on input
+            const isValid = confirmInput.value.trim().toLowerCase() === 'delete';
+            confirmBtn.disabled = !isValid;
+        }
+    }
+
     // Utility method for debugging
     log(message, data = null) {
         if (window.location.hostname === 'localhost' || window.location.hostname.includes('127.0.0.1')) {
@@ -382,3 +561,6 @@ window.settingsManager = new SettingsManager();
 // Export functions to global scope for HTML compatibility
 window.copyInviteCode = () => window.settingsManager.copyInviteCode();
 window.toggleEditMode = () => window.settingsManager.toggleEditMode();
+window.showDeleteConfirmation = () => window.settingsManager.showDeleteConfirmation();
+window.hideDeleteConfirmation = () => window.settingsManager.hideDeleteConfirmation();
+window.confirmDeleteGroup = () => window.settingsManager.confirmDeleteGroup();
