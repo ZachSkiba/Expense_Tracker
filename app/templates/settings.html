@@ -351,31 +351,114 @@
                 </div>
             </div>
         </div>
-    <!-- Delete Group Section (Admin Only) -->
-            {% if group.creator_id == current_user.id or current_user.is_group_admin(group) %}
-            <div class="danger-zone-section">
-                <div class="danger-zone-header">
-                    <h3 class="danger-zone-title">⚠️ Danger Zone</h3>
-                </div>
-                
-                <div class="delete-group-item">
-                    <div class="delete-group-left">
-                        <div class="delete-group-icon">🗑️</div>
-                        <div class="delete-group-info">
-                            <div class="delete-group-name">Delete Group</div>
-                            <div class="delete-group-description">
-                                Permanently delete this group and all associated data. This action cannot be undone.
-                            </div>
+    
+        <!-- Danger Zone Section -->
+        <div class="danger-zone-section">
+            <div class="danger-zone-header">
+                <h3 class="danger-zone-title">⚠️ Danger Zone</h3>
+            </div>
+            
+            <!-- Leave Group (for all members) -->
+            {% if current_user in group.members %}
+            <div class="leave-group-item">
+                <div class="leave-group-left">
+                    <div class="leave-group-icon">🚪</div>
+                    <div class="leave-group-info">
+                        <div class="leave-group-name">Leave Group</div>
+                        <div class="leave-group-description">
+                            {% if group.creator_id == current_user.id %}
+                            Transfer admin rights and leave this group permanently.
+                            {% else %}
+                            Leave this group permanently. You can be re-invited later.
+                            {% endif %}
                         </div>
                     </div>
-                    <div class="delete-group-right">
-                        <button class="delete-group-button" onclick="showDeleteConfirmation()">
-                            🗑️ Delete Group
-                        </button>
-                    </div>
+                </div>
+                <div class="leave-group-right">
+                    <button class="leave-group-button" onclick="showLeaveConfirmation()">
+                        🚪 Leave Group
+                    </button>
                 </div>
             </div>
             {% endif %}
+            
+            <!-- Delete Group (Admin only) -->
+            {% if group.creator_id == current_user.id or current_user.is_group_admin(group) %}
+            <div class="delete-group-item">
+                <div class="delete-group-left">
+                    <div class="delete-group-icon">🗑️</div>
+                    <div class="delete-group-info">
+                        <div class="delete-group-name">Delete Group</div>
+                        <div class="delete-group-description">
+                            Permanently delete this group and all associated data. This action cannot be undone.
+                        </div>
+                    </div>
+                </div>
+                <div class="delete-group-right">
+                    <button class="delete-group-button" onclick="showDeleteConfirmation()">
+                        🗑️ Delete Group
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Leave Group Confirmation Modal -->
+    <div id="leaveConfirmationModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content leave-modal">
+            <div class="modal-header">
+                <h2 class="modal-title">🚪 Leave Group</h2>
+            </div>
+            
+            <div class="modal-body">
+                <div class="warning-message">
+                    <div class="warning-icon">⚠️</div>
+                    <div class="warning-text">
+                        {% if group.creator_id == current_user.id %}
+                        <strong>You are the group admin!</strong><br>
+                        Before leaving, you must transfer admin rights to another member.
+                        Choose who will become the new admin:
+                        {% else %}
+                        <strong>Are you sure you want to leave?</strong><br>
+                        You will no longer have access to this group's expenses and data.
+                        You can be re-invited by any group member.
+                        {% endif %}
+                    </div>
+                </div>
+                
+                {% if group.creator_id == current_user.id %}
+                <!-- Admin Transfer Selection -->
+                <div class="admin-transfer-section">
+                    <label for="newAdminSelect">Choose new admin:</label>
+                    <select id="newAdminSelect" class="admin-select">
+                        <option value="">Select a member...</option>
+                        {% for member in group.members %}
+                            {% if member.id != current_user.id %}
+                            <option value="{{ member.id }}">{{ member.name }}</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                </div>
+                {% else %}
+                <!-- Regular Member Confirmation -->
+                <div class="confirmation-input">
+                    <label for="leaveConfirmation">Type <strong>"leave"</strong> to confirm:</label>
+                    <input type="text" id="leaveConfirmation" placeholder="Type 'leave' here" autocomplete="off">
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="modal-footer">
+                <button class="modal-btn modal-btn-cancel" onclick="hideLeaveConfirmation()">
+                    Cancel
+                </button>
+                <button class="modal-btn modal-btn-leave" id="confirmLeaveBtn" onclick="confirmLeaveGroup()" 
+                        {% if group.creator_id != current_user.id %}disabled{% endif %}>
+                    🚪 Leave Group
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Delete Confirmation Modal -->

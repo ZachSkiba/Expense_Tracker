@@ -1,4 +1,4 @@
-// app/js/modules/settings.js - Settings page JavaScript functionality with Delete Group
+// app/js/modules/settings.js - Settings page JavaScript functionality with Leave and Delete Group
 
 class SettingsManager {
     constructor() {
@@ -10,6 +10,7 @@ class SettingsManager {
     init() {
         this.setupEventListeners();
         this.setupDisabledToggles();
+        this.setupLeaveConfirmation();
         this.setupDeleteConfirmation();
     }
 
@@ -22,6 +23,7 @@ class SettingsManager {
 
         // Setup existing functionality
         this.setupDisabledToggles();
+        this.setupLeaveConfirmation();
         this.setupDeleteConfirmation();
     }
 
@@ -324,10 +326,10 @@ class SettingsManager {
         if (window.groupId) return window.groupId;
         
         const pathParts = window.location.pathname.split('/');
-        const groupIndex = pathParts.indexOf('groups');
+        const settingsIndex = pathParts.indexOf('settings');
         
-        if (groupIndex !== -1 && pathParts[groupIndex + 1]) {
-            return pathParts[groupIndex + 1];
+        if (settingsIndex !== -1 && pathParts[settingsIndex + 1]) {
+            return pathParts[settingsIndex + 1];
         }
 
         // Alternative: try to get from data attribute or other source
@@ -368,6 +370,205 @@ class SettingsManager {
                 }
             });
         });
+    }
+
+    // LEAVE GROUP FUNCTIONALITY
+    setupLeaveConfirmation() {
+        const leaveConfirmInput = document.getElementById('leaveConfirmation');
+        const confirmLeaveBtn = document.getElementById('confirmLeaveBtn');
+        const newAdminSelect = document.getElementById('newAdminSelect');
+        
+        // Handle regular member confirmation input
+        if (leaveConfirmInput && confirmLeaveBtn) {
+            leaveConfirmInput.addEventListener('input', (e) => {
+                const value = e.target.value.trim().toLowerCase();
+                const isValid = value === 'leave';
+                
+                confirmLeaveBtn.disabled = !isValid;
+                
+                leaveConfirmInput.classList.remove('valid', 'invalid');
+                if (value.length > 0) {
+                    leaveConfirmInput.classList.add(isValid ? 'valid' : 'invalid');
+                }
+            });
+
+            leaveConfirmInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && !confirmLeaveBtn.disabled) {
+                    this.confirmLeaveGroup();
+                } else if (e.key === 'Escape') {
+                    this.hideLeaveConfirmation();
+                }
+            });
+        }
+
+        // Handle admin selection for creator
+        if (newAdminSelect && confirmLeaveBtn) {
+            newAdminSelect.addEventListener('change', (e) => {
+                const hasSelection = e.target.value !== '';
+                confirmLeaveBtn.disabled = !hasSelection;
+            });
+        }
+
+        // Handle modal close events
+        const leaveModal = document.getElementById('leaveConfirmationModal');
+        if (leaveModal) {
+            leaveModal.addEventListener('click', (e) => {
+                if (e.target === leaveModal) {
+                    this.hideLeaveConfirmation();
+                }
+            });
+        }
+    }
+
+    showLeaveConfirmation() {
+        const modal = document.getElementById('leaveConfirmationModal');
+        const leaveConfirmInput = document.getElementById('leaveConfirmation');
+        const newAdminSelect = document.getElementById('newAdminSelect');
+        const confirmLeaveBtn = document.getElementById('confirmLeaveBtn');
+        
+        if (!modal) {
+            console.error('Leave confirmation modal not found');
+            return;
+        }
+
+        // Reset modal state
+        if (leaveConfirmInput) {
+            leaveConfirmInput.value = '';
+            leaveConfirmInput.classList.remove('valid', 'invalid');
+        }
+        
+        if (newAdminSelect) {
+            newAdminSelect.value = '';
+        }
+        
+        if (confirmLeaveBtn) {
+            confirmLeaveBtn.disabled = true;
+            confirmLeaveBtn.classList.remove('loading');
+            confirmLeaveBtn.textContent = '🚪 Leave Group';
+        }
+
+        // Show modal
+        modal.style.display = 'flex';
+        
+        // Focus appropriate input
+        setTimeout(() => {
+            if (leaveConfirmInput) {
+                leaveConfirmInput.focus();
+            } else if (newAdminSelect) {
+                newAdminSelect.focus();
+            }
+        }, 300);
+
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideLeaveConfirmation() {
+        const modal = document.getElementById('leaveConfirmationModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.body.style.overflow = '';
+    }
+
+    async confirmLeaveGroup() {
+        const confirmLeaveBtn = document.getElementById('confirmLeaveBtn');
+        const leaveConfirmInput = document.getElementById('leaveConfirmation');
+        const newAdminSelect = document.getElementById('newAdminSelect');
+        
+        if (!confirmLeaveBtn) {
+            console.error('Leave confirmation button not found');
+            return;
+        }
+
+        // Validate based on user type
+        let newAdminId = null;
+        
+        if (newAdminSelect) {
+            // Creator must select new admin
+            newAdminId = newAdminSelect.value;
+            if (!newAdminId) {
+                alert('Please select a new admin before leaving');
+                newAdminSelect.focus();
+                return;
+            }
+        } else if (leaveConfirmInput) {
+            // Regular member must type confirmation
+            const confirmationText = leaveConfirmInput.value.trim().toLowerCase();
+            if (confirmationText !== 'leave') {
+                alert('Please type "leave" to confirm');
+                leaveConfirmInput.focus();
+                return;
+            }
+        }
+
+        // Show loading state
+        confirmLeaveBtn.classList.add('loading');
+        confirmLeaveBtn.disabled = true;
+        confirmLeaveBtn.textContent = 'Leaving...';
+
+        try {
+            const groupId = this.getGroupId();
+            if (!groupId) {
+                throw new Error('Group ID not found');
+            }
+
+            const requestData = {};
+            if (newAdminId) {
+                requestData.new_admin_id = newAdminId;
+            }
+
+            const response = await fetch(`/groups/${groupId}/leave`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(requestData)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show success state
+                confirmLeaveBtn.classList.remove('loading');
+                confirmLeaveBtn.classList.add('leave-success');
+                confirmLeaveBtn.textContent = 'Left Successfully!';
+
+                // Show success message
+                alert(data.message || 'You have left the group successfully');
+
+                // Redirect to dashboard
+                setTimeout(() => {
+                    window.location.href = data.redirect_url || '/dashboard';
+                }, 1000);
+
+            } else {
+                throw new Error(data.error || 'Leave failed');
+            }
+
+        } catch (error) {
+            console.error('Error leaving group:', error);
+            
+            // Reset button state
+            confirmLeaveBtn.classList.remove('loading');
+            confirmLeaveBtn.textContent = '🚪 Leave Group';
+            
+            // Show error
+            alert(`Failed to leave group: ${error.message}`);
+            
+            // Re-enable button based on validation
+            if (newAdminSelect) {
+                confirmLeaveBtn.disabled = !newAdminSelect.value;
+            } else if (leaveConfirmInput) {
+                const isValid = leaveConfirmInput.value.trim().toLowerCase() === 'leave';
+                confirmLeaveBtn.disabled = !isValid;
+            }
+        }
     }
 
     // DELETE GROUP FUNCTIONALITY
@@ -413,8 +614,14 @@ class SettingsManager {
         // Handle Escape key globally
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
-                const modal = document.getElementById('deleteConfirmationModal');
-                if (modal && modal.style.display !== 'none') {
+                const leaveModal = document.getElementById('leaveConfirmationModal');
+                if (leaveModal && leaveModal.style.display !== 'none') {
+                    this.hideLeaveConfirmation();
+                    return;
+                }
+                
+                const deleteModal = document.getElementById('deleteConfirmationModal');
+                if (deleteModal && deleteModal.style.display !== 'none') {
                     this.hideDeleteConfirmation();
                 }
             }
@@ -561,6 +768,9 @@ window.settingsManager = new SettingsManager();
 // Export functions to global scope for HTML compatibility
 window.copyInviteCode = () => window.settingsManager.copyInviteCode();
 window.toggleEditMode = () => window.settingsManager.toggleEditMode();
+window.showLeaveConfirmation = () => window.settingsManager.showLeaveConfirmation();
+window.hideLeaveConfirmation = () => window.settingsManager.hideLeaveConfirmation();
+window.confirmLeaveGroup = () => window.settingsManager.confirmLeaveGroup();
 window.showDeleteConfirmation = () => window.settingsManager.showDeleteConfirmation();
 window.hideDeleteConfirmation = () => window.settingsManager.hideDeleteConfirmation();
 window.confirmDeleteGroup = () => window.settingsManager.confirmDeleteGroup();

@@ -2,10 +2,11 @@
 
 from flask import Blueprint, jsonify, request, redirect, url_for, render_template_string, flash
 from flask_login import login_required, current_user
-from models import User, Expense, Category, Group, db
+from models import User, Expense, Category, Group, db, Balance, user_groups
 from sqlalchemy import func, desc
 from datetime import datetime
 from flask import current_app
+from app.services.user_service import UserService
 
 groups_bp = Blueprint('groups', __name__, url_prefix='/groups')
 
@@ -202,7 +203,7 @@ def update_group(group_id):
         current_app.logger.error(f"Error updating group {group_id}: {e}")
         return jsonify({"success": False, "error": "An error occurred while updating the group"}), 500
     
-    
+
 @groups_bp.route('/<int:group_id>/delete', methods=['POST'])
 @login_required
 def delete_group(group_id):
@@ -255,4 +256,90 @@ def delete_group(group_id):
         return jsonify({
             'success': False,
             'error': 'An error occurred while deleting the group'
+        }), 500
+    
+@groups_bp.route('/<int:group_id>/leave', methods=['POST'])
+@login_required
+def leave(group_id):
+    """Leave a group with enhanced admin transfer functionality"""
+    group = Group.query.get_or_404(group_id)
+    
+    if current_user not in group.members:
+        return jsonify({'success': False, 'error': 'You are not a member of this group'}), 403
+
+    try:
+        data = request.get_json() if request.is_json else {}
+        is_creator = group.creator_id == current_user.id
+        is_admin = current_user.is_group_admin(group)
+        
+        # Handle creator leaving (must transfer admin rights)
+        if is_creator:
+            new_admin_id = data.get('new_admin_id')
+            if not new_admin_id:
+                return jsonify({
+                    'success': False, 
+                    'error': 'As group creator, you must select a new admin before leaving'
+                }), 400
+            
+            # Validate new admin
+            new_admin = User.query.get(new_admin_id)
+            if not new_admin:
+                return jsonify({'success': False, 'error': 'Selected user not found'}), 400
+            
+            if new_admin not in group.members:
+                return jsonify({'success': False, 'error': 'Selected user is not a group member'}), 400
+            
+            if new_admin.id == current_user.id:
+                return jsonify({'success': False, 'error': 'You cannot transfer admin rights to yourself'}), 400
+            
+            # Check if group has at least 2 members
+            if group.get_member_count() < 2:
+                return jsonify({
+                    'success': False, 
+                    'error': 'Cannot leave group with only one member. Delete the group instead.'
+                }), 400
+            
+            # Transfer admin rights
+            group.creator_id = new_admin.id
+            
+            # Update the association table to make new admin have admin role
+            # First remove old admin role entry for new admin (if any)
+            stmt_remove = user_groups.update().where(
+                user_groups.c.user_id == new_admin.id,
+                user_groups.c.group_id == group.id
+            ).values(role='admin')
+            db.session.execute(stmt_remove)
+            
+            current_app.logger.info(f"Transferred admin rights from {current_user.name} to {new_admin.name} for group {group.name}")
+        
+        # Remove user from group
+        group.remove_member(current_user)
+        
+        # Update balances if user had any outstanding balance
+        user_balance = Balance.query.filter_by(user_id=current_user.id, group_id=group_id).first()
+        if user_balance and abs(user_balance.amount) > 0.01:
+            current_app.logger.warning(f"User {current_user.name} left group {group.name} with outstanding balance of ${user_balance.amount}")
+            # Optionally, you could prevent leaving with outstanding balance
+            # or create a settlement record
+        
+        db.session.commit()
+        
+        group_name = group.name
+        success_message = f'You have successfully left "{group_name}"'
+        
+        if is_creator:
+            success_message += f' and transferred admin rights to {new_admin.name}'
+        
+        return jsonify({
+            'success': True,
+            'message': success_message,
+            'redirect_url': url_for('dashboard.home')
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        current_app.logger.error(f"Error leaving group {group_id}: {e}")
+        return jsonify({
+            'success': False, 
+            'error': 'An error occurred while leaving the group'
         }), 500
