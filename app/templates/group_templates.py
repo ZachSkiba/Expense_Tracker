@@ -128,9 +128,6 @@ def get_groups_template():
                         <p style="margin-top: 0.5rem; color: #4a5568;">{{ group.description }}</p>
                         {% endif %}
                     </div>
-                    <div class="group-actions">
-                        <a href="{{ url_for('groups.detail', group_id=group.id) }}" class="btn">View Details</a>
-                    </div>
                 </div>
                 
                 <div style="background: #f7fafc; padding: 1rem; border-radius: 6px; margin-top: 1rem;">

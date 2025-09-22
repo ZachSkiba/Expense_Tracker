@@ -108,14 +108,14 @@ def join():
         
         if current_user in group.members:
             flash('You are already a member of this group', 'info')
-            return redirect(url_for('groups.detail', group_id=group.id))
+            return redirect(url_for('dashboard.home', group_id=group.id))
         
         try:
             group.add_member(current_user, role='member')
             db.session.commit()
             
             flash(f'Successfully joined "{group.name}"!', 'success')
-            return redirect(url_for('groups.detail', group_id=group.id))
+            return redirect(url_for('dashboard.home', group_id=group.id))
             
         except Exception as e:
             db.session.rollback()
@@ -125,48 +125,6 @@ def join():
     from app.templates.group_templates import get_join_group_template
     return render_template_string(get_join_group_template())
 
-@groups_bp.route('/<int:group_id>')
-@login_required
-def detail(group_id):
-    """Group detail page"""
-    group = Group.query.get_or_404(group_id)
-    
-    # Check if user is member
-    if current_user not in group.members:
-        flash('You are not a member of this group', 'error')
-        return redirect(url_for('groups.index'))
-    
-    # Get recent expenses
-    recent_expenses = Expense.query.filter_by(group_id=group_id)\
-        .order_by(desc(Expense.date)).limit(10).all()
-    
-    # Get group categories
-    group_categories = Category.query.filter_by(group_id=group_id).all()
-    
-    # Calculate total spent this month
-    start_of_month = datetime.now().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    monthly_total = db.session.query(func.sum(Expense.amount)).filter(
-        Expense.group_id == group_id,
-        Expense.date >= start_of_month.date()
-    ).scalar() or 0
-    
-    # Get user's balance in this group
-    user_balance = current_user.get_group_balance(group_id)
-    
-    is_admin = current_user.is_group_admin(group)
-    
-    from app.templates.group_templates import get_group_detail_template
-    return render_template_string(
-        get_group_detail_template(),
-        group=group,
-        recent_expenses=recent_expenses,
-        group_categories=group_categories,
-        monthly_total=monthly_total,
-        user_balance=user_balance,
-        is_admin=is_admin,
-        abs=abs
-    )
-
 @groups_bp.route('/<int:group_id>/leave', methods=['POST'])
 @login_required
 def leave(group_id):
@@ -175,23 +133,23 @@ def leave(group_id):
     
     if current_user not in group.members:
         flash('You are not a member of this group', 'error')
-        return redirect(url_for('groups.index'))
+        return redirect(url_for('dashboard.home'))
     
     if group.creator_id == current_user.id:
         flash('You cannot leave a group you created. Transfer ownership first.', 'error')
-        return redirect(url_for('groups.detail', group_id=group_id))
+        return redirect(url_for('dashboard.home', group_id=group_id))
 
     try:
         group.remove_member(current_user)
         db.session.commit()
         
         flash(f'You have left "{group.name}"', 'success')
-        return redirect(url_for('groups.index'))
+        return redirect(url_for('dashboard.home'))
         
     except Exception as e:
         db.session.rollback()
         flash('An error occurred while leaving the group', 'error')
-        return redirect(url_for('groups.detail', group_id=group_id))
+        return redirect(url_for('dashboard.home', group_id=group_id))
     
 
 @groups_bp.route('/<int:group_id>/update', methods=['POST'])
