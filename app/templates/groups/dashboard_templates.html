@@ -4,16 +4,9 @@
     <title>Dashboard - Expense Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link href="{{ url_for('static', filename='css/dashboard.css') }}" rel="stylesheet">
 </head>
 <body>
-    <!-- Animated background particles -->
-    <div class="bg-particles">
-        <div class="particle"></div>
-        <div class="particle"></div>
-        <div class="particle"></div>
-    </div>
-
     <div class="header">
         <h1>
             <i class="fas fa-coins icon"></i>
@@ -47,54 +40,7 @@
 
         <div class="welcome">
             <h2>Welcome back, {{ user.display_name }}!</h2>
-            <p>Manage your personal expenses and group spending with style</p>
-        </div>
-
-        <!-- Stats Overview -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-users"></i>
-                </div>
-                <div class="stat-number">{{ user_groups|length }}</div>
-                <div class="stat-label">Group Trackers</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="stat-number">{{ personal_trackers|length }}</div>
-                <div class="stat-label">Personal Trackers</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-balance-scale"></i>
-                </div>
-                <div class="stat-number">
-                    {% set total_balance = 0 %}
-                    {% for group in user_groups %}
-                        {% set total_balance = total_balance + group_balances.get(group.id, 0) %}
-                    {% endfor %}
-                    {% if total_balance > 0 %}
-                        <span class="balance-positive">+${{ "%.2f"|format(total_balance) }}</span>
-                    {% elif total_balance < 0 %}
-                        <span class="balance-negative">-${{ "%.2f"|format(-total_balance) }}</span>
-                    {% else %}
-                        <span class="balance-zero">$0.00</span>
-                    {% endif %}
-                </div>
-                <div class="stat-label">Net Balance</div>
-            </div>
-            
-            <div class="stat-card">
-                <div class="stat-icon">
-                    <i class="fas fa-chart-line"></i>
-                </div>
-                <div class="stat-number">{{ (user_groups|length + personal_trackers|length) }}</div>
-                <div class="stat-label">Total Trackers</div>
-            </div>
+            <p>Manage your personal expenses and group spending</p>
         </div>
 
         <div class="current-trackers">
@@ -241,7 +187,7 @@
         {% if not user_groups and not personal_trackers %}
         <div class="tracker-section">
             <div class="empty-state">
-                <h3 style="color: #718096; margin-bottom: 1rem;">Welcome to Expense Tracker!</h3>
+                <h3>Welcome to Expense Tracker!</h3>
                 <p>Get started by creating your first expense tracker</p>
                 <p style="font-size: 0.875rem; margin-top: 0.5rem; color: #a0aec0;">Choose from group expenses or personal tracking above</p>
             </div>
