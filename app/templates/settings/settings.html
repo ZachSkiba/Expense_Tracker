@@ -2,10 +2,10 @@
 <html>
 <head>
     <title>Settings - {{ group.name}}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings-page.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_cont.css') }}">
-        
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings/settings-page.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings/settings_cont.css') }}">
+
 </head>
 <body>
     <!-- Header -->
@@ -19,7 +19,7 @@
                 <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View Expenses</a>
                 <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Settlements</a>
                 <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
-                <a href="{{ url_for('dashboard.home') }}">🏠 Dashboard</a>
+                <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
             </nav>
         </div>
     </div>
@@ -147,6 +147,18 @@
                     <span class="setting-arrow">›</span>
                 </div>
             </a>
+        <a href="{{ url_for('dashboard.home') }}" class="setting-item">
+            <div class="setting-left">
+                <div class="setting-icon purple">⚓</div>
+                <div class="setting-info">
+                    <div class="setting-name">Dashboard</div>
+                    <div class="setting-description">View your personal dashboard and manage all your groups</div>
+                </div>
+            </div>
+            <div class="setting-right">
+                <span class="setting-arrow">›</span>
+            </div>
+        </a>
         </div>
 
         <!-- Appearance -->

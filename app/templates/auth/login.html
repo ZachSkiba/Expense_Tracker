@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign In - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
+    
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h1 class="form-title">💰 Expense Tracker</h1>
+            <p class="form-subtitle">Sign in to your account</p>
+        </div>
+        
+        {% for category, message in get_flashed_messages(with_categories=true) %}
+            <div class="flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+        
+        <form method="post">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn">Sign In</button>
+        </form>
+        <div class="auth-link">
+            Don't have an account? <a href="{{ url_for('auth.signup') }}">Sign Up</a>
+        </div>
+    </div>
+</body>
+</html>

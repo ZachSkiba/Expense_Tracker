@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Profile - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/profile.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <i class="fas fa-coins"></i>
+            Expense Tracker
+        </h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('auth.profile') }}" style="background: var(--primary-gradient); color: white;">
+                <i class="fas fa-user"></i>
+                Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-{{ category }}">
+                    <i class="fas fa-{{ 'check-circle' if category == 'success' else 'info-circle' if category == 'info' else 'exclamation-circle' }}"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="profile-container">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="profile-name">{{ user.full_name }}</div>
+                <div class="profile-email">{{ user.email }}</div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        Account Information
+                    </h3>
+                    
+                    <div class="info-grid">
+                        <!-- Full Name -->
+                        <div class="info-item editable" id="full-name-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Full Name</div>
+                                        <div class="info-value" id="full-name-display">{{ user.full_name }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('full-name')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="full-name-form">
+                                <form onsubmit="saveField('full-name', event)">
+                                    <input type="text" class="form-input" id="full-name-input" value="{{ user.full_name }}" required>
+                                    <div class="field-help">Your complete name as you'd like it to appear</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('full-name')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Display Name -->
+                        <div class="info-item editable" id="display-name-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Display Name</div>
+                                        <div class="info-value" id="display-name-display">{{ user.display_name }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('display-name')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="display-name-form">
+                                <form onsubmit="saveField('display-name', event)">
+                                    <input type="text" class="form-input" id="display-name-input" value="{{ user.display_name }}" required>
+                                    <div class="field-help">How others see your name in groups (3-20 characters, letters, numbers, and underscores only)</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('display-name')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="info-item editable" id="email-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Email Address</div>
+                                        <div class="info-value" id="email-display">{{ user.email }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('email')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="email-form">
+                                <form onsubmit="saveField('email', event)">
+                                    <input type="email" class="form-input" id="email-input" value="{{ user.email }}" required>
+                                    <div class="field-help">Used for login and notifications</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('email')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Account Status (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Account Status</div>
+                            <div class="info-value">
+                                <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+                                {{ 'Active' if user.is_active else 'Inactive' }}
+                            </div>
+                        </div>
+
+                        <!-- Member Since (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Member Since</div>
+                            <div class="info-value">{{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'Unknown' }}</div>
+                        </div>
+
+                        {% if user.last_login %}
+                        <!-- Last Login (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Last Login</div>
+                            <div class="info-value">{{ user.last_login.strftime('%b %d, %Y at %I:%M %p') }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="password-section">
+                    <a href="{{ url_for('auth.change_password') }}" class="btn">
+                        <i class="fas fa-lock"></i>
+                        Change Password
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function editField(fieldName) {
+            // Hide all other edit forms
+            const allItems = document.querySelectorAll('.info-item');
+            allItems.forEach(item => {
+                item.classList.remove('editing');
+                const display = item.querySelector('.info-display');
+                const form = item.querySelector('.edit-form');
+                if (display) display.style.display = 'block';
+                if (form) form.classList.remove('active');
+            });
+            
+            // Show the selected field's edit form
+            const item = document.getElementById(fieldName + '-item');
+            const display = item.querySelector('.info-display');
+            const form = item.querySelector('.edit-form');
+            
+            item.classList.add('editing');
+            display.style.display = 'none';
+            form.classList.add('active');
+            
+            // Focus the input
+            const input = document.getElementById(fieldName + '-input');
+            input.focus();
+            input.select();
+        }
+
+        function cancelEdit(fieldName) {
+            const item = document.getElementById(fieldName + '-item');
+            const display = item.querySelector('.info-display');
+            const form = item.querySelector('.edit-form');
+            const input = document.getElementById(fieldName + '-input');
+            const displayValue = document.getElementById(fieldName + '-display');
+            
+            // Reset input to original value
+            input.value = displayValue.textContent;
+            
+            // Show display, hide form
+            item.classList.remove('editing');
+            display.style.display = 'block';
+            form.classList.remove('active');
+        }
+
+        async function saveField(fieldName, event) {
+            event.preventDefault();
+            
+            const input = document.getElementById(fieldName + '-input');
+            const newValue = input.value.trim();
+            
+            if (!newValue) {
+                alert('This field cannot be empty');
+                return;
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('field', fieldName.replace('-', '_'));
+                formData.append('value', newValue);
+                
+                const response = await fetch('{{ url_for("auth.update_profile_field") }}', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Update display value
+                    const display = document.getElementById(fieldName + '-display');
+                    display.textContent = newValue;
+                    
+                    // Update header if it's the full name or email
+                    if (fieldName === 'full-name') {
+                        document.querySelector('.profile-name').textContent = newValue;
+                    } else if (fieldName === 'email') {
+                        document.querySelector('.profile-email').textContent = newValue;
+                    }
+                    
+                    // Hide edit form
+                    cancelEdit(fieldName);
+                    
+                    // Show success message
+                    showMessage('Profile updated successfully', 'success');
+                } else {
+                    showMessage(result.error || 'Error updating profile', 'error');
+                }
+            } catch (error) {
+                showMessage('Network error. Please try again.', 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            const messagesContainer = document.querySelector('.flash-messages');
+            const message = document.createElement('div');
+            message.className = `flash-${type}`;
+            message.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                ${text}
+            `;
+            
+            messagesContainer.appendChild(message);
+            
+            // Remove message after 5 seconds
+            setTimeout(() => {
+                message.remove();
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
