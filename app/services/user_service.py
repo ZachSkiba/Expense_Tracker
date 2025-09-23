@@ -67,6 +67,7 @@ class UserService:
     def can_delete_user(user_id, group_id=None):
         """
         Check if user can be safely deleted or removed from group
+        Only checks for non-zero balances - historical activity doesn't prevent removal if balance is settled
         
         Args:
             user_id: ID of user to check
@@ -84,60 +85,43 @@ class UserService:
             if not group:
                 return False, ["Group not found"]
             
-            if user == group.creator:
+            if user.id == group.creator_id:  # Fixed: use user.id and creator_id
                 return False, ["Cannot remove the group creator"]
             
-            # Check if user has expenses as payer in this group
-            payer_expenses = Expense.query.filter_by(user_id=user_id, group_id=group_id).all()
-            if payer_expenses:
-                expense_url = url_for('expenses.group_tracker', group_id=group_id)
-                reasons.append(
-                    f"{user.name} paid for "
-                    f"<a href='{expense_url}'>{len(payer_expenses)} expense(s)</a>"
-                )
-            
-            # Check if user participated in expenses in this group
-            participant_expenses = db.session.query(ExpenseParticipant)\
-                .join(Expense)\
-                .filter(ExpenseParticipant.user_id == user_id, Expense.group_id == group_id)\
-                .all()
-            
-            if participant_expenses:
-                expense_url = url_for('expenses.group_tracker', group_id=group_id)
-                reasons.append(
-                    f"{user.name} participated in "
-                    f"<a href='{expense_url}'>{len(participant_expenses)} expense(s)</a>"
-                )
-            
-            # Check if user has non-zero balance in this group
+            # ONLY check if user has non-zero balance in this group
+            # Historical expenses/settlements don't matter if balance is settled
             balance = Balance.query.filter_by(user_id=user_id, group_id=group_id).first()
             if balance and abs(balance.amount) > 0.01:
                 balance_url = url_for('expenses.group_tracker', group_id=group_id)
                 if balance.amount > 0:
                     reasons.append(
                         f"{user.name} is owed <strong>${balance.amount:.2f}</strong> "
-                        f"(<a href='{balance_url}'>view balances</a>)"
+                        f"(<a href='{balance_url}'>settle balance first</a>)"
                     )
                 else:
                     reasons.append(
                         f"{user.name} owes <strong>${abs(balance.amount):.2f}</strong> "
-                        f"(<a href='{balance_url}'>view balances</a>)"
+                        f"(<a href='{balance_url}'>settle balance first</a>)"
                     )
+            
+            # If balance is zero or doesn't exist, user can be removed regardless of historical activity
+            # No other checks needed for group-specific removal
+            
         else:
             # Global checks (legacy method for full user deletion)
-            # Check if user has expenses as payer
+            # For global deletion, we still check expenses since it affects other users
             payer_expenses = user.expenses
             if payer_expenses:
-                expense_url = url_for('dashboard.home')  # Or appropriate expense list URL
+                expense_url = url_for('dashboard.home')
                 reasons.append(
                     f"{user.name} paid for "
                     f"<a href='{expense_url}'>{len(payer_expenses)} expense(s)</a>"
                 )
             
-            # Check if user has non-zero balance
+            # Check if user has non-zero balance globally
             net_balance = user.get_net_balance()
-            if abs(net_balance) > 0.01:  # Not zero (accounting for floating point)
-                balance_url = url_for('dashboard.home')  # Or appropriate balance URL
+            if abs(net_balance) > 0.01:
+                balance_url = url_for('dashboard.home')
                 if net_balance > 0:
                     reasons.append(
                         f"{user.name} is owed <strong>${net_balance:.2f}</strong> "

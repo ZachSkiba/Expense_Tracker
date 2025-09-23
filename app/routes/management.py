@@ -143,29 +143,7 @@ def _can_remove_user_from_group(user, group):
     Returns: (can_remove_boolean, list_of_reasons)
     """
     reasons = []
-    
-    # Check if user has expenses as payer in this group
-    payer_expenses = Expense.query.filter_by(user_id=user.id, group_id=group.id).all()
-    if payer_expenses:
-        expense_url = url_for('expenses.group_tracker', group_id=group.id)
-        reasons.append(
-            f"{user.name} paid for "
-            f"<a href='{expense_url}'>{len(payer_expenses)} expense(s)</a>"
-        )
-    
-    # Check if user participated in expenses in this group
-    from models import ExpenseParticipant
-    participant_expenses = db.session.query(ExpenseParticipant)\
-        .join(Expense)\
-        .filter(ExpenseParticipant.user_id == user.id, Expense.group_id == group.id)\
-        .all()
-    
-    if participant_expenses:
-        expense_url = url_for('expenses.group_tracker', group_id=group.id)
-        reasons.append(
-            f"{user.name} participated in "
-            f"<a href='{expense_url}'>{len(participant_expenses)} expense(s)</a>"
-        )
+
     
     # Check if user has non-zero balance in this group
     balance = Balance.query.filter_by(user_id=user.id, group_id=group.id).first()

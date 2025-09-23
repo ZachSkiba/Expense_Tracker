@@ -3,298 +3,158 @@
 <head>
     <title>Dashboard - Expense Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: #f8fafc;
-            color: #1a202c;
-        }
-        .header {
-            background: white;
-            padding: 1rem 2rem;
-            border-bottom: 1px solid #e2e8f0;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .header h1 { color: #2d3748; }
-        .nav-links a {
-            margin-left: 1rem;
-            color: #4a5568;
-            text-decoration: none;
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            transition: all 0.2s;
-        }
-        .nav-links a:hover { background: #edf2f7; }
-        .main { padding: 2rem; max-width: 1000px; margin: 0 auto; }
-        .welcome { 
-            text-align: center;
-            margin-bottom: 3rem;
-            padding: 2rem;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .welcome h2 { 
-            color: #2d3748; 
-            margin-bottom: 0.5rem; 
-            font-size: 2rem;
-        }
-        .welcome p { 
-            color: #718096; 
-            font-size: 1.1rem;
-        }
-        
-        .current-trackers {
-            margin-bottom: 3rem;
-        }
-        
-        .tracker-section {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-            margin-bottom: 2rem;
-        }
-        
-        .section-title {
-            color: #2d3748;
-            font-size: 1.25rem;
-            margin-bottom: 1.5rem;
-            display: flex;
-            align-items: center;
-        }
-        
-        .section-icon {
-            margin-right: 0.5rem;
-        }
-        
-        .tracker-card {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 1.5rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            margin-bottom: 1rem;
-            transition: all 0.2s;
-            background: #fafafa;
-        }
-        
-        .tracker-card:hover { 
-            background: white;
-            border-color: #cbd5e0;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        }
-        
-        .tracker-info h4 { 
-            color: #2d3748; 
-            margin-bottom: 0.5rem;
-            font-size: 1.1rem;
-        }
-        
-        .tracker-info h4 a {
-            color: #4299e1;
-            text-decoration: none;
-        }
-        
-        .tracker-info h4 a:hover {
-            color: #3182ce;
-        }
-        
-        .tracker-info p { 
-            color: #718096; 
-            font-size: 0.875rem;
-            margin-bottom: 0.25rem;
-        }
-        
-        .tracker-actions {
-            display: flex;
-            gap: 0.5rem;
-        }
-        
-        .tracker-balance {
-            text-align: right;
-            font-weight: bold;
-        }
-        
-        .balance-positive { color: #38a169; }
-        .balance-negative { color: #e53e3e; }
-        
-        .empty-state {
-            text-align: center;
-            padding: 2rem;
-            color: #718096;
-            background: #f7fafc;
-            border-radius: 8px;
-            border: 2px dashed #e2e8f0;
-        }
-        
-        .tracker-options {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-        
-        .option-card {
-            background: white;
-            border-radius: 12px;
-            padding: 2rem;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            border: 2px solid #e2e8f0;
-            text-align: center;
-            transition: all 0.3s;
-        }
-        
-        .option-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0,0,0,0.1);
-            border-color: #4299e1;
-        }
-        
-        .option-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .option-title {
-            font-size: 1.5rem;
-            font-weight: bold;
-            color: #2d3748;
-            margin-bottom: 0.5rem;
-        }
-        
-        .option-description {
-            color: #718096;
-            margin-bottom: 1.5rem;
-            line-height: 1.5;
-        }
-        
-        .btn {
-            display: inline-block;
-            padding: 0.75rem 2rem;
-            background: #4299e1;
-            color: white;
-            text-decoration: none;
-            border-radius: 8px;
-            font-weight: 500;
-            transition: all 0.2s;
-            border: none;
-            cursor: pointer;
-            font-size: 1rem;
-        }
-        
-        .btn:hover { 
-            background: #3182ce;
-            transform: translateY(-1px);
-        }
-        
-        .btn-secondary {
-            background: #718096;
-            margin-left: 0.5rem;
-        }
-        
-        .btn-secondary:hover { 
-            background: #4a5568; 
-        }
-        
-        .btn-small {
-            padding: 0.5rem 1rem;
-            font-size: 0.875rem;
-        }
-        
-        .flash-messages { margin-bottom: 1rem; }
-        .flash-success {
-            background: #f0fff4;
-            color: #22543d;
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #9ae6b4;
-            margin-bottom: 0.5rem;
-        }
-        .flash-error {
-            background: #fed7d7;
-            color: #742a2a;
-            padding: 0.75rem 1rem;
-            border-radius: 6px;
-            border: 1px solid #feb2b2;
-            margin-bottom: 0.5rem;
-        }
-
-        .personal-tracker-form {
-            display: none;
-            margin-top: 1rem;
-            text-align: left;
-        }
-        
-        .personal-tracker-form input {
-            width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            margin-bottom: 1rem;
-        }
-        
-        .personal-tracker-form .btn {
-            margin-right: 0.5rem;
-        }
-    </style>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
 </head>
 <body>
+    <!-- Animated background particles -->
+    <div class="bg-particles">
+        <div class="particle"></div>
+        <div class="particle"></div>
+        <div class="particle"></div>
+    </div>
+
     <div class="header">
-        <h1>💰 Expense Tracker</h1>
+        <h1>
+            <i class="fas fa-coins icon"></i>
+            Expense Tracker
+        </h1>
         <div class="nav-links">
-            <a href="{{ url_for('dashboard.home') }}">Dashboard</a>
-            <a href="{{ url_for('auth.profile') }}">Profile</a>
-            <a href="{{ url_for('auth.logout') }}">Logout</a>
+            <a href="{{ url_for('dashboard.home') }}">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('auth.profile') }}">
+                <i class="fas fa-user"></i>
+                Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </a>
         </div>
     </div>
 
     <div class="main">
         <div class="flash-messages">
             {% for category, message in get_flashed_messages(with_categories=true) %}
-                <div class="flash-{{ category }}">{{ message }}</div>
+                <div class="flash-{{ category }}">
+                    <i class="fas fa-{{ 'check-circle' if category == 'success' else 'exclamation-circle' }}"></i>
+                    {{ message }}
+                </div>
             {% endfor %}
         </div>
 
         <div class="welcome">
-            <h2>Welcome back, {{ user.name }}!</h2>
-            <p>Manage your personal expenses and group spending</p>
+            <h2>Welcome back, {{ user.display_name }}!</h2>
+            <p>Manage your personal expenses and group spending with style</p>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-number">{{ user_groups|length }}</div>
+                <div class="stat-label">Group Trackers</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="stat-number">{{ personal_trackers|length }}</div>
+                <div class="stat-label">Personal Trackers</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-balance-scale"></i>
+                </div>
+                <div class="stat-number">
+                    {% set total_balance = 0 %}
+                    {% for group in user_groups %}
+                        {% set total_balance = total_balance + group_balances.get(group.id, 0) %}
+                    {% endfor %}
+                    {% if total_balance > 0 %}
+                        <span class="balance-positive">+${{ "%.2f"|format(total_balance) }}</span>
+                    {% elif total_balance < 0 %}
+                        <span class="balance-negative">-${{ "%.2f"|format(-total_balance) }}</span>
+                    {% else %}
+                        <span class="balance-zero">$0.00</span>
+                    {% endif %}
+                </div>
+                <div class="stat-label">Net Balance</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="stat-number">{{ (user_groups|length + personal_trackers|length) }}</div>
+                <div class="stat-label">Total Trackers</div>
+            </div>
         </div>
 
         <div class="current-trackers">
-            <!-- Group Expense Trackers First -->
+            <!-- Group Expense Trackers -->
             {% if user_groups %}
             <div class="tracker-section">
                 <h3 class="section-title">
-                    <span class="section-icon">👥</span>Your Group Expense Trackers ({{ user_groups|length }})
+                    <div class="section-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    Your Group Expense Trackers ({{ user_groups|length }})
                 </h3>
                 
                 {% for group in user_groups %}
                 <div class="tracker-card">
                     <div class="tracker-info">
-                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">{{ group.name }}</a></h4>
-                        <p>{{ group.get_member_count() }} members • Created {{ group.created_at.strftime('%b %d, %Y') }}</p>
+                        <h4>
+                            <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">
+                                {{ group.name }}
+                            </a>
+                        </h4>
+                        <p>
+                            <i class="fas fa-users"></i>
+                            {{ group.get_member_count() }} members
+                            •
+                            <i class="fas fa-calendar"></i>
+                            Created {{ group.created_at.strftime('%b %d, %Y') }}
+                        </p>
                         {% if group.description %}
-                        <p style="color: #9ca3af; font-size: 0.8rem;">{{ group.description }}</p>
+                        <p style="color: #9ca3af; font-size: 0.8rem;">
+                            <i class="fas fa-info-circle"></i>
+                            {{ group.description }}
+                        </p>
                         {% endif %}
                     </div>
                     <div class="tracker-actions">
-                        <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn btn-small">Open Tracker</a>
+                        <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn btn-small">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open Tracker
+                        </a>
                     </div>
                     <div class="tracker-balance">
                         {% set balance = group_balances.get(group.id, 0) %}
                         {% if balance > 0 %}
-                            <div class="balance-positive">+${{ "%.2f"|format(balance) }}</div>
+                            <div class="balance-positive">
+                                <i class="fas fa-arrow-up"></i>
+                                +${{ "%.2f"|format(balance) }}
+                            </div>
                             <div style="font-size: 0.75rem; color: #718096;">You're owed</div>
                         {% elif balance < 0 %}
-                            <div class="balance-negative">-${{ "%.2f"|format(-balance) }}</div>
+                            <div class="balance-negative">
+                                <i class="fas fa-arrow-down"></i>
+                                ${{ "%.2f"|format(-balance) }}
+                            </div>
                             <div style="font-size: 0.75rem; color: #718096;">You owe</div>
                         {% else %}
-                            <div>$0.00</div>
+                            <div class="balance-zero">
+                                <i class="fas fa-check-circle"></i>
+                                $0.00
+                            </div>
                             <div style="font-size: 0.75rem; color: #718096;">Settled up</div>
                         {% endif %}
                     </div>
@@ -307,18 +167,34 @@
             {% if personal_trackers %}
             <div class="tracker-section">
                 <h3 class="section-title">
-                    <span class="section-icon">👤</span>Your Personal Expense Trackers ({{ personal_trackers|length }})
+                    <div class="section-icon">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    Your Personal Expense Trackers ({{ personal_trackers|length }})
                 </h3>
                 
                 {% for tracker in personal_trackers %}
                 <div class="tracker-card">
                     <div class="tracker-info">
-                        <h4><a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}">{{ tracker.name }}</a></h4>
-                        <p>Created {{ tracker.created_at.strftime('%b %d, %Y') }}</p>
-                        <p>Personal expense tracker</p>
+                        <h4>
+                            <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}">
+                                {{ tracker.name }}
+                            </a>
+                        </h4>
+                        <p>
+                            <i class="fas fa-calendar"></i>
+                            Created {{ tracker.created_at.strftime('%b %d, %Y') }}
+                        </p>
+                        <p>
+                            <i class="fas fa-user-check"></i>
+                            Personal expense tracker
+                        </p>
                     </div>
                     <div class="tracker-actions">
-                        <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" class="btn btn-small">Open Tracker</a>
+                        <a href="{{ url_for('expenses.group_tracker', group_id=tracker.id) }}" class="btn btn-small">
+                            <i class="fas fa-external-link-alt"></i>
+                            Open Tracker
+                        </a>
                     </div>
                 </div>
                 {% endfor %}

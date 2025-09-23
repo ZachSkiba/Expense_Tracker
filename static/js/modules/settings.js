@@ -10,6 +10,7 @@ class SettingsManager {
     init() {
         this.setupEventListeners();
         this.setupDisabledToggles();
+        this.setupManageAdminsModal();
         this.setupLeaveConfirmation();
         this.setupDeleteConfirmation();
     }
@@ -862,6 +863,140 @@ class SettingsManager {
             console.log(`[Settings] ${message}`, data || '');
         }
     }
+
+
+    // MANAGE ADMIN RIGHTS FUNCTIONALITY
+    setupManageAdminsModal() {
+        const memberCheckboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]');
+        const saveBtn = document.getElementById('saveAdminsBtn');
+        
+        if (memberCheckboxes.length && saveBtn) {
+            memberCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    // Ensure at least one admin is selected
+                    const checkedBoxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]:checked');
+                    saveBtn.disabled = checkedBoxes.length === 0;
+                    
+                    if (checkedBoxes.length === 0) {
+                        saveBtn.textContent = '⚠️ Select at least one admin';
+                    } else {
+                        saveBtn.textContent = '💾 Save Admin Rights';
+                    }
+                });
+            });
+        }
+
+        // Handle modal close events
+        const modal = document.getElementById('manageAdminsModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideManageAdminsModal();
+                }
+            });
+        }
+    }
+
+    showManageAdminsModal() {
+        const modal = document.getElementById('manageAdminsModal');
+        const saveBtn = document.getElementById('saveAdminsBtn');
+        
+        if (!modal) {
+            console.error('Manage admins modal not found');
+            return;
+        }
+
+        // Reset button state
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('loading');
+            saveBtn.textContent = '💾 Save Admin Rights';
+        }
+
+        // Show modal
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    hideManageAdminsModal() {
+        const modal = document.getElementById('manageAdminsModal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+        document.body.style.overflow = '';
+    }
+
+    async saveAdminRights() {
+        const saveBtn = document.getElementById('saveAdminsBtn');
+        const checkboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]:checked');
+        
+        if (!saveBtn || !checkboxes.length) {
+            alert('Please select at least one admin');
+            return;
+        }
+
+        // Get selected admin IDs
+        const adminIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        
+        // Show loading state
+        saveBtn.classList.add('loading');
+        saveBtn.disabled = true;
+        saveBtn.textContent = 'Saving...';
+
+        try {
+            const groupId = this.getGroupId();
+            if (!groupId) {
+                throw new Error('Group ID not found');
+            }
+
+            const response = await fetch(`/groups/${groupId}/manage-admins`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({
+                    admin_ids: adminIds
+                })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.success) {
+                // Show success state
+                saveBtn.classList.remove('loading');
+                saveBtn.classList.add('save-success');
+                saveBtn.textContent = 'Saved Successfully!';
+
+                // Show success message
+                alert(data.message + '\nAdmins: ' + data.admins.join(', '));
+
+                // Reload page to reflect changes
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+
+            } else {
+                throw new Error(data.error || 'Save failed');
+            }
+
+        } catch (error) {
+            console.error('Error saving admin rights:', error);
+            
+            // Reset button state
+            saveBtn.classList.remove('loading');
+            saveBtn.textContent = '💾 Save Admin Rights';
+            saveBtn.disabled = false;
+            
+            // Show error
+            alert(`Failed to save admin rights: ${error.message}`);
+        }
+    }
 }
 
 // Global functions for HTML onclick handlers
@@ -876,3 +1011,6 @@ window.confirmLeaveGroup = () => window.settingsManager.confirmLeaveGroup();
 window.showDeleteConfirmation = () => window.settingsManager.showDeleteConfirmation();
 window.hideDeleteConfirmation = () => window.settingsManager.hideDeleteConfirmation();
 window.confirmDeleteGroup = () => window.settingsManager.confirmDeleteGroup();
+window.showManageAdminsModal = () => window.settingsManager.showManageAdminsModal();
+window.hideManageAdminsModal = () => window.settingsManager.hideManageAdminsModal();
+window.saveAdminRights = () => window.settingsManager.saveAdminRights();

@@ -4,6 +4,7 @@
     <title>Settings - {{ group.name}}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/settings-page.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/settings_cont.css') }}">
         
 </head>
 <body>
@@ -27,11 +28,13 @@
         <!-- Group Information & Invite Code -->
         <div class="settings-section">
             <div class="section-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <h2 class="section-title">{{ group.name }} - Group Information</h2>
-                <button id="editToggleBtn" class="edit-toggle-btn" onclick="toggleEditMode()">
-                    <span id="editBtnText">✏️ Edit</span>
-                </button>
-            </div>
+            <h2 class="section-title">{{ group.name }} - Group Information</h2>
+            {% if group.creator_id == current_user.id or current_user.is_group_admin(group) %}
+            <button id="editToggleBtn" class="edit-toggle-btn" onclick="toggleEditMode()">
+                <span id="editBtnText">✏️ Edit</span>
+            </button>
+            {% endif %}
+        </div>
             
             <div class="invite-code-item">
                 <div class="invite-code-left">
@@ -358,6 +361,26 @@
                 <h3 class="danger-zone-title">⚠️ Danger Zone</h3>
             </div>
             
+            <!-- Manage Admin Rights (Admin only) -->
+            {% if group.creator_id == current_user.id or current_user.is_group_admin(group) %}
+            <div class="manage-admin-item">
+                <div class="manage-admin-left">
+                    <div class="manage-admin-icon">👑</div>
+                    <div class="manage-admin-info">
+                        <div class="manage-admin-name">Manage Admin Rights</div>
+                        <div class="manage-admin-description">
+                            Select which members should have admin privileges. Multiple admins are allowed.
+                        </div>
+                    </div>
+                </div>
+                <div class="manage-admin-right">
+                    <button class="manage-admin-button" onclick="showManageAdminsModal()">
+                        👑 Manage Admins
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Leave Group (for all members) -->
             {% if current_user in group.members %}
             <div class="leave-group-item">
@@ -404,6 +427,55 @@
         </div>
     </div>
 
+            <!-- Manage Admin Rights Modal -->
+        <div id="manageAdminsModal" class="modal-overlay" style="display: none;">
+            <div class="modal-content manage-admin-modal">
+                <div class="modal-header">
+                    <h2 class="modal-title">👑 Manage Admin Rights</h2>
+                </div>
+                
+                <div class="modal-body">
+                    <div class="info-message">
+                        <div class="info-icon">ℹ️</div>
+                        <div class="info-text">
+                            <strong>Select who should be group admins</strong><br>
+                            Admins can edit group settings, manage members, and delete the group.
+                            At least one admin must be selected.
+                        </div>
+                    </div>
+                    
+                    <div class="admin-selection-section">
+                        <label>Group Members:</label>
+                        <div class="member-checkboxes" id="memberCheckboxes">
+                            {% for member in group.members %}
+                            <div class="member-checkbox-item">
+                                <input type="checkbox" 
+                                    id="admin_{{ member.id }}" 
+                                    value="{{ member.id }}"
+                                    {% if member.is_group_admin(group) or group.creator_id == member.id %}checked{% endif %}>
+                                <label for="admin_{{ member.id }}">
+                                    <span class="member-name">{{ member.name }}</span>
+                                    {% if group.creator_id == member.id %}
+                                        <span class="creator-badge">Creator</span>
+                                    {% endif %}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button class="modal-btn modal-btn-cancel" onclick="hideManageAdminsModal()">
+                        Cancel
+                    </button>
+                    <button class="modal-btn modal-btn-save" id="saveAdminsBtn" onclick="saveAdminRights()">
+                        💾 Save Admin Rights
+                    </button>
+                </div>
+            </div>
+        </div>
+
     <!-- Leave Group Confirmation Modal -->
     <div id="leaveConfirmationModal" class="modal-overlay" style="display: none;">
         <div class="modal-content leave-modal">
@@ -415,47 +487,24 @@
                 <div class="warning-message">
                     <div class="warning-icon">⚠️</div>
                     <div class="warning-text">
-                        {% if group.creator_id == current_user.id %}
-                        <strong>You are the group admin!</strong><br>
-                        Before leaving, you must transfer admin rights to another member.
-                        Choose who will become the new admin:
-                        {% else %}
                         <strong>Are you sure you want to leave?</strong><br>
                         You will no longer have access to this group's expenses and data.
                         <br><br>
                         <strong>Note:</strong> You can only leave if you have no outstanding balances, unpaid expenses, or financial involvement in this group.
-                        {% endif %}
                     </div>
                 </div>
                 
-                {% if group.creator_id == current_user.id %}
-                <!-- Admin Transfer Selection -->
-                <div class="admin-transfer-section">
-                    <label for="newAdminSelect">Choose new admin:</label>
-                    <select id="newAdminSelect" class="admin-select">
-                        <option value="">Select a member...</option>
-                        {% for member in group.members %}
-                            {% if member.id != current_user.id %}
-                            <option value="{{ member.id }}">{{ member.name }}</option>
-                            {% endif %}
-                        {% endfor %}
-                    </select>
-                </div>
-                {% else %}
-                <!-- Regular Member Confirmation -->
                 <div class="confirmation-input">
                     <label for="leaveConfirmation">Type <strong>"leave"</strong> to confirm:</label>
                     <input type="text" id="leaveConfirmation" placeholder="Type 'leave' here" autocomplete="off">
                 </div>
-                {% endif %}
             </div>
             
             <div class="modal-footer">
                 <button class="modal-btn modal-btn-cancel" onclick="hideLeaveConfirmation()">
                     Cancel
                 </button>
-                <button class="modal-btn modal-btn-leave" id="confirmLeaveBtn" onclick="confirmLeaveGroup()" 
-                        {% if group.creator_id != current_user.id %}disabled{% endif %}>
+                <button class="modal-btn modal-btn-leave" id="confirmLeaveBtn" onclick="confirmLeaveGroup()" disabled>
                     🚪 Leave Group
                 </button>
             </div>
