@@ -1,5 +1,4 @@
 # app/templates/group_templates.py
-
 def get_groups_template():
     return '''
 <!DOCTYPE html>
@@ -147,7 +146,6 @@ def get_groups_template():
 </body>
 </html>
 '''
-
 def get_create_group_template():
     return '''
 <!DOCTYPE html>
