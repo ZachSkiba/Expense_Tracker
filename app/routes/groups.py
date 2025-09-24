@@ -1,6 +1,6 @@
 # app/routes/groups.py - Group management routes with financial validation
 
-from flask import Blueprint, jsonify, request, redirect, url_for, render_template_string, flash
+from flask import Blueprint, jsonify, request, redirect, url_for, render_template, flash
 from flask_login import login_required, current_user
 from models import User, Expense, Category, Group, db, Balance, Settlement, ExpenseParticipant, user_groups
 from sqlalchemy import func, desc, or_
@@ -66,8 +66,7 @@ def check_user_financial_involvement(user_id, group_id):
 def index():
     """Groups management page"""
     user_groups = current_user.groups
-    from app.templates.group_templates import get_groups_template
-    return render_template_string(get_groups_template(), user_groups=user_groups)
+    return render_template('dashboard/groups.html', user_groups=user_groups)
 
 @groups_bp.route('/create', methods=['GET', 'POST'])
 @login_required
@@ -79,13 +78,11 @@ def create():
         
         if not name:
             flash('Group name is required', 'error')
-            from app.templates.group_templates import get_create_group_template
-            return render_template_string(get_create_group_template())
+            return render_template('dashboard/create_group.html')
         
         if len(name) < 3:
             flash('Group name must be at least 3 characters', 'error')
-            from app.templates.group_templates import get_create_group_template
-            return render_template_string(get_create_group_template())
+            return render_template('dashboard/create_group.html')
         
         try:
             # Create the group
@@ -136,8 +133,7 @@ def create():
             flash('An error occurred while creating the group', 'error')
             print(f"Group creation error: {e}")
     
-    from app.templates.group_templates import get_create_group_template
-    return render_template_string(get_create_group_template())
+    return render_template('dashboard/create_group.html')
 
 @groups_bp.route('/join', methods=['GET', 'POST'])
 @login_required
@@ -148,15 +144,13 @@ def join():
         
         if not invite_code:
             flash('Invite code is required', 'error')
-            from app.templates.group_templates import get_join_group_template
-            return render_template_string(get_join_group_template())
+            return render_template('dashboard/join_group.html')
         
         group = Group.query.filter_by(invite_code=invite_code, is_active=True).first()
         
         if not group:
             flash('Invalid invite code', 'error')
-            from app.templates.group_templates import get_join_group_template
-            return render_template_string(get_join_group_template())
+            return render_template('dashboard/join_group.html')
         
         if current_user in group.members:
             flash('You are already a member of this group', 'info')
@@ -174,8 +168,7 @@ def join():
             flash('An error occurred while joining the group', 'error')
             print(f"Join group error: {e}")
     
-    from app.templates.group_templates import get_join_group_template
-    return render_template_string(get_join_group_template())
+    return render_template('dashboard/join_group.html')
 
 @groups_bp.route('/<int:group_id>/check-leave-eligibility', methods=['GET'])
 @login_required

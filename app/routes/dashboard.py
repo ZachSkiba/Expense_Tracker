@@ -42,15 +42,20 @@ def home():
         group_balances=group_balances
     )
 
-@dashboard_bp.route('/create-personal-tracker', methods=['POST'])
+@dashboard_bp.route('/create-personal-tracker', methods=['GET', 'POST'])
 @login_required
 def create_personal_tracker():
     """Create a new personal expense tracker (group with one member)"""
     
+    if request.method == 'GET':
+        # Show the creation form
+        return render_template('dashboard/create_personal_tracker.html')
+    
+    # Handle POST request
     # Get tracker name from form, or use default
     tracker_name = request.form.get('name', '').strip()
     if not tracker_name:
-        tracker_name = f"{current_user.name}'s Personal Expenses"
+        tracker_name = f"{current_user.display_name}'s Personal Expenses"
     
     # ENSURE the name indicates it's personal
     if not ("Personal" in tracker_name or "personal" in tracker_name.lower()):
@@ -79,7 +84,7 @@ def create_personal_tracker():
         # Create the personal tracker (group)
         tracker = Group(
             name=tracker_name,
-            description=f"Personal expense tracker for {current_user.name}",
+            description=f"Personal expense tracker for {current_user.display_name}",
             creator_id=current_user.id,
             invite_code=Group.generate_invite_code()
         )
@@ -124,4 +129,4 @@ def create_personal_tracker():
         import traceback
         traceback.print_exc()
         flash('An error occurred while creating your personal tracker', 'error')
-        return redirect(url_for('dashboard.home'))
+        return render_template('dashboard/create_personal_tracker.html')

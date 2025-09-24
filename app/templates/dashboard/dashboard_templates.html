@@ -162,25 +162,15 @@
             </div>
 
             <!-- Personal Tracker Option -->
-            <div class="option-card">
-                <div class="option-icon">👤</div>
-                <div class="option-title">Personal Expenses</div>
-                <div class="option-description">
-                    Track your own personal spending. Perfect for budgeting and monitoring your individual expenses.
-                </div>
-                <button onclick="togglePersonalForm()" class="btn">Create Personal Tracker</button>
-                
-                <div id="personalForm" class="personal-tracker-form">
-                    <form method="post" action="{{ url_for('dashboard.create_personal_tracker') }}">
-                        <input type="text" 
-                               name="name" 
-                               placeholder="Tracker name (optional)" 
-                               maxlength="100">
-                        <button type="submit" class="btn btn-small">Create Tracker</button>
-                        <button type="button" onclick="togglePersonalForm()" class="btn btn-secondary btn-small">Cancel</button>
-                    </form>
-                </div>
+        <div class="option-card">
+            <div class="option-icon">👤</div>
+            <div class="option-title">Personal Expenses</div>
+            <div class="option-description">
+                Track your own personal spending. Perfect for budgeting and monitoring your individual expenses.
             </div>
+            <a href="{{ url_for('dashboard.create_personal_tracker') }}" class="btn">
+                Create Personal Tracker
+            </a>
         </div>
 
         <!-- Show empty state only if no trackers at all -->
@@ -195,17 +185,6 @@
         {% endif %}
     </div>
 
-    <script>
-        function togglePersonalForm() {
-            const form = document.getElementById('personalForm');
-            if (form.style.display === 'none' || !form.style.display) {
-                form.style.display = 'block';
-                form.querySelector('input').focus();
-            } else {
-                form.style.display = 'none';
-                form.querySelector('input').value = '';
-            }
-        }
-    </script>
+</div>
 </body>
 </html>
