@@ -923,10 +923,10 @@ renderRecurringPaymentsTable(recurringPayments) {
 }
     
     async processPayment(id) {
-        if (!confirm('Process this recurring payment now? This will create a new expense for today.')) {
-            return;
-        }
-        
+    if (!confirm('Process this recurring payment now? This will create a new expense for today.')) {
+        return;
+    }
+    
         try {
             const response = await fetch(`${window.urls.recurringPaymentsApi}/${id}/process`, {
                 method: 'POST',
@@ -939,16 +939,19 @@ renderRecurringPaymentsTable(recurringPayments) {
             
             if (result.success) {
                 this.showSuccessMessage('Recurring payment processed successfully! Expense created for today.');
+                
+                // Reload recurring payments table first
                 await this.loadRecurringPayments();
                 
-                // IMMEDIATE REFRESH: Also refresh main table when processing a payment
-                this.refreshMainTableImmediate();
+                // Then immediately reload page to show new expense and updated balances
+                console.log('Manual processing complete, reloading page to show new expense...');
+                setTimeout(() => {
+                    window.location.reload();
+                }); // Small delay for success message visibility
+                
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
             }
-            setTimeout(() => {
-                window.location.reload();
-            });
         } catch (error) {
             console.error('Error processing payment:', error);
             this.showErrorMessage('Error processing payment');

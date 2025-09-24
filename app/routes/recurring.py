@@ -1,7 +1,7 @@
 # Fixed recurring.py routes with proper group context and balance updates
 
 from flask import Blueprint, request, jsonify
-from models import db, RecurringPayment, User, Category, Group
+from models import ExpenseParticipant, db, RecurringPayment, User, Category, Group, Expense
 from app.services.recurring_service import RecurringPaymentService
 from app.services.balance_service import BalanceService
 from datetime import datetime, date
@@ -157,7 +157,7 @@ def create_recurring_payment_api(group_id):
         # FIXED: Force balance recalculation to ensure expenses appear in tables
         try:
             logger.info(f"[CREATE] Forcing balance recalculation for group {group_id}")
-            BalanceService.calculate_group_balances(group_id)
+            BalanceService.recalculate_all_balances()
             logger.info(f"[CREATE] Balance recalculation completed for group {group_id}")
         except Exception as e:
             logger.warning(f"[CREATE] Balance calculation warning: {e}")
@@ -359,8 +359,7 @@ def process_recurring_payment_api(group_id, payment_id):
         # FIXED: Ensure balance calculation happens after manual processing
         try:
             logger.info(f"[MANUAL] Updating balances for group {group_id} after manual processing")
-            BalanceService.calculate_group_balances(group_id)
-            logger.info(f"[MANUAL] Balance update completed for group {group_id}")
+            BalanceService.recalculate_all_balances()
         except Exception as e:
             logger.warning(f"[MANUAL] Balance calculation warning: {e}")
         
@@ -404,7 +403,7 @@ def process_group_due_payments(group_id):
         if created_expenses:
             try:
                 logger.info(f"[GROUP_PROCESS] Forcing balance recalculation for group {group_id}")
-                BalanceService.calculate_group_balances(group_id)
+                BalanceService.recalculate_all_balances()
                 logger.info(f"[GROUP_PROCESS] Balance recalculation completed")
             except Exception as e:
                 logger.warning(f"[GROUP_PROCESS] Balance calculation warning: {e}")

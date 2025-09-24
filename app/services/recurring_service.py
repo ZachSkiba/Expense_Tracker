@@ -132,7 +132,7 @@ class RecurringPaymentService:
             if created_expenses:
                 try:
                     logger.info(f"💰 BALANCES: Updating balances for group {group_id} after creating {len(created_expenses)} expenses")
-                    BalanceService.calculate_group_balances(group_id)
+                    BalanceService.recalculate_all_balances()
                     logger.info(f"✅ BALANCES: Successfully updated balances for group {group_id}")
                 except Exception as e:
                     logger.error(f"❌ BALANCES: Error updating balances for group {group_id}: {e}")
@@ -246,7 +246,7 @@ class RecurringPaymentService:
         try:
             db.session.commit()  # Commit the expense first
             logger.info(f"💰 MANUAL: Updating balances for group {recurring_payment.group_id} after manual processing")
-            BalanceService.calculate_group_balances(recurring_payment.group_id)
+            BalanceService.recalculate_all_balances()
             logger.info(f"✅ MANUAL: Successfully updated balances for group {recurring_payment.group_id}")
         except Exception as e:
             logger.error(f"❌ MANUAL: Error updating balances: {e}")
