@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from models import db, RecurringPayment, User, Category, Group
 from app.services.recurring_service import RecurringPaymentService
-from balance_service import BalanceService
+from app.services.balance_service import BalanceService
 from datetime import datetime, date
 from flask_login import current_user
 import logging

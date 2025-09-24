@@ -1,7 +1,7 @@
 # app/services/settlement_service.py - UPDATED to be group-aware
 
 from models import db, Settlement, User
-from balance_service import BalanceService
+from app.services.balance_service import BalanceService
 from datetime import datetime
 
 class SettlementService:

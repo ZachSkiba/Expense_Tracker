@@ -2,8 +2,9 @@
 Service for handling recurring payment logic - FIXED with balance updates and proper group filtering
 """
 from datetime import datetime, date, timedelta
+from app.services.expense_service import ExpenseService
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
-from balance_service import BalanceService
+from app.services.balance_service import BalanceService
 import json
 import logging
 
@@ -301,7 +302,7 @@ class RecurringPaymentService:
         
         db.session.add(recurring_payment)
         db.session.flush()  # Get the ID
-        
+                
         # If start date is in the past, use the unified processing logic
         if start_date < current_date:
             logger.info(f"[CREATE] Start date is in past, processing due payments through today")

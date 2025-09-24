@@ -35,7 +35,7 @@ def home():
         group_balances[group.id] = balance
     
     return render_template(
-        'groups/dashboard_templates.html',
+        'dashboard/dashboard_templates.html',
         user=current_user,
         personal_trackers=personal_trackers,
         user_groups=shared_groups,

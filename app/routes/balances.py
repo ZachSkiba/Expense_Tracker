@@ -1,7 +1,7 @@
 # app/routes/balances.py - UPDATED with group filtering
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
-from balance_service import BalanceService
+from app.services.balance_service import BalanceService
 from app.services.settlement_service import SettlementService
 from app.services.user_service import UserService
 from models import Group, db, User, Category, Balance, Settlement
