@@ -9,7 +9,7 @@ from datetime import datetime, date, timedelta
 from models import db, RecurringPayment, Expense, Group
 
 # FIXED: Import the correct service for balance calculation
-from app.services.expense_service import ExpenseService
+from app.services.tracker.expense_service import ExpenseService
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

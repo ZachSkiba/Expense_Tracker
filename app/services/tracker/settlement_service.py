@@ -1,7 +1,7 @@
 # app/services/settlement_service.py - UPDATED to be group-aware
 
 from models import db, Settlement, User
-from app.services.balance_service import BalanceService
+from app.services.tracker.balance_service import BalanceService
 from datetime import datetime
 
 class SettlementService:
@@ -98,7 +98,7 @@ class SettlementService:
             # Recalculate balances - group-aware or all balances
             if group_id:
                 # Use the new group-specific recalculation
-                from app.services.expense_service import ExpenseService
+                from app.services.tracker.expense_service import ExpenseService
                 ExpenseService._recalculate_group_balances(group_id)
             else:
                 # Legacy: recalculate all balances
@@ -155,7 +155,7 @@ class SettlementService:
             
             # Recalculate balances for affected group or all
             if group_id:
-                from app.services.expense_service import ExpenseService
+                from app.services.tracker.expense_service import ExpenseService
                 ExpenseService._recalculate_group_balances(group_id)
             else:
                 BalanceService.recalculate_all_balances()
@@ -200,7 +200,7 @@ class SettlementService:
             
             # Recalculate balances for affected group or all
             if group_id:
-                from app.services.expense_service import ExpenseService
+                from app.services.tracker.expense_service import ExpenseService
                 ExpenseService._recalculate_group_balances(group_id)
             else:
                 BalanceService.recalculate_all_balances()

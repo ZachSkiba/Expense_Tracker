@@ -3,7 +3,7 @@
 from flask import Blueprint, request, redirect, url_for, render_template, flash, session, current_app
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Category, db  # FIXED: Import from unified models
-from app.auth import (
+from app.services.auth.auth import (
     validate_email, validate_password, validate_display_name
 )
 from datetime import datetime

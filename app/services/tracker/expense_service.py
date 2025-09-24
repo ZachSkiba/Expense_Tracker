@@ -139,7 +139,7 @@ class ExpenseService:
     @staticmethod
     def _recalculate_group_balances(group_id):
         """Recalculate balances for a specific group"""
-        from app.services.balance_service import BalanceService
+        from app.services.tracker.balance_service import BalanceService
         
         # Clear existing group balances
         Balance.query.filter_by(group_id=group_id).delete()
@@ -294,7 +294,7 @@ class ExpenseService:
                 ExpenseService._recalculate_group_balances(expense.group_id)
             else:
                 # Legacy personal expense - recalculate all balances
-                from app.services.balance_service import BalanceService
+                from app.services.tracker.balance_service import BalanceService
                 BalanceService.recalculate_all_balances()
             
             return True, None
@@ -321,7 +321,7 @@ class ExpenseService:
                 ExpenseService._recalculate_group_balances(group_id)
             else:
                 # Legacy personal expense - recalculate all balances
-                from app.services.balance_service import BalanceService
+                from app.services.tracker.balance_service import BalanceService
                 BalanceService.recalculate_all_balances()
             
             return True, None
@@ -455,7 +455,7 @@ class ExpenseService:
             return None, errors
         
         # Create expense using legacy balance service
-        from app.services.balance_service import BalanceService
+        from app.services.tracker.balance_service import BalanceService
         expense = BalanceService.create_expense_with_participants(
             amount=amount,
             payer_id=payer_id,

@@ -3,8 +3,8 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import db, User, Category, Group, Expense, Balance
-from app.services.user_service import UserService
-from app.services.category_service import CategoryService
+from app.services.tracker.user_service import UserService
+from app.services.tracker.category_service import CategoryService
 from sqlalchemy import func
 from datetime import datetime
 

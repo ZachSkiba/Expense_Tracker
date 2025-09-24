@@ -2,9 +2,9 @@
 Service for handling recurring payment logic - FIXED with balance updates and proper group filtering
 """
 from datetime import datetime, date, timedelta
-from app.services.expense_service import ExpenseService
+from app.services.tracker.expense_service import ExpenseService
 from models import db, RecurringPayment, Expense, ExpenseParticipant, User, Category
-from app.services.balance_service import BalanceService
+from app.services.tracker.balance_service import BalanceService
 import json
 import logging
 

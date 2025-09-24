@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_login import login_required, current_user
 from models import db, Group, User, Balance, Settlement, Expense, RecurringPayment
-from app.services.expense_service import ExpenseService
+from app.services.tracker.expense_service import ExpenseService
 from sqlalchemy import func
 from datetime import datetime
 

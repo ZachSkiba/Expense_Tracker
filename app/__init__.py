@@ -3,7 +3,7 @@
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
 from config import Config
-from app.routes.recurring import recurring
+from app.routes.tracker.recurring import recurring
 import datetime
 from flask import jsonify
 
@@ -26,16 +26,16 @@ def create_app():
     db.init_app(app)
 
     # Initialize Flask-Login
-    from app.auth import init_login_manager
+    from app.services.auth.auth import init_login_manager
     init_login_manager(app)
 
     # Process startup recurring payments (this handles missed payments)
-    from app.startup_processor import StartupRecurringProcessor
+    from app.services.tracker.startup_processor import StartupRecurringProcessor
     with app.app_context():
         StartupRecurringProcessor.process_startup_recurring_payments(app)
 
     # Import auth functions for legacy support
-    from app.auth import check_legacy_auth
+    from app.services.auth.auth import check_legacy_auth
 
     # Security headers
     @app.after_request
@@ -89,21 +89,19 @@ def create_app():
         return redirect(url_for('auth.login'))
 
     # Register blueprints
-    from app.routes.auth import auth_bp
-    from app.routes.dashboard import dashboard_bp
-    from app.routes.expenses import expenses_bp
-    from app.routes.manage import manage_bp
-    from app.routes.balances import balances_bp
-    from app.routes.settlements import settlements_bp
-    from app.routes.management import management_bp
+    from app.routes.auth.auth import auth_bp
+    from app.routes.dashboard.dashboard import dashboard_bp
+    from app.routes.tracker.expenses import expenses_bp
+    from app.routes.settings.manage import manage_bp
+    from app.routes.tracker.balances import balances_bp
+    from app.routes.tracker.settlements import settlements_bp
+    from app.routes.tracker.management import management_bp
     from app.routes.admin import admin
-    from app.routes.legacy import legacy_bp
-    from app.routes.groups import groups_bp
+    from app.routes.dashboard.groups import groups_bp
 
     # Register all blueprints
     app.register_blueprint(auth_bp)
     app.register_blueprint(dashboard_bp)
-    app.register_blueprint(legacy_bp)  # For migration support
     
     # Existing blueprints (may need updates for multi-user)
     app.register_blueprint(management_bp)
@@ -132,8 +130,8 @@ def create_app():
         print(f"[BACKUP_ROUTE] User-Agent: {request.headers.get('User-Agent', 'None')}")
         
         try:
-            from app.services.recurring_service import RecurringPaymentService
-            from app.startup_processor import StartupRecurringProcessor
+            from app.services.tracker.recurring_service import RecurringPaymentService
+            from app.services.tracker.startup_processor import StartupRecurringProcessor
             
             # Get request data
             request_data = request.get_json() or {}

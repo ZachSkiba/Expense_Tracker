@@ -61,7 +61,7 @@ class BalanceService:
             # Recalculate balances for the affected group or all balances
             if group_id:
                 # Use the new group-specific recalculation from ExpenseService
-                from app.services.expense_service import ExpenseService
+                from app.services.tracker.expense_service import ExpenseService
                 ExpenseService._recalculate_group_balances(group_id)
             else:
                 # Legacy: recalculate all balances

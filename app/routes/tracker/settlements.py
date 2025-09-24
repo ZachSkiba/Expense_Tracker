@@ -1,10 +1,10 @@
 # app/routes/settlements.py - UPDATED with group filtering
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
-from app.services.settlement_service import SettlementService
-from app.services.user_service import UserService
+from app.services.tracker.settlement_service import SettlementService
+from app.services.tracker.user_service import UserService
 from models import Group, db, Settlement, User
-from app.services.balance_service import BalanceService
+from app.services.tracker.balance_service import BalanceService
 from datetime import datetime
 from flask_login import current_user, login_required, login_user
 

@@ -6,9 +6,9 @@ from datetime import datetime
 
 from sqlalchemy import desc
 from models import db, Expense, User, Category, ExpenseParticipant, Balance, Group
-from app.services.expense_service import ExpenseService
-from app.services.user_service import UserService
-from app.services.category_service import CategoryService
+from app.services.tracker.expense_service import ExpenseService
+from app.services.tracker.user_service import UserService
+from app.services.tracker.category_service import CategoryService
 
 expenses_bp = Blueprint("expenses", __name__)
 

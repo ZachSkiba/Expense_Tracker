@@ -2,8 +2,8 @@
 
 from flask import Blueprint, request, jsonify
 from models import ExpenseParticipant, db, RecurringPayment, User, Category, Group, Expense
-from app.services.recurring_service import RecurringPaymentService
-from app.services.balance_service import BalanceService
+from app.services.tracker.recurring_service import RecurringPaymentService
+from app.services.tracker.balance_service import BalanceService
 from datetime import datetime, date
 from flask_login import current_user
 import logging

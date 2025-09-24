@@ -1,9 +1,9 @@
 # app/routes/balances.py - UPDATED with group filtering
 
 from flask import Blueprint, request, jsonify, render_template, redirect, url_for, flash
-from app.services.balance_service import BalanceService
-from app.services.settlement_service import SettlementService
-from app.services.user_service import UserService
+from app.services.tracker.balance_service import BalanceService
+from app.services.tracker.settlement_service import SettlementService
+from app.services.tracker.user_service import UserService
 from models import Group, db, User, Category, Balance, Settlement
 from datetime import datetime
 from sqlalchemy import func
@@ -205,7 +205,7 @@ def combined_balances_settlements(group_id):
         return redirect(url_for('dashboard.home'))
     
     # Recalculate balances for this group
-    from app.services.expense_service import ExpenseService
+    from app.services.tracker.expense_service import ExpenseService
     ExpenseService._recalculate_group_balances(group_id)
     
     error = None
