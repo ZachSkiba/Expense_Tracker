@@ -2,7 +2,7 @@
 
 from models import db, User, Group, Balance, Expense, ExpenseParticipant, Settlement, RecurringPayment, Category, user_groups
 from flask import current_app
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from datetime import datetime
 import secrets
 import string
@@ -126,7 +126,7 @@ class AccountDeletionService:
         # Create placeholder user
         placeholder = User(
             full_name=f"[Deleted User] {original_user.display_name}",
-            display_name=original_user.display_name,  # Keep same display name for recognition
+            display_name=f"{original_user.display_name} (Deleted)",  # Keep same display name for recognition
             email=placeholder_email,
             is_active=False,  # Cannot login
             created_at=datetime.utcnow(),
@@ -139,140 +139,124 @@ class AccountDeletionService:
         current_app.logger.info(f"Created placeholder user {placeholder.id} for {original_user.display_name}")
         return placeholder
     
+    # In account_deletion_service.py
+
+    # In account_deletion_service.py
+
+    # In account_deletion_service.py
+
     @staticmethod
     def transfer_user_data_to_placeholder(original_user, placeholder_user, shared_group_ids):
         """
-        Transfer user data to placeholder for shared groups only
-        
-        Args:
-            original_user: The user being deleted
-            placeholder_user: The placeholder user
-            shared_group_ids: List of group IDs where data should be transferred
+        Transfer user data to placeholder for shared groups only using bulk updates.
+        This version uses a subquery to correctly update expense participants.
         """
-        # Transfer expenses in shared groups
-        expenses_updated = 0
-        for expense in original_user.expenses:
-            if expense.group_id in shared_group_ids:
-                expense.user_id = placeholder_user.id
-                expenses_updated += 1
-        
-        # Transfer expense participations in shared groups
-        participations_updated = 0
-        for participation in original_user.expense_participants:
-            if participation.group_id in shared_group_ids:
-                participation.user_id = placeholder_user.id
-                participations_updated += 1
-        
-        # Transfer balances for shared groups
-        balances_updated = 0
-        for balance in original_user.balances:
-            if balance.group_id in shared_group_ids:
-                balance.user_id = placeholder_user.id
-                balance.last_updated = datetime.utcnow()
-                balances_updated += 1
-        
-        # Transfer settlements in shared groups
-        settlements_updated = 0
-        for settlement in original_user.settlements_made:
-            if settlement.group_id in shared_group_ids:
-                settlement.payer_id = placeholder_user.id
-                settlements_updated += 1
-        
-        for settlement in original_user.settlements_received:
-            if settlement.group_id in shared_group_ids:
-                settlement.receiver_id = placeholder_user.id
-                settlements_updated += 1
-        
-        # Transfer recurring payments in shared groups
-        recurring_updated = 0
-        for recurring in original_user.recurring_payments:
-            if recurring.group_id in shared_group_ids:
-                recurring.user_id = placeholder_user.id
-                recurring_updated += 1
-        
+        if not shared_group_ids:
+            return
+
+        original_user_id = original_user.id
+        placeholder_user_id = placeholder_user.id
+
+        # --- Use direct UPDATE statements to avoid ORM session confusion ---
+
+        # Transfer Expenses created by the user
+        expenses_updated = Expense.query.filter(
+            Expense.user_id == original_user_id,
+            Expense.group_id.in_(shared_group_ids)
+        ).update({'user_id': placeholder_user_id}, synchronize_session=False)
+
+        # --- THIS IS THE CORRECTED QUERY USING A SUBQUERY ---
+        # 1. Create a subquery to find all expense IDs within the shared groups.
+        expense_ids_in_shared_groups = db.session.query(Expense.id).filter(
+            Expense.group_id.in_(shared_group_ids)
+        ).scalar_subquery()
+
+        # 2. Update the participants whose expense_id is in that subquery.
+        participations_updated = ExpenseParticipant.query.filter(
+            ExpenseParticipant.user_id == original_user_id,
+            ExpenseParticipant.expense_id.in_(expense_ids_in_shared_groups)
+        ).update({'user_id': placeholder_user_id}, synchronize_session=False)
+        # ----------------------------------------------------
+
+        # Transfer Balances
+        balances_updated = Balance.query.filter(
+            Balance.user_id == original_user_id,
+            Balance.group_id.in_(shared_group_ids)
+        ).update({'user_id': placeholder_user_id}, synchronize_session=False)
+
+        # Transfer Settlements (where the user was the payer)
+        settlements_made_updated = Settlement.query.filter(
+            Settlement.payer_id == original_user_id,
+            Settlement.group_id.in_(shared_group_ids)
+        ).update({'payer_id': placeholder_user_id}, synchronize_session=False)
+
+        # Transfer Settlements (where the user was the receiver)
+        settlements_received_updated = Settlement.query.filter(
+            Settlement.receiver_id == original_user_id,
+            Settlement.group_id.in_(shared_group_ids)
+        ).update({'receiver_id': placeholder_user_id}, synchronize_session=False)
+
+        settlements_updated = settlements_made_updated + settlements_received_updated
+
+        # Transfer Recurring Payments
+        recurring_updated = RecurringPayment.query.filter(
+            RecurringPayment.user_id == original_user_id,
+            RecurringPayment.group_id.in_(shared_group_ids)
+        ).update({'user_id': placeholder_user_id}, synchronize_session=False)
+
         current_app.logger.info(
             f"Transferred data to placeholder: {expenses_updated} expenses, "
             f"{participations_updated} participations, {balances_updated} balances, "
             f"{settlements_updated} settlements, {recurring_updated} recurring payments"
         )
     
+    # app/services/auth/account_deletion_service.py
+
     @staticmethod
     def update_group_memberships(original_user, placeholder_user, shared_group_ids):
         """
         Update group memberships - replace user with placeholder in shared groups only
+        (ORM-compliant version)
         """
-        # Replace user with placeholder in shared groups only
         for group_id in shared_group_ids:
-            # Get the user's role in the group (if it still exists)
-            association = db.session.execute(
-                user_groups.select().where(
-                    user_groups.c.user_id == original_user.id,
-                    user_groups.c.group_id == group_id
-                )
-            ).first()
-
-            if association:
-                user_role = association.role
-                joined_at = association.joined_at
+            # Fetch the actual Group object
+            group = Group.query.get(group_id)
+            if group:
+                # Let the ORM handle the association table by modifying the relationship
+                if original_user in group.members:
+                    group.members.remove(original_user)
                 
-                # Remove original user from group
-                # In update_group_memberships
-                db.session.execute(
-                    user_groups.delete()
-                    .where(user_groups.c.user_id == original_user.id)
-                    .where(user_groups.c.group_id == group_id)
-                    .execution_options(synchronize_session=False)
-)
-
-                
-                # Add placeholder user to group
-                db.session.execute(
-                    user_groups.insert().values(
-                        user_id=placeholder_user.id,
-                        group_id=group_id,
-                        role=user_role,
-                        joined_at=joined_at
-                    )
-                )
+                # Add the placeholder
+                group.members.append(placeholder_user)
                 
                 current_app.logger.info(f"Replaced user in group {group_id} with placeholder")
     
+    # app/services/auth/account_deletion_service.py
+
     @staticmethod
     def delete_personal_groups_and_associations(group_ids, user_id):
         """
-        Delete personal groups and their user associations
-        
-        Args:
-            group_ids: List of group IDs to delete
-            user_id: ID of the user being deleted
+        Delete personal groups. The cascade deletes the associations.
+        (ORM-compliant version)
         """
         for group_id in group_ids:
             group = Group.query.get(group_id)
+            # We only delete the group if it's truly a personal group (member count <= 1)
             if group and group.get_member_count() <= 1:
                 current_app.logger.info(f"Deleting personal group: {group.name}")
                 
-                # Remove user from this group first (this happens automatically with cascade)
-                # But we'll be explicit about it
-                db.session.execute(
-                    user_groups.delete()
-                    .where(user_groups.c.user_id == user_id)
-                    .where(user_groups.c.group_id == group_id)
-                    .execution_options(synchronize_session=False)
-                )
-                
-                # Delete the group (cascade should handle related data)
+                # The ORM, thanks to the cascade setting in models.py, will
+                # automatically delete the association from the user_groups table
+                # before deleting the group itself. No manual delete is needed.
                 db.session.delete(group)
+                    
     
+    # app/services/auth/account_deletion_service.py
+
     @staticmethod
     def delete_user_account(user):
         """
         Perform the complete account deletion process
-        
-        Args:
-            user: The user to delete
-        
-        Returns:
-            tuple: (success_bool, message_string)
         """
         try:
             # Check eligibility first
@@ -287,51 +271,52 @@ class AccountDeletionService:
             
             placeholder_user = None
             
-            # Step 1: Create placeholder user if there are shared groups
+            # Step 1: Handle shared groups (This part is correct and remains the same)
             if shared_group_ids:
                 placeholder_user = AccountDeletionService.create_placeholder_user(user)
-                
-                # Transfer data to placeholder for shared groups
                 AccountDeletionService.transfer_user_data_to_placeholder(
                     user, placeholder_user, shared_group_ids
                 )
-                
-                # Update group memberships for shared groups
                 AccountDeletionService.update_group_memberships(
                     user, placeholder_user, shared_group_ids
                 )
             
-            # Step 2: Delete personal groups and their associations
+            # --- REVISED Step 2: Explicitly delete all data within personal trackers ---
             if personal_group_ids:
-                AccountDeletionService.delete_personal_groups_and_associations(personal_group_ids, user_id)
-            
-            # Step 3: Delete any remaining personal data
-            # Categories that are user-specific (not group-specific)
-            personal_categories = Category.query.filter_by(user_id=user_id, group_id=None).all()
-            for category in personal_categories:
-                db.session.delete(category)
-            
-            # Step 4: Delete any remaining user-group associations safely
-            remaining_associations = db.session.execute(
-                user_groups.select().where(user_groups.c.user_id == user_id)
-            ).fetchall()
+                current_app.logger.info(f"Deleting data from {len(personal_group_ids)} personal tracker(s).")
 
-            if remaining_associations:
-                current_app.logger.info(
-                    f"Found {len(remaining_associations)} remaining group associations for user {user_id}"
-                )
-                db.session.execute(
-                    user_groups.delete()
-                    .where(user_groups.c.user_id == user_id)
-                    .execution_options(synchronize_session=False)
-                )
-                current_app.logger.info("Deleted remaining group associations")
-            else:
-                current_app.logger.info("No remaining group associations to clean up")
+                # Fetch the actual Group objects to be deleted
+                personal_groups_to_delete = Group.query.filter(Group.id.in_(personal_group_ids)).all()
 
-            # Step 5: Delete the original user account
+                for group in personal_groups_to_delete:
+                    # *** THIS IS THE CRITICAL FIX ***
+                    # Manually remove the group from the user's collection in the session.
+                    # This tells the ORM that the link is severed, preventing it from
+                    # trying to delete the user_groups entry later.
+                    if group in user.groups:
+                        user.groups.remove(group)
+
+                # Now that the session is in sync, proceed with efficient bulk deletes.
+                # We are deleting the contents before the groups.
+                ExpenseParticipant.query.filter(ExpenseParticipant.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+                Expense.query.filter(Expense.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+                RecurringPayment.query.filter(RecurringPayment.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+                Balance.query.filter(Balance.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+                Settlement.query.filter(Settlement.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+                Category.query.filter(Category.group_id.in_(personal_group_ids)).delete(synchronize_session=False)
+
+                # Finally, delete the group objects themselves.
+                # The ON DELETE CASCADE in your database will handle the user_groups table.
+                Group.query.filter(Group.id.in_(personal_group_ids)).delete(synchronize_session=False)
+
+            # Step 3: Delete any remaining personal data that is NOT in a group (if any)
+            Category.query.filter_by(user_id=user_id, group_id=None).delete(synchronize_session=False)
+
+            # Step 4: Delete the user account
+            # The session now correctly knows the user has no more group memberships,
+            # so this will succeed without conflict.
             db.session.delete(user)
-            
+
             # Commit all changes
             db.session.commit()
             

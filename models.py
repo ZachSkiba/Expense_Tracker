@@ -51,7 +51,7 @@ class User(UserMixin, db.Model):
     # Original relationships (keep for backward compatibility)
     expenses = db.relationship("Expense", foreign_keys="Expense.user_id", back_populates="user")
     expense_participants = db.relationship("ExpenseParticipant", back_populates="user")
-    balances = db.relationship("Balance", back_populates="user", cascade="all, delete-orphan")
+    balances = db.relationship("Balance", back_populates="user")
     settlements_made = db.relationship("Settlement", foreign_keys="Settlement.payer_id", back_populates="payer")
     settlements_received = db.relationship("Settlement", foreign_keys="Settlement.receiver_id", back_populates="receiver")
     recurring_payments = db.relationship("RecurringPayment", back_populates="user")
@@ -299,7 +299,7 @@ class Balance(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(
         db.Integer, 
-        db.ForeignKey("user.id", ondelete="CASCADE"),
+        db.ForeignKey("user.id"),
         nullable=False
     )
     
