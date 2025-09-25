@@ -1,4 +1,4 @@
-# app/services/auth/account_deletion_service.py - Handle account deletion with placeholder logic
+# app/services/auth/account_deletion_service.py - FIXED version
 
 from models import db, User, Group, Balance, Expense, ExpenseParticipant, Settlement, RecurringPayment, Category, user_groups
 from flask import current_app
@@ -200,28 +200,30 @@ class AccountDeletionService:
     def update_group_memberships(original_user, placeholder_user, shared_group_ids):
         """
         Update group memberships - replace user with placeholder in shared groups only
-        Personal groups are handled separately and don't need membership updates
         """
         # Replace user with placeholder in shared groups only
         for group_id in shared_group_ids:
             # Get the user's role in the group (if it still exists)
-            association = db.session.query(user_groups).filter_by(
-                user_id=original_user.id,
-                group_id=group_id
+            association = db.session.execute(
+                user_groups.select().where(
+                    user_groups.c.user_id == original_user.id,
+                    user_groups.c.group_id == group_id
+                )
             ).first()
 
             if association:
                 user_role = association.role
                 joined_at = association.joined_at
-
                 
                 # Remove original user from group
+                # In update_group_memberships
                 db.session.execute(
                     user_groups.delete()
-                    .where(user_groups.c.user_id == original_user.id,
-                        user_groups.c.group_id == group_id)
-                    .execution_options(synchronize_session=False)   # <---- here too
-                )
+                    .where(user_groups.c.user_id == original_user.id)
+                    .where(user_groups.c.group_id == group_id)
+                    .execution_options(synchronize_session=False)
+)
+
                 
                 # Add placeholder user to group
                 db.session.execute(
@@ -236,10 +238,9 @@ class AccountDeletionService:
                 current_app.logger.info(f"Replaced user in group {group_id} with placeholder")
     
     @staticmethod
-    def delete_personal_groups(group_ids, user_id):
+    def delete_personal_groups_and_associations(group_ids, user_id):
         """
-        Delete personal groups entirely (groups with only one member)
-        But preserve user associations with other groups
+        Delete personal groups and their user associations
         
         Args:
             group_ids: List of group IDs to delete
@@ -248,16 +249,19 @@ class AccountDeletionService:
         for group_id in group_ids:
             group = Group.query.get(group_id)
             if group and group.get_member_count() <= 1:
-                # Manually remove the user from this specific group first
+                current_app.logger.info(f"Deleting personal group: {group.name}")
+                
+                # Remove user from this group first (this happens automatically with cascade)
+                # But we'll be explicit about it
                 db.session.execute(
-                    user_groups.delete().where(
-                        user_groups.c.user_id == user_id,
-                        user_groups.c.group_id == group_id
-                    )
+                    user_groups.delete()
+                    .where(user_groups.c.user_id == user_id)
+                    .where(user_groups.c.group_id == group_id)
+                    .execution_options(synchronize_session=False)
                 )
-                # Then delete the group
+                
+                # Delete the group (cascade should handle related data)
                 db.session.delete(group)
-                current_app.logger.info(f"Deleted personal group: {group.name}")
     
     @staticmethod
     def delete_user_account(user):
@@ -277,12 +281,13 @@ class AccountDeletionService:
                 return False, "Cannot delete account: " + "; ".join(eligibility['blocking_issues'])
             
             original_display_name = user.display_name
+            user_id = user.id
             shared_group_ids = [g['id'] for g in eligibility['shared_groups']]
             personal_group_ids = [g['id'] for g in eligibility['personal_groups']]
             
             placeholder_user = None
             
-            # Create placeholder user if there are shared groups
+            # Step 1: Create placeholder user if there are shared groups
             if shared_group_ids:
                 placeholder_user = AccountDeletionService.create_placeholder_user(user)
                 
@@ -291,40 +296,40 @@ class AccountDeletionService:
                     user, placeholder_user, shared_group_ids
                 )
                 
-                # Update group memberships for shared groups first
+                # Update group memberships for shared groups
                 AccountDeletionService.update_group_memberships(
                     user, placeholder_user, shared_group_ids
                 )
             
-            # Delete personal groups (this will handle their user associations)
+            # Step 2: Delete personal groups and their associations
             if personal_group_ids:
-                AccountDeletionService.delete_personal_groups(personal_group_ids, user.id)
+                AccountDeletionService.delete_personal_groups_and_associations(personal_group_ids, user_id)
             
-            # Delete any remaining personal data
+            # Step 3: Delete any remaining personal data
             # Categories that are user-specific (not group-specific)
-            personal_categories = Category.query.filter_by(user_id=user.id, group_id=None).all()
+            personal_categories = Category.query.filter_by(user_id=user_id, group_id=None).all()
             for category in personal_categories:
                 db.session.delete(category)
             
-            # Clean up any remaining user-group associations
-            # (should only be any leftover ones at this point)
-            # Cleanup any remaining user-group associations
+            # Step 4: Delete any remaining user-group associations safely
             remaining_associations = db.session.execute(
-                user_groups.select().where(user_groups.c.user_id == user.id)
+                user_groups.select().where(user_groups.c.user_id == user_id)
             ).fetchall()
 
             if remaining_associations:
                 current_app.logger.info(
-                    f"Cleaning up {len(remaining_associations)} remaining group associations for user {user.id}"
+                    f"Found {len(remaining_associations)} remaining group associations for user {user_id}"
                 )
+                db.session.execute(
+                    user_groups.delete()
+                    .where(user_groups.c.user_id == user_id)
+                    .execution_options(synchronize_session=False)
+                )
+                current_app.logger.info("Deleted remaining group associations")
+            else:
+                current_app.logger.info("No remaining group associations to clean up")
 
-            db.session.execute(
-                user_groups.delete()
-                .where(user_groups.c.user_id == user.id)
-                .execution_options(synchronize_session=False)   # <---- make delete idempotent
-            )
-
-            # Delete the original user account
+            # Step 5: Delete the original user account
             db.session.delete(user)
             
             # Commit all changes
