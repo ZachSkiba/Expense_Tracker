@@ -1,4 +1,4 @@
-# app/services/auth/email_service.py - Email verification and password reset service
+# app/services/auth/email_service.py - Refactored Email service with template files
 
 import smtplib
 import secrets
@@ -6,7 +6,7 @@ import string
 from datetime import datetime, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from flask import current_app, url_for, render_template_string
+from flask import current_app, url_for, render_template
 from models import db
 import os
 
@@ -76,91 +76,56 @@ class EmailService:
         # Create verification URL
         verification_url = url_for('auth.verify_email', token=token, _external=True)
         
-        # Email template
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px 20px; }}
-                .button {{ display: inline-block; background: #667eea; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 0.9em; color: #666; }}
-                .warning {{ background: #fff3cd; border-left: 4px solid #ffc107; padding: 15px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>💰 Welcome to Expense Tracker!</h1>
-            </div>
+        try:
+            # Render HTML template
+            html_content = render_template('emails/verification_email.html', 
+                                         user=user, 
+                                         verification_url=verification_url)
             
-            <div class="content">
-                <h2>Hi {user.full_name},</h2>
-                
-                <p>Thanks for signing up! We're excited to have you join our community of smart expense trackers.</p>
-                
-                <p>To complete your registration and activate your account, please verify your email address by clicking the button below:</p>
-                
-                <div style="text-align: center;">
-                    <a href="{verification_url}" class="button">Verify Email Address</a>
-                </div>
-                
-                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px;">{verification_url}</p>
-                
-                <div class="warning">
-                    <strong>⚠️ Important:</strong> This verification link will expire in 24 hours. If you don't verify within this time, you'll need to sign up again.
-                </div>
-                
-                <p>Once verified, you'll be able to:</p>
-                <ul>
-                    <li>✅ Create and manage your expenses</li>
-                    <li>✅ Join expense tracking groups</li>
-                    <li>✅ Set up recurring payments</li>
-                    <li>✅ Track balances and settlements</li>
-                </ul>
-                
-                <p>If you didn't create an account with us, you can safely ignore this email.</p>
-                
-                <p>Happy tracking!<br>The Expense Tracker Team</p>
-            </div>
+            # Text version
+            text_content = f"""
+WELCOME TO EXPENSE TRACKER
+
+Hello {user.full_name},
+
+Thank you for joining Expense Tracker! We're excited to have you as part of our community.
+
+To complete your registration and secure your account, please verify your email address by visiting the following link:
+
+{verification_url}
+
+IMPORTANT: This verification link will expire in 24 hours.
+
+What you can do with Expense Tracker:
+• Track and categorize all your expenses
+• Create expense groups with friends and family  
+• Set up recurring payments and automated tracking
+• Monitor balances and handle settlements
+• Generate detailed financial reports
+
+If you didn't create an account with us, you can safely ignore this email.
+
+Welcome aboard!
+The Expense Tracker Team
+
+---
+This email was sent to {user.email}
+Questions? Contact our support team.
+            """
             
-            <div class="footer">
-                <p>This email was sent to {user.email} because you signed up for Expense Tracker.</p>
-                <p>If you have any questions, please contact our support team.</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Text version
-        text_content = f"""
-        Welcome to Expense Tracker!
-        
-        Hi {user.full_name},
-        
-        Thanks for signing up! To complete your registration, please verify your email address by visiting:
-        
-        {verification_url}
-        
-        This link will expire in 24 hours.
-        
-        If you didn't create an account with us, you can safely ignore this email.
-        
-        Best regards,
-        The Expense Tracker Team
-        """
-        
-        # Send email
-        success = EmailService.send_email(
-            user.email,
-            "Verify Your Email - Expense Tracker",
-            html_content,
-            text_content
-        )
-        
-        return success
+            # Send email
+            success = EmailService.send_email(
+                user.email,
+                "Welcome! Please verify your email - Expense Tracker",
+                html_content,
+                text_content
+            )
+            
+            return success
+            
+        except Exception as e:
+            current_app.logger.error(f"Error rendering verification email template: {e}")
+            return False
     
     @staticmethod
     def send_password_reset_email(user):
@@ -177,94 +142,57 @@ class EmailService:
         # Create reset URL
         reset_url = url_for('auth.reset_password', token=token, _external=True)
         
-        # Email template
-        html_content = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <style>
-                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }}
-                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; }}
-                .content {{ padding: 30px 20px; }}
-                .button {{ display: inline-block; background: #dc3545; color: white; padding: 12px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; }}
-                .footer {{ background: #f8f9fa; padding: 20px; text-align: center; font-size: 0.9em; color: #666; }}
-                .warning {{ background: #f8d7da; border-left: 4px solid #dc3545; padding: 15px; margin: 20px 0; }}
-                .security-note {{ background: #d1ecf1; border-left: 4px solid #17a2b8; padding: 15px; margin: 20px 0; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>🔒 Password Reset Request</h1>
-            </div>
+        try:
+            # Render HTML template
+            html_content = render_template('emails/password_reset_email.html', 
+                                         user=user, 
+                                         reset_url=reset_url)
             
-            <div class="content">
-                <h2>Hi {user.full_name},</h2>
-                
-                <p>We received a request to reset the password for your Expense Tracker account.</p>
-                
-                <p>To reset your password, click the button below:</p>
-                
-                <div style="text-align: center;">
-                    <a href="{reset_url}" class="button">Reset Password</a>
-                </div>
-                
-                <p>If the button doesn't work, you can copy and paste this link into your browser:</p>
-                <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px;">{reset_url}</p>
-                
-                <div class="warning">
-                    <strong>⚠️ Important:</strong> This password reset link will expire in 2 hours for security reasons.
-                </div>
-                
-                <div class="security-note">
-                    <strong>🛡️ Security Note:</strong> If you didn't request this password reset, please ignore this email. Your account is secure and no changes have been made.
-                </div>
-                
-                <p>For your security, we recommend choosing a strong password that:</p>
-                <ul>
-                    <li>Is at least 8 characters long</li>
-                    <li>Contains both letters and numbers</li>
-                    <li>Is unique to your Expense Tracker account</li>
-                </ul>
-                
-                <p>Best regards,<br>The Expense Tracker Team</p>
-            </div>
+            # Text version
+            text_content = f"""
+PASSWORD RESET REQUEST - EXPENSE TRACKER
+
+Hello {user.full_name},
+
+We received a request to reset the password for your Expense Tracker account.
+
+To reset your password, visit the following link:
+{reset_url}
+
+SECURITY NOTICE:
+• This link will expire in 2 hours for your security
+• If you didn't request this reset, you can safely ignore this email
+• Your account remains secure until you complete the reset process
+
+Password Security Tips:
+• Use at least 8 characters with letters and numbers
+• Choose a unique password for your account
+• Consider using a password manager
+• Never share your password with anyone
+
+Need help? Contact our support team immediately if you have any security concerns.
+
+Best regards,
+The Expense Tracker Security Team
+
+---
+This security email was sent to {user.email}
+© 2024 Expense Tracker. All rights reserved.
+            """
             
-            <div class="footer">
-                <p>This email was sent to {user.email} because a password reset was requested.</p>
-                <p>If you have any questions, please contact our support team.</p>
-            </div>
-        </body>
-        </html>
-        """
-        
-        # Text version
-        text_content = f"""
-        Password Reset Request - Expense Tracker
-        
-        Hi {user.full_name},
-        
-        We received a request to reset the password for your account.
-        
-        To reset your password, visit:
-        {reset_url}
-        
-        This link will expire in 2 hours.
-        
-        If you didn't request this reset, you can safely ignore this email.
-        
-        Best regards,
-        The Expense Tracker Team
-        """
-        
-        # Send email
-        success = EmailService.send_email(
-            user.email,
-            "Reset Your Password - Expense Tracker",
-            html_content,
-            text_content
-        )
-        
-        return success
+            # Send email
+            success = EmailService.send_email(
+                user.email,
+                "Password Reset Request - Expense Tracker",
+                html_content,
+                text_content
+            )
+            
+            return success
+            
+        except Exception as e:
+            current_app.logger.error(f"Error rendering password reset email template: {e}")
+            return False
     
     @staticmethod
     def verify_token(user, token, token_type='email_verification'):
