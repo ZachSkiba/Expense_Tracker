@@ -1,4 +1,4 @@
-# models.py - FIXED: secrets.choices -> secrets.choice and other fixes
+# models.py - UPDATED with email verification fields
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -32,12 +32,19 @@ class User(UserMixin, db.Model):
     display_name = db.Column(db.String(100), nullable=False)  # Display name (can be duplicate)
     email = db.Column(db.String(120), unique=True, nullable=False, index=True)  # Must be unique
     
-    
     # Legacy authentication fields (nullable for backward compatibility)
     password_hash = db.Column(db.String(255), nullable=True)  # Nullable for legacy users
     
-    # Account status
-    is_active = db.Column(db.Boolean, default=True)
+    # NEW: Email verification fields
+    email_verification_token = db.Column(db.String(64), nullable=True)
+    email_verification_expires = db.Column(db.DateTime, nullable=True)
+    
+    # NEW: Password reset fields
+    password_reset_token = db.Column(db.String(64), nullable=True)
+    password_reset_expires = db.Column(db.DateTime, nullable=True)
+    
+    # Account status - UPDATED: Default to False for new users (requires email verification)
+    is_active = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
