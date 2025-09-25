@@ -1,12 +1,13 @@
-# app/routes/auth/auth.py - Updated with email verification and password reset
+# app/routes/auth/auth.py - Updated with account deletion functionality
 
-from flask import Blueprint, request, redirect, url_for, render_template, flash, session, current_app
+from flask import Blueprint, request, redirect, url_for, render_template, flash, session, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
 from models import User, Category, db
 from app.services.auth.auth import (
     validate_email, validate_password, validate_display_name
 )
 from app.services.auth.email_service import EmailService
+from app.services.auth.account_deletion_service import AccountDeletionService
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
 
@@ -528,3 +529,52 @@ def change_password():
             flash('An error occurred while changing your password', 'error')
     
     return render_template('auth/change_password.html')
+
+@auth_bp.route('/profile/delete-account-check', methods=['GET'])
+@login_required
+def delete_account_check():
+    """Check account deletion eligibility and show preview"""
+    eligibility = AccountDeletionService.check_deletion_eligibility(current_user)
+    
+    return jsonify(eligibility)
+
+@auth_bp.route('/profile/delete-account', methods=['POST'])
+@login_required
+def delete_account():
+    """Delete user account with all associated logic"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data provided'}), 400
+        
+        # Check confirmation
+        confirmation = data.get('confirmation', '').strip().lower()
+        if confirmation != 'delete my account':
+            return jsonify({
+                'success': False, 
+                'error': 'Please type "delete my account" to confirm'
+            }), 400
+        
+        # Perform deletion
+        success, message = AccountDeletionService.delete_user_account(current_user)
+        
+        if success:
+            # Log out the user since account is deleted
+            logout_user()
+            return jsonify({
+                'success': True,
+                'message': message,
+                'redirect_url': url_for('auth.login')
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': message
+            }), 400
+        
+    except Exception as e:
+        current_app.logger.error(f"Account deletion error: {e}")
+        return jsonify({
+            'success': False,
+            'error': 'An unexpected error occurred while deleting your account'
+        }), 500

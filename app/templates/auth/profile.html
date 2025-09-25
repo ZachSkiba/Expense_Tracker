@@ -170,7 +170,48 @@
             </div>
         </div>
     </div>
+    <div class="danger-section">
+    <h3 class="section-title" style="color: var(--danger-color);">
+        <i class="fas fa-exclamation-triangle"></i>
+        Danger Zone
+    </h3>
+    <div class="danger-content">
+        <p>Once you delete your account, there is no going back. Please be certain.</p>
+        <button id="delete-account-btn" class="btn btn-danger">
+            <i class="fas fa-trash-alt"></i>
+            Delete My Account
+        </button>
+    </div>
+</div>
 
+        <!-- Account Deletion Modal -->
+        <div id="delete-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Delete Account
+                    </h2>
+                    <p class="modal-subtitle">This action cannot be undone</p>
+                </div>
+
+                <div id="modal-body">
+                    <!-- Content will be loaded here -->
+                </div>
+
+                <div class="modal-actions">
+                    <button id="cancel-delete" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button id="confirm-delete" class="btn btn-danger" disabled>
+                        <i class="fas fa-trash-alt"></i>
+                        <span class="loading-spinner"></span>
+                        Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
     <script>
         function editField(fieldName) {
             // Hide all other edit forms
@@ -279,5 +320,114 @@
             }, 5000);
         }
     </script>
+    <script>
+    let deletionData = null;
+
+    // Your existing editField, cancelEdit, saveField, showMessage functions...
+    // (keep all the existing JS)
+
+    // Add account deletion functionality
+    document.getElementById('delete-account-btn').addEventListener('click', async () => {
+        try {
+            const response = await fetch('{{ url_for("auth.delete_account_check") }}');
+            deletionData = await response.json();
+            
+            showDeleteModal(deletionData);
+        } catch (error) {
+            showMessage('Error checking account deletion eligibility', 'error');
+        }
+    });
+
+    function showDeleteModal(data) {
+        const modal = document.getElementById('delete-modal');
+        const modalBody = document.getElementById('modal-body');
+        
+        let content = '';
+        
+        if (!data.can_delete) {
+            content += '<div class="blocking-list">';
+            content += '<h4>Cannot Delete Account</h4>';
+            data.blocking_issues.forEach(issue => {
+                content += `<div class="blocking-item">${issue}</div>`;
+            });
+            content += '</div>';
+        } else {
+            if (data.warnings.length > 0) {
+                content += '<div class="warning-list">';
+                content += '<h4>Important Information</h4>';
+                data.warnings.forEach(warning => {
+                    content += `<div class="warning-item">${warning}</div>`;
+                });
+                content += '</div>';
+            }
+            
+            content += '<div class="confirmation-section">';
+            content += '<p><strong>To confirm deletion, type "delete my account" below:</strong></p>';
+            content += '<input type="text" id="confirmation-input" class="confirmation-input" placeholder="delete my account">';
+            content += '</div>';
+        }
+        
+        modalBody.innerHTML = content;
+        
+        const confirmBtn = document.getElementById('confirm-delete');
+        if (data.can_delete) {
+            confirmBtn.style.display = 'inline-flex';
+            const input = document.getElementById('confirmation-input');
+            input.addEventListener('input', () => {
+                confirmBtn.disabled = input.value.trim().toLowerCase() !== 'delete my account';
+            });
+        } else {
+            confirmBtn.style.display = 'none';
+        }
+        
+        modal.classList.add('show');
+    }
+
+    document.getElementById('cancel-delete').addEventListener('click', () => {
+        document.getElementById('delete-modal').classList.remove('show');
+    });
+
+    document.getElementById('confirm-delete').addEventListener('click', async () => {
+        const btn = document.getElementById('confirm-delete');
+        const spinner = btn.querySelector('.loading-spinner');
+        
+        btn.disabled = true;
+        spinner.style.display = 'inline-block';
+        
+        try {
+            const response = await fetch('{{ url_for("auth.delete_account") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    confirmation: document.getElementById('confirmation-input').value
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                alert(result.message);
+                window.location.href = result.redirect_url;
+            } else {
+                showMessage(result.error, 'error');
+                btn.disabled = false;
+                spinner.style.display = 'none';
+            }
+        } catch (error) {
+            showMessage('Network error occurred', 'error');
+            btn.disabled = false;
+            spinner.style.display = 'none';
+        }
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('delete-modal').addEventListener('click', (e) => {
+        if (e.target.id === 'delete-modal') {
+            e.target.classList.remove('show');
+        }
+    });
+</script>
 </body>
 </html>
