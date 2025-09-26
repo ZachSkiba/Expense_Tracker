@@ -4,6 +4,7 @@
     <title>Resend Verification - Expense Tracker</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
     <style>
         .resend-info {
             background: #e7f3ff;
@@ -33,9 +34,13 @@
             <p class="form-subtitle">Get a new verification email</p>
         </div>
         
-        {% for category, message in get_flashed_messages(with_categories=true) %}
-            <div class="flash-{{ category }}">{{ message }}</div>
-        {% endfor %}
+        <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-message flash-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
         
         <div class="resend-info">
             <h4>When to resend verification:</h4>
@@ -70,5 +75,21 @@
             Need to create an account? <a href="{{ url_for('auth.signup') }}">Sign Up</a>
         </div>
     </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-hide flash messages after 3 seconds
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(function(message) {
+        setTimeout(function() {
+            message.classList.add('fade-out');
+            setTimeout(function() {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, 500);
+        }, 3000);
+    });
+});
+</script>
 </body>
 </html>
