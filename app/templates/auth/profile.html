@@ -169,20 +169,20 @@
                 </div>
             </div>
         </div>
-    </div>
-    <div class="danger-section">
-    <h3 class="section-title" style="color: var(--danger-color);">
-        <i class="fas fa-exclamation-triangle"></i>
-        Danger Zone
-    </h3>
-    <div class="danger-content">
-        <p>Once you delete your account, there is no going back. Please be certain.</p>
-        <button id="delete-account-btn" class="btn btn-danger">
-            <i class="fas fa-trash-alt"></i>
-            Delete My Account
-        </button>
-    </div>
-</div>
+
+        <div class="danger-section">
+            <h3 class="section-title" style="color: var(--danger-color);">
+                <i class="fas fa-exclamation-triangle"></i>
+                Danger Zone
+            </h3>
+            <div class="danger-content">
+                <p>Once you delete your account, there is no going back. Please be certain.</p>
+                <button id="delete-account-btn" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i>
+                    Delete My Account
+                </button>
+            </div>
+        </div>
 
         <!-- Account Deletion Modal -->
         <div id="delete-modal" class="modal">
@@ -212,221 +212,18 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- Configuration for JavaScript -->
     <script>
-        function editField(fieldName) {
-            // Hide all other edit forms
-            const allItems = document.querySelectorAll('.info-item');
-            allItems.forEach(item => {
-                item.classList.remove('editing');
-                const display = item.querySelector('.info-display');
-                const form = item.querySelector('.edit-form');
-                if (display) display.style.display = 'block';
-                if (form) form.classList.remove('active');
-            });
-            
-            // Show the selected field's edit form
-            const item = document.getElementById(fieldName + '-item');
-            const display = item.querySelector('.info-display');
-            const form = item.querySelector('.edit-form');
-            
-            item.classList.add('editing');
-            display.style.display = 'none';
-            form.classList.add('active');
-            
-            // Focus the input
-            const input = document.getElementById(fieldName + '-input');
-            input.focus();
-            input.select();
-        }
+        window.profileConfig = {
+            updateUrl: '{{ url_for("auth.update_profile_field") }}',
+            deleteCheckUrl: '{{ url_for("auth.delete_account_check") }}',
+            deleteUrl: '{{ url_for("auth.delete_account") }}'
+        };
+    </script>
 
-        function cancelEdit(fieldName) {
-            const item = document.getElementById(fieldName + '-item');
-            const display = item.querySelector('.info-display');
-            const form = item.querySelector('.edit-form');
-            const input = document.getElementById(fieldName + '-input');
-            const displayValue = document.getElementById(fieldName + '-display');
-            
-            // Reset input to original value
-            input.value = displayValue.textContent;
-            
-            // Show display, hide form
-            item.classList.remove('editing');
-            display.style.display = 'block';
-            form.classList.remove('active');
-        }
-
-        async function saveField(fieldName, event) {
-            event.preventDefault();
-            
-            const input = document.getElementById(fieldName + '-input');
-            const newValue = input.value.trim();
-            
-            if (!newValue) {
-                alert('This field cannot be empty');
-                return;
-            }
-            
-            try {
-                const formData = new FormData();
-                formData.append('field', fieldName.replace('-', '_'));
-                formData.append('value', newValue);
-                
-                const response = await fetch('{{ url_for("auth.update_profile_field") }}', {
-                    method: 'POST',
-                    body: formData
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Update display value
-                    const display = document.getElementById(fieldName + '-display');
-                    display.textContent = newValue;
-                    
-                    // Update header if it's the full name or email
-                    if (fieldName === 'full-name') {
-                        document.querySelector('.profile-name').textContent = newValue;
-                    } else if (fieldName === 'email') {
-                        document.querySelector('.profile-email').textContent = newValue;
-                    }
-                    
-                    // Hide edit form
-                    cancelEdit(fieldName);
-                    
-                    // Show success message
-                    showMessage('Profile updated successfully', 'success');
-                } else {
-                    showMessage(result.error || 'Error updating profile', 'error');
-                }
-            } catch (error) {
-                showMessage('Network error. Please try again.', 'error');
-            }
-        }
-
-        
-    document.addEventListener('DOMContentLoaded', function() {
-        // Auto-hide flash messages after 3 seconds
-        const flashMessages = document.querySelectorAll('.flash-message');
-        flashMessages.forEach(function(message) {
-            setTimeout(function() {
-                message.classList.add('fade-out');
-                setTimeout(function() {
-                    if (message.parentNode) {
-                        message.parentNode.removeChild(message);
-                    }
-                }, 500);
-            }, 3000);
-        });
-    });
-</script>
-    <script>
-    let deletionData = null;
-
-    // Your existing editField, cancelEdit, saveField, showMessage functions...
-    // (keep all the existing JS)
-
-    // Add account deletion functionality
-    document.getElementById('delete-account-btn').addEventListener('click', async () => {
-        try {
-            const response = await fetch('{{ url_for("auth.delete_account_check") }}');
-            deletionData = await response.json();
-            
-            showDeleteModal(deletionData);
-        } catch (error) {
-            showMessage('Error checking account deletion eligibility', 'error');
-        }
-    });
-
-    function showDeleteModal(data) {
-        const modal = document.getElementById('delete-modal');
-        const modalBody = document.getElementById('modal-body');
-        
-        let content = '';
-        
-        if (!data.can_delete) {
-            content += '<div class="blocking-list">';
-            content += '<h4>Cannot Delete Account</h4>';
-            data.blocking_issues.forEach(issue => {
-                content += `<div class="blocking-item">${issue}</div>`;
-            });
-            content += '</div>';
-        } else {
-            if (data.warnings.length > 0) {
-                content += '<div class="warning-list">';
-                content += '<h4>Important Information</h4>';
-                data.warnings.forEach(warning => {
-                    content += `<div class="warning-item">${warning}</div>`;
-                });
-                content += '</div>';
-            }
-            
-            content += '<div class="confirmation-section">';
-            content += '<p><strong>To confirm deletion, type "delete my account" below:</strong></p>';
-            content += '<input type="text" id="confirmation-input" class="confirmation-input" placeholder="delete my account">';
-            content += '</div>';
-        }
-        
-        modalBody.innerHTML = content;
-        
-        const confirmBtn = document.getElementById('confirm-delete');
-        if (data.can_delete) {
-            confirmBtn.style.display = 'inline-flex';
-            const input = document.getElementById('confirmation-input');
-            input.addEventListener('input', () => {
-                confirmBtn.disabled = input.value.trim().toLowerCase() !== 'delete my account';
-            });
-        } else {
-            confirmBtn.style.display = 'none';
-        }
-        
-        modal.classList.add('show');
-    }
-
-    document.getElementById('cancel-delete').addEventListener('click', () => {
-        document.getElementById('delete-modal').classList.remove('show');
-    });
-
-    document.getElementById('confirm-delete').addEventListener('click', async () => {
-        const btn = document.getElementById('confirm-delete');
-        const spinner = btn.querySelector('.loading-spinner');
-        
-        btn.disabled = true;
-        spinner.style.display = 'inline-block';
-        
-        try {
-            const response = await fetch('{{ url_for("auth.delete_account") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    confirmation: document.getElementById('confirmation-input').value
-                })
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                alert(result.message);
-                window.location.href = result.redirect_url;
-            } else {
-                showMessage(result.error, 'error');
-                btn.disabled = false;
-                spinner.style.display = 'none';
-            }
-        } catch (error) {
-            showMessage('Network error occurred', 'error');
-            btn.disabled = false;
-            spinner.style.display = 'none';
-        }
-    });
-
-    // Close modal when clicking outside
-    document.getElementById('delete-modal').addEventListener('click', (e) => {
-        if (e.target.id === 'delete-modal') {
-            e.target.classList.remove('show');
-        }
-    });
-</script>
+    <!-- External JavaScript file -->
+    <script src="{{ url_for('static', filename='js/auth/profile.js') }}"></script>
 </body>
 </html>
