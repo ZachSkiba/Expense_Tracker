@@ -80,6 +80,14 @@ class Config:
             # Fallback (shouldn't happen on Render)
             SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg://postgres:1234@localhost/expense_tracker'
 
+        SQLALCHEMY_ENGINE_OPTIONS = {
+            'pool_pre_ping': True,
+            'pool_recycle': 300,
+            'connect_args': {
+                'connect_timeout': 10,
+                'sslmode': 'prefer'  # Less strict SSL
+            }
+        }
     
     # Other configuration
     SQLALCHEMY_TRACK_MODIFICATIONS = False
