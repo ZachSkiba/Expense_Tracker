@@ -32,9 +32,9 @@ jobs:
             auth_header='-H "Authorization: Bearer ${{ secrets.AUTOMATION_SECRET }}"'
           fi
           
-          # Wake the app and process payments
+          # Wake the app and process payments - FIXED URL
           response=$(curl -s -w "\nHTTP_CODE:%{http_code}\nTIME_TOTAL:%{time_total}" \
-            -X POST "${{ secrets.RENDER_APP_URL }}/admin/recurring/wake-and-process" \
+            -X POST "${{ secrets.RENDER_APP_URL }}/api/recurring/admin/wake-and-process" \
             -H "Content-Type: application/json" \
             -H "User-Agent: GitHub-Actions-Recurring-Processor/1.0" \
             $auth_header \
