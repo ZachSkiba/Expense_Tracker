@@ -24,11 +24,10 @@ def create_app():
     app.config['LEGACY_AUTH_ENABLED'] = True  # Enable during migration period
     app.config['ADMIN_ACCESS_ENABLED'] = True  # For admin endpoints
 
-    # Initialize extensions
-    db.init_app(app)
-    if os.getenv("FLASK_ENV") == "production":
-        with app.app_context():
-            upgrade()
+    from models import db
+
+    with app.app_context():
+        db.create_all()  # Only runs if tables don't exist
 
     # Initialize Flask-Login
     from app.services.auth.auth import init_login_manager
