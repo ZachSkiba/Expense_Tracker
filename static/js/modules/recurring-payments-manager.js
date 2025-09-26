@@ -90,14 +90,20 @@ class RecurringPaymentsManager {
         if (!this.validateForm(data)) {
             return;
         }
-        
-        try {
-            this.isSubmitting = true;
-            this.setLoadingState(true);
-            
+
+        const groupId = window.groupId;
+    if (!groupId) {
+        this.showErrorMessage('Group ID not found. Please refresh the page.');
+        return;
+    }
+
+    try {
+        this.isSubmitting = true;
+        this.setLoadingState(true);
+
             // Only create new recurring payments, never update from form
             console.log('CREATING new recurring payment');
-            const response = await this.createRecurringPayment(data);
+            const response = await this.createRecurringPayment(data, groupId);
             
             console.log('Server response:', response);
             
@@ -189,22 +195,23 @@ class RecurringPaymentsManager {
         
         return true;
     }
+
+    // Update createRecurringPayment method:
+async createRecurringPayment(data, groupId) {
+    const response = await fetch(window.urls.recurringPaymentsApi, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    });
     
-    async createRecurringPayment(data) {
-        const response = await fetch(window.urls.recurringPaymentsApi, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        return await response.json();
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
+    
+    return await response.json();
+}
     
     // NEW METHOD: Immediate refresh without delays
         refreshMainTableImmediate() {
@@ -810,95 +817,116 @@ class RecurringPaymentsManager {
         }
     }
     
-    async loadRecurringPayments() {
-        try {
-            const response = await fetch(window.urls.getRecurringPaymentsApi);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.renderRecurringPaymentsTable(data.recurring_payments);
-                // Set up inline editing after rendering
-                setTimeout(() => this.setupInlineEditing(), 200);
-            } else {
-                console.error('Error loading recurring payments:', data.message);
-            }
-        } catch (error) {
-            console.error('Error loading recurring payments:', error);
+    // Debug the recurring payments table loading issue
+// Add this debug version to your recurring-payments-manager.js temporarily:
+
+async loadRecurringPayments() {
+    try {
+        const response = await fetch(window.urls.getRecurringPaymentsApi);
+        const data = await response.json();
+        
+        if (data.success) {
+            this.renderRecurringPaymentsTable(data.recurring_payments);
+            setTimeout(() => this.setupInlineEditing(), 200);
+        } else {
+            console.error('Error loading recurring payments:', data.message);
         }
+    } catch (error) {
+        console.error('Error loading recurring payments:', error);
+    }
+}
+
+// Also add debug to the table rendering:
+renderRecurringPaymentsTable(recurringPayments) {
+    console.log('[DEBUG] renderRecurringPaymentsTable called with:', recurringPayments);
+    console.log('[DEBUG] Table body element:', this.tableBody);
+    
+    console.log("[DEBUG] API response:", recurringPayments);
+    console.log("[DEBUG] First row:", recurringPayments[0]);
+
+    if (!this.tableBody) {
+        console.error('[ERROR] Table body element not found!');
+        console.log('[DEBUG] Looking for element with ID: recurring-payments-table-body');
+        console.log('[DEBUG] Available elements with "table" in ID:', 
+            [...document.querySelectorAll('[id*="table"]')].map(el => el.id));
+        return;
     }
     
-    renderRecurringPaymentsTable(recurringPayments) {
-        if (!this.tableBody) return;
-        
-        if (recurringPayments.length === 0) {
-            this.tableBody.innerHTML = `
-                <tr>
-                    <td colspan="10" class="empty-state">
-                        <div class="empty-state-icon">🔄</div>
-                        <div class="empty-state-text">No recurring payments found</div>
-                        <div class="empty-state-subtext">Create your first recurring payment above</div>
-                    </td>
-                </tr>
-            `;
-            return;
-        }
-        
-        this.tableBody.innerHTML = recurringPayments.map(payment => {
-            const nextDueDate = new Date(payment.next_due_date);
-            const today = new Date();
-            const dueDateClass = this.getDueDateClass(nextDueDate, today);
-            
-            return `
-                <tr data-recurring-id="${payment.id}">
-                    <td class="editable category" data-value="${payment.category_id}" title="Click to edit category">
-                        <strong>${this.escapeHtml(payment.category_name)}</strong>
-                        ${payment.category_description ? `<br><small class="editable description" data-value="${this.escapeHtml(payment.category_description)}" title="Click to edit description">${this.escapeHtml(payment.category_description)}</small>` : ''}
-                    </td>
-                    <td class="editable amount" data-value="${payment.amount}" title="Click to edit amount">$${parseFloat(payment.amount).toFixed(2)}</td>
-                    <td class="editable user" data-value="${payment.user_id}" title="Click to edit payer">${this.escapeHtml(payment.user_name)}</td>
-                    <td class="editable frequency" data-value="${payment.frequency}" title="Click to edit frequency">
-                        <span class="frequency-display">
-                            ${this.formatFrequency(payment.frequency, payment.interval_value)}
-                        </span>
-                    </td>
-                    <td class="editable start_date" data-value="${payment.start_date}" title="Click to edit start date">${this.formatDate(payment.start_date)}</td>
-                    <td class="editable end_date" data-value="${payment.end_date || ''}" title="Click to edit end date">${payment.end_date ? this.formatDate(payment.end_date) : 'Never'}</td>
-                    <td class="editable next_due_date" data-value="${payment.next_due_date}" title="Click to edit next due date">
-                        <span class="due-date ${dueDateClass}">
-                            ${this.formatDate(payment.next_due_date)}
-                        </span>
-                    </td>
-                    <td class="editable is_active" data-value="${payment.is_active}" title="Click to edit status">
-                        <span class="status-badge ${payment.is_active ? 'status-active' : 'status-inactive'}">
-                            ${payment.is_active ? 'Active' : 'Inactive'}
-                        </span>
-                    </td>
-                    <td class="editable participants" data-participant-ids="${(payment.participant_ids || []).join(',')}" title="Click to edit participants">
-                        <div class="participants-display">
-                            ${payment.participants && payment.participants.length > 0 ? payment.participants.join(', ') : 'All users'}
-                        </div>
-                    </td>
-                    <td>
-                        <button class="action-btn delete-btn" onclick="recurringPaymentsManager.deleteRecurringPayment(${payment.id})">
-                            Delete
-                        </button>
-                        ${payment.is_active ? `
-                            <button class="action-btn process-btn" onclick="recurringPaymentsManager.processPayment(${payment.id})"
-                                    title="Process this payment now to create an expense">
-                                Process
-                            </button>
-                        ` : ''}
-                    </td>
-                </tr>
-            `;
-        }).join('');
+    if (!recurringPayments || recurringPayments.length === 0) {
+        console.log('[DEBUG] No recurring payments to display');
+        this.tableBody.innerHTML = `
+            <tr>
+                <td colspan="10" class="empty-state">
+                    <div class="empty-state-icon">🔄</div>
+                    <div class="empty-state-text">No recurring payments found</div>
+                    <div class="empty-state-subtext">Create your first recurring payment above</div>
+                </td>
+            </tr>
+        `;
+        return;
     }
+    
+    console.log('[DEBUG] Rendering table with', recurringPayments.length, 'payments');
+    
+    // Rest of your existing renderRecurringPaymentsTable code...
+    this.tableBody.innerHTML = recurringPayments.map(payment => {
+        const nextDueDate = new Date(payment.next_due_date);
+        const today = new Date();
+        const dueDateClass = this.getDueDateClass(nextDueDate, today);
+        
+        return `
+            <tr data-recurring-id="${payment.id}">
+                <td class="editable category" data-value="${payment.category_id}" title="Click to edit category">
+                    <strong>${this.escapeHtml(payment.category_name)}</strong>
+                    ${payment.category_description ? `<br><small class="editable description" data-value="${this.escapeHtml(payment.category_description)}" title="Click to edit description">${this.escapeHtml(payment.category_description)}</small>` : ''}
+                </td>
+                <td class="editable amount" data-value="${payment.amount}" title="Click to edit amount">$${parseFloat(payment.amount).toFixed(2)}</td>
+                <td class="editable user" data-value="${payment.user_id}" title="Click to edit payer">${this.escapeHtml(payment.user_name)}</td>
+                <td class="editable frequency" data-value="${payment.frequency}" title="Click to edit frequency">
+                    <span class="frequency-display">
+                        ${this.formatFrequency(payment.frequency, payment.interval_value)}
+                    </span>
+                </td>
+                <td class="editable start_date" data-value="${payment.start_date}" title="Click to edit start date">${this.formatDate(payment.start_date)}</td>
+                <td class="editable end_date" data-value="${payment.end_date || ''}" title="Click to edit end date">${payment.end_date ? this.formatDate(payment.end_date) : 'Never'}</td>
+                <td class="editable next_due_date" data-value="${payment.next_due_date}" title="Click to edit next due date">
+                    <span class="due-date ${dueDateClass}">
+                        ${this.formatDate(payment.next_due_date)}
+                    </span>
+                </td>
+                <td class="editable is_active" data-value="${payment.is_active}" title="Click to edit status">
+                    <span class="status-badge ${payment.is_active ? 'status-active' : 'status-inactive'}">
+                        ${payment.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td class="editable participants" data-participant-ids="${(payment.participant_ids || []).join(',')}" title="Click to edit participants">
+                    <div class="participants-display">
+                        ${payment.participants && payment.participants.length > 0 ? payment.participants.join(', ') : 'All users'}
+                    </div>
+                </td>
+                <td>
+                    <button class="action-btn delete-btn" onclick="recurringPaymentsManager.deleteRecurringPayment(${payment.id})">
+                        Delete
+                    </button>
+                    ${payment.is_active ? `
+                        <button class="action-btn process-btn" onclick="recurringPaymentsManager.processPayment(${payment.id})"
+                                title="Process this payment now to create an expense">
+                            Process
+                        </button>
+                    ` : ''}
+                </td>
+            </tr>
+        `;
+    }).join('');
+    
+    console.log('[DEBUG] Table HTML updated, rows added:', recurringPayments.length);
+}
     
     async processPayment(id) {
-        if (!confirm('Process this recurring payment now? This will create a new expense for today.')) {
-            return;
-        }
-        
+    if (!confirm('Process this recurring payment now? This will create a new expense for today.')) {
+        return;
+    }
+    
         try {
             const response = await fetch(`${window.urls.recurringPaymentsApi}/${id}/process`, {
                 method: 'POST',
@@ -911,16 +939,19 @@ class RecurringPaymentsManager {
             
             if (result.success) {
                 this.showSuccessMessage('Recurring payment processed successfully! Expense created for today.');
+                
+                // Reload recurring payments table first
                 await this.loadRecurringPayments();
                 
-                // IMMEDIATE REFRESH: Also refresh main table when processing a payment
-                this.refreshMainTableImmediate();
+                // Then immediately reload page to show new expense and updated balances
+                console.log('Manual processing complete, reloading page to show new expense...');
+                setTimeout(() => {
+                    window.location.reload();
+                }); // Small delay for success message visibility
+                
             } else {
                 this.showErrorMessage(result.message || 'Error processing payment');
             }
-            setTimeout(() => {
-                window.location.reload();
-            });
         } catch (error) {
             console.error('Error processing payment:', error);
             this.showErrorMessage('Error processing payment');

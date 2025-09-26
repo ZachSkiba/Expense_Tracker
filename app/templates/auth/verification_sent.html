@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Check Your Email - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
+    <style>
+        .success-container {
+            text-align: center;
+            padding: 40px 20px;
+        }
+        .success-icon {
+            font-size: 64px;
+            color: #28a745;
+            margin-bottom: 20px;
+        }
+        .email-highlight {
+            background: #e7f3ff;
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 2px solid #007bff;
+            margin: 20px 0;
+            font-weight: bold;
+        }
+        .help-section {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px 0;
+            text-align: left;
+        }
+        .help-section h4 {
+            margin-top: 0;
+            color: #495057;
+        }
+        .help-section ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .help-section li {
+            margin: 8px 0;
+        }
+        .resend-link {
+            display: inline-block;
+            margin: 20px 0;
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .resend-link:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="success-container">
+            <div class="success-icon">📧</div>
+            <h1 class="form-title">Check Your Email</h1>
+            <p class="form-subtitle">We've sent you a verification link</p>
+            
+            {% if email %}
+            <div class="email-highlight">
+                Verification email sent to: {{ email }}
+            </div>
+            {% endif %}
+            
+            <p>To complete your registration and activate your account, please:</p>
+            <ol style="text-align: left; display: inline-block;">
+                <li>Check your email inbox (and spam folder)</li>
+                <li>Click the verification link in the email</li>
+                <li>Return here to sign in</li>
+            </ol>
+            
+            <div class="help-section">
+                <h4>📋 What to expect:</h4>
+                <ul>
+                    <li>The verification email should arrive within a few minutes</li>
+                    <li>The verification link expires in 24 hours</li>
+                    <li>Once verified, you can sign in normally</li>
+                </ul>
+                
+                <h4>❓ Didn't receive the email?</h4>
+                <ul>
+                    <li>Check your spam/junk folder</li>
+                    <li>Make sure you entered the correct email address</li>
+                    <li>Wait a few more minutes - emails can be delayed</li>
+                </ul>
+            </div>
+            
+            <a href="{{ url_for('auth.resend_verification') }}" class="resend-link">
+                Resend verification email
+            </a>
+            
+            <div class="auth-link" style="margin-top: 30px;">
+                <a href="{{ url_for('auth.login') }}">Back to Sign In</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

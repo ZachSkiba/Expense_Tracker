@@ -91,70 +91,78 @@ class CombinedPageManager {
     }
 
     async handleFormSubmit(e) {
-        e.preventDefault();
-        
-        console.log('[DEBUG] Form submission started');
-        
-        // Validate payer/receiver first
-        if (!this.validatePayerReceiver()) {
-            return;
-        }
-
-        // Get form data
-        const formData = new FormData(e.target);
-        const settlementData = {
-            amount: formData.get('amount'),
-            payer_id: formData.get('payer_id'),
-            receiver_id: formData.get('receiver_id'),
-            description: formData.get('description'),
-            date: formData.get('date') || new Date().toISOString().split('T')[0]
-        };
-
-        try {
-            const response = await fetch('/api/settlements', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(settlementData)
-            });
-
-            const data = await response.json();
-
-            if (data.success) {
-                console.log('[DEBUG] Settlement created successfully');
-                
-                // Clear form
-                e.target.reset();
-                this.setDefaultDate();
-                
-                // Close modal if it exists
-                const modal = document.getElementById('settleUpModal');
-                if (modal) {
-                    modal.style.display = 'none';
-                }
-                
-                // Refresh all data
-                await this.refreshAllDataImmediate();
-                
-                // Show success message
-                this.showSuccessMessage('Payment recorded successfully!');
-                
-                // Dispatch paymentAdded event
-                document.dispatchEvent(new CustomEvent('paymentAdded'));
-
-                setTimeout(() => {
-                    window.location.reload();
-                });
-
-            } else {
-                this.showError(data.error || 'Failed to record settlement');
-            }
-        } catch (error) {
-            console.error('Error recording settlement:', error);
-            this.showError('Network error. Please try again.');
-        }
+    e.preventDefault();
+    
+    console.log('[DEBUG] Form submission started');
+    
+    // Validate payer/receiver first
+    if (!this.validatePayerReceiver()) {
+        return;
     }
+
+    // Get group_id
+    const groupId = window.groupId;
+    if (!groupId) {
+        this.showError('Group ID not found');
+        return;
+    }
+
+    // Get form data
+    const formData = new FormData(e.target);
+    const settlementData = {
+        amount: formData.get('amount'),
+        payer_id: formData.get('payer_id'),
+        receiver_id: formData.get('receiver_id'),
+        description: formData.get('description'),
+        date: formData.get('date') || new Date().toISOString().split('T')[0]
+    };
+
+    try {
+        // Use group-specific endpoint
+        const response = await fetch(`/api/settlements/${groupId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(settlementData)
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            console.log('[DEBUG] Settlement created successfully');
+            
+            // Clear form
+            e.target.reset();
+            this.setDefaultDate();
+            
+            // Close modal if it exists
+            const modal = document.getElementById('settleUpModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+            
+            // Refresh all data
+            await this.refreshAllDataImmediate();
+            
+            // Show success message
+            this.showSuccessMessage('Payment recorded successfully!');
+            
+            // Dispatch paymentAdded event
+            document.dispatchEvent(new CustomEvent('paymentAdded'));
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+
+        } else {
+            this.showError(data.error || 'Failed to record settlement');
+        }
+    } catch (error) {
+        console.error('Error recording settlement:', error);
+        this.showError('Network error. Please try again.');
+    }
+}
 
     // ==========================================
     // TABLE EDITING (Inline Edit Functionality)
@@ -440,32 +448,40 @@ class CombinedPageManager {
     // ==========================================
 
     async loadActualSettlements() {
-        try {
-            console.log('[DEBUG] Loading settlements data...');
-            
-            const response = await fetch('/api/settlements?limit=10');
-            const data = await response.json();
-
-            if (data.settlements) {
-                console.log(`[DEBUG] Loaded ${data.settlements.length} settlements`);
-                
-                // Store settlements data for use
-                this.settlementsData = data.settlements;
-                
-                // Check if we need to render the sidebar table
-                this.renderSidebarSettlementsIfNeeded();
-                
-                // Attach event listeners to existing tables (for combined page)
-                setTimeout(() => {
-                    this.attachEditingEventListeners();
-                    this.attachDeleteEventListeners();
-                }, 100);
-            }
-        } catch (error) {
-            console.error('Error loading settlements:', error);
-            this.settlementsData = [];
+    try {
+        console.log('[DEBUG] Loading settlements data...');
+        
+        // Get group_id from window.groupId (set in templates)
+        const groupId = window.groupId;
+        if (!groupId) {
+            console.error('[ERROR] No group ID available');
+            return;
         }
+        
+        // Use the group-specific API endpoint
+        const response = await fetch(`/api/settlements/${groupId}?limit=10`);
+        const data = await response.json();
+
+        if (data.settlements) {
+            console.log(`[DEBUG] Loaded ${data.settlements.length} settlements for group ${groupId}`);
+            
+            // Store settlements data for use
+            this.settlementsData = data.settlements;
+            
+            // Check if we need to render the sidebar table
+            this.renderSidebarSettlementsIfNeeded();
+            
+            // Attach event listeners to existing tables (for combined page)
+            setTimeout(() => {
+                this.attachEditingEventListeners();
+                this.attachDeleteEventListeners();
+            }, 100);
+        }
+    } catch (error) {
+        console.error('Error loading settlements:', error);
+        this.settlementsData = [];
     }
+}
 
     // New method to handle sidebar settlements table rendering
     renderSidebarSettlementsIfNeeded() {

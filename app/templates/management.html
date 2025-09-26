@@ -2,19 +2,43 @@
 <html>
 <head>
     <title>Manage Users & Categories</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/users-category-management.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimization.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/users-category-management.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
+    <style>
+        .alert {
+            padding: 12px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .alert-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .alert-info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+    </style>
 </head>
 <body>
     <div class="management-container">
         <h1>🛠️ Manage Users & Categories</h1>
+        <p>Managing group: <strong>{{ group.name }}</strong></p>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'success' if category == 'success' else 'error' }}">
-                        {{ message }}
+                    <div class="alert alert-{{ 'success' if category == 'success' else ('info' if category == 'info' else 'error') }}">
+                        {{ message|safe }}
                     </div>
                 {% endfor %}
             {% endif %}
@@ -35,23 +59,33 @@
                 
                 <div class="add-form">
                     <form method="POST">
-                        <input type="text" name="user_name" placeholder="Enter new user name" required>
+                        <input type="text" name="user_name" placeholder="Enter user name (new or existing)" required>
                         <input type="hidden" name="action" value="add_user">
                         <input type="hidden" name="next" value="{{ next_url }}">
                         <button type="submit">Add User</button>
                     </form>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        💡 This creates a new user for expense tracking. Real users join via invite code.
+                    </p>
                 </div>
                 
                 <div class="items-list">
                     {% if users %}
                         {% for user in users %}
                             <div class="item">
-                                <span class="item-name">{{ user.name }}</span>
-                                <a href="{{ url_for('management.delete_user', user_id=user.id) }}" 
-                                   class="delete-btn" 
-                                   onclick="return confirm('Are you sure you want to delete {{ user.name }}?')">
-                                    🗑️
-                                </a>
+                                <span class="item-name">
+                                    {{ user.name }}
+                                    {% if user == group.creator %}
+                                        <span style="font-size: 12px; color: #007bff;">(Creator)</span>
+                                    {% endif %}
+                                </span>
+                                {% if user != group.creator %}
+                                    <a href="{{ url_for('management.delete_user', user_id=user.id, group_id=group.id) }}" 
+                                       class="delete-btn" 
+                                       onclick="return confirm('Are you sure you want to remove {{ user.name }} from this group?')">
+                                        🗑️
+                                    </a>
+                                {% endif %}
                             </div>
                         {% endfor %}
                     {% else %}
@@ -95,8 +129,8 @@
                 </div>
             </div>
         </div>
-        
-        <a href="{{ url_for('expenses.add_expense') }}" class="back-link">⬅ Main Page</a>
+
+        <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="back-link">⬅ Back to Tracker</a>
     </div>
 </body>
 </html>

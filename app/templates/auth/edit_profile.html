@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Edit Profile - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/profile.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <i class="fas fa-coins"></i>
+            Expense Tracker
+        </h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('groups.index') }}">
+                <i class="fas fa-users"></i>
+                Groups
+            </a>
+            <a href="{{ url_for('auth.profile') }}">
+                <i class="fas fa-user"></i>
+                Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-message flash-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="form-container">
+            <div class="form-header">
+                <h1 class="form-title">
+                    <i class="fas fa-user-edit"></i>
+                    Edit Profile
+                </h1>
+                <p class="form-subtitle">Update your personal information</p>
+            </div>
+
+            <form method="post">
+                <div class="form-group">
+                    <label class="form-label" for="full_name">
+                        <i class="fas fa-user"></i>
+                        Full Name
+                    </label>
+                    <input type="text" 
+                           id="full_name" 
+                           name="full_name" 
+                           class="form-input" 
+                           value="{{ user.full_name }}" 
+                           required
+                           autocomplete="name">
+                    <div class="field-help">Your complete name as you'd like it to appear</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="display_name">
+                        <i class="fas fa-tag"></i>
+                        Display Name
+                    </label>
+                    <input type="text" 
+                           id="display_name" 
+                           name="display_name" 
+                           class="form-input" 
+                           value="{{ user.display_name }}" 
+                           required
+                           autocomplete="nickname">
+                    <div class="field-help">How others see your name in groups (3-20 characters, letters, numbers, and underscores only)</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="email">
+                        <i class="fas fa-envelope"></i>
+                        Email Address
+                    </label>
+                    <input type="email" 
+                           id="email" 
+                           name="email" 
+                           class="form-input" 
+                           value="{{ user.email }}" 
+                           required
+                           autocomplete="email">
+                    <div class="field-help">Used for login and notifications</div>
+                </div>
+
+                <button type="submit" class="btn btn-full">
+                    <i class="fas fa-save"></i>
+                    Save Changes
+                </button>
+            </form>
+
+            <div class="back-link">
+                <a href="{{ url_for('auth.profile') }}">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Profile
+                </a>
+            </div>
+        </div>
+    </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-hide flash messages after 3 seconds
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(function(message) {
+        setTimeout(function() {
+            message.classList.add('fade-out');
+            setTimeout(function() {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, 500);
+        }, 3000);
+    });
+});
+</script>
+</body>
+</html>

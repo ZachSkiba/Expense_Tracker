@@ -63,8 +63,8 @@ def wake_and_process():
         return jsonify({'error': 'Invalid request source'}), 403
     
     try:
-        from app.services.recurring_service import RecurringPaymentService
-        from app.startup_processor import StartupRecurringProcessor
+        from app.services.tracker.recurring_service import RecurringPaymentService
+        from app.services.tracker.startup_processor import StartupRecurringProcessor
         
         # Log the trigger source
         request_data = request.get_json() or {}

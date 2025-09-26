@@ -2,29 +2,30 @@
 <html>
 <head>
     <title>RoomMate Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/balance-styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/roommate-styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settlements-table.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/expense-filter.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/recurring-payments.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimization.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/balance-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/roommate-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/settlements-table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/expense-filter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/recurring-payments.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
 </head>
 <body>
     <!-- Header -->
     <div class="header">
     <div class="header-left">
         <h1>
-            🏠 403 Expense Tracker
+            🏠 {{ group.name }}
         </h1>
     </div>
 
     <div class="header-center">
         <nav class="header-nav">
-            <a href="{{ url_for('expenses.expenses') }}">📊 View All Expenses</a>
-            <a href="{{ url_for('balances.combined_balances_settlements') }}">💰 Balances & Payments</a>
-            <a href="{{ url_for('management.manage_data') }}">🛠️ Manage Users & Categories</a>
-            <a href="{{ url_for('manage.management') }}">⚙️ Settings</a>
+            <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View All Expenses</a>
+            <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Payments</a>
+            <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
+            <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
+            <a href="{{ url_for('manage.settings', group_id=group.id) }}">⚙️ Settings</a>
         </nav>
     </div>
 
@@ -317,18 +318,20 @@
     </div>
 
     <!-- JavaScript -->
-    <script id="categories-data" type="application/json">{{ categories | tojson | safe }}</script>
-    <script id="users-data" type="application/json">{{ users | tojson | safe }}</script>
+    <script id="categories-data" type="application/json">{{ categories_json | tojson | safe }}</script>
+    <script id="users-data" type="application/json">{{ users_json | tojson | safe }}</script>
 
     <script>
         window.urls = {
-            addExpense: "{{ url_for('expenses.add_expense') }}",
-            management: "{{ url_for('management.manage_data') }}",
-            settlementsApi: "{{ url_for('settlements.add_settlement_api') }}",
-            getSettlementsApi: "{{ url_for('settlements.get_settlements_api') }}",
-            recurringPaymentsApi: "/api/recurring/payments",
-            getRecurringPaymentsApi: "/api/recurring/payments"
+            addExpense: "{{ url_for('expenses.group_expenses', group_id=group.id) }}",
+            management: "{{ url_for('management.manage_data', group_id=group.id) }}",
+            settlementsApi: "{{ url_for('settlements.add_settlement_api', group_id=group.id) }}",
+            getSettlementsApi: "{{ url_for('settlements.get_settlements_api', group_id=group.id) }}",
+            storeSuggestions: "{{ url_for('expenses.store_suggestions') }}?group_id={{ group.id }}",
+            recurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
+            getRecurringPaymentsApi: "/api/recurring/payments/{{ group.id }}"
         };
+        window.groupId = "{{ group.id }}";
     </script>
 
     <!-- Load your existing JavaScript modules -->

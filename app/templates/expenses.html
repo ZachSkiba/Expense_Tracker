@@ -3,9 +3,9 @@
 <head>
     <meta charset="utf-8">
     <title>All Expenses</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/expense-filter.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimization.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/expense-filter.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
     <style>
     /* Header container */
     .header {
@@ -62,8 +62,8 @@
   <div class="header">
       <h1>💰 Expense Tracker</h1>
       <nav class="header-nav">
-          <a href="{{ url_for('expenses.add_expense') }}" class="btn-nav">⬅ Main Page</a>
-          <a href="{{ url_for('manage.management') }}" class="btn-nav">⚙️ Settings</a>
+          <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="btn-nav">⬅ Main Page</a>
+          <a href="{{ url_for('manage.settings', group_id=group.id) }}" class="btn-nav">⚙️ Settings</a>
       </nav>
   </div>
 
@@ -78,8 +78,8 @@
 
   <script>
       window.urls = {
-          addExpense: "{{ url_for('expenses.add_expense') }}",
-          management: "{{ url_for('management.manage_data') }}"
+          addExpense: "{{ url_for('expenses.group_expenses', group_id=group.id) }}",
+          management: "{{ url_for('management.manage_data', group_id=group.id) }}"
       };
   </script>
 

@@ -2,28 +2,22 @@
 <html>
 <head>
     <title>Balances & Settlements</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/balance-styles.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settlements.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/settlements-table.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/payments-balances.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-optimization.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/balance-styles.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/settlements.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/settlements-table.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/payments-balances.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
 </head>
 <body>
 
 <div class="page-header">
     <h1 class="page-title">💰 Balances & Settlements</h1>
     <div class="header-navigation">
-        <a href="{{ url_for('expenses.add_expense') }}" class="header-nav-link">⬅ Main Page</a>
-        <a href="{{ url_for('expenses.expenses') }}" class="header-nav-link">📊 View Expenses</a>
-        <a href="{{ url_for('manage.management') }}" class="header-nav-link">⚙️ Management</a>
+        <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="header-nav-link">🏠 Home</a>
+        <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}" class="header-nav-link">📊 View Expenses</a>
+        <a href="{{ url_for('manage.settings', group_id=group.id) }}" class="header-nav-link">⚙️ Settings</a>
     </div>
-</div>
-
-<div class="top-navigation">
-    <a href="{{ url_for('expenses.add_expense') }}" class="nav-link">⬅ Main Page</a>
-    <a href="{{ url_for('expenses.expenses') }}" class="nav-link">📊 View All Expenses</a>
-    <a href="{{ url_for('manage.management') }}" class="nav-link">⚙️ Management</a>
 </div>
 
 <div class="main-container">

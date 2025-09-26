@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign In - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
+    
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h1 class="form-title">💰 Expense Tracker</h1>
+            <p class="form-subtitle">Sign in to your account</p>
+        </div>
+        
+       <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-message flash-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <form method="post">
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                <input type="email" name="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-input" placeholder="Enter password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn">Sign In</button>
+        </form>
+        
+        <div class="auth-link">
+            <a href="{{ url_for('auth.forgot_password') }}">Forgot your password?</a>
+        </div>
+        
+        <div class="auth-link">
+            Don't have an account? <a href="{{ url_for('auth.signup') }}">Sign Up</a>
+        </div>
+    </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-hide flash messages after 3 seconds
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(function(message) {
+        setTimeout(function() {
+            message.classList.add('fade-out');
+            setTimeout(function() {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, 500);
+        }, 3000);
+    });
+});
+</script>
+</body>
+</html>

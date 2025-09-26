@@ -1,9 +1,9 @@
-# app/__init__.py - Final version with proper auth bypass
+# app/__init__.py - Updated with FIXED authentication system
 
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
 from config import Config
-from app.routes.recurring import recurring
+from app.routes.tracker.recurring import recurring
 import datetime
 from flask import jsonify
 
@@ -16,24 +16,26 @@ def create_app():
     app.config['SESSION_COOKIE_HTTPONLY'] = True
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
     app.config['SESSION_PERMANENT'] = False
-
+    app.config['SESSION_COOKIE_NAME'] = 'expense_tracker_session'
     
-    # Make sessions expire when browser closes
-    app.config['SESSION_COOKIE_NAME'] = 'roommate_session'
-    
-    # Admin access for manual processing
-    app.config['ADMIN_ACCESS_ENABLED'] = True
+    # Authentication settings
+    app.config['LEGACY_AUTH_ENABLED'] = True  # Enable during migration period
+    app.config['ADMIN_ACCESS_ENABLED'] = True  # For admin endpoints
 
     # Initialize extensions
     db.init_app(app)
 
+    # Initialize Flask-Login
+    from app.services.auth.auth import init_login_manager
+    init_login_manager(app)
+
     # Process startup recurring payments (this handles missed payments)
-    from app.startup_processor import StartupRecurringProcessor
+    from app.services.tracker.startup_processor import StartupRecurringProcessor
     with app.app_context():
         StartupRecurringProcessor.process_startup_recurring_payments(app)
 
-    # Import auth functions
-    from app.auth import check_auth, authenticate, require_auth, LOGIN_TEMPLATE, SHARED_PASSWORD
+    # Import auth functions for legacy support
+    from app.services.auth.auth import check_legacy_auth
 
     # Security headers
     @app.after_request
@@ -45,77 +47,82 @@ def create_app():
             response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
         return response
 
-    # Authentication check for all routes - CRITICAL FIX
+    # Authentication check for all routes
     @app.before_request
     def check_authentication():
+        from flask_login import current_user
+        
         # Skip auth for static files
         if request.endpoint == 'static':
             return None
             
-        # Skip auth for login page
-        if request.endpoint == 'login':
+        # Skip auth for authentication routes
+        if request.endpoint and request.endpoint.startswith('auth.'):
             return None
             
-        # CRITICAL: Skip auth for automation endpoints - check path AND endpoint
+        # Skip auth for legacy routes during migration
+        if request.endpoint and request.endpoint.startswith('legacy.'):
+            return None
+            
+        # CRITICAL: Skip auth for automation endpoints
         automation_paths = [
             '/admin/health',
             '/admin/recurring/wake-and-process'
         ]
         
-        # Check both path and endpoint for wake-and-process
         if (request.path in automation_paths or 
             request.endpoint == 'admin.wake_and_process' or
             request.path.endswith('/wake-and-process')):
             print(f"[AUTH_BYPASS] Allowing access to {request.path} (endpoint: {request.endpoint})")
             return None
-            
-        # Require auth for everything else
-        if not check_auth():
-            print(f"[AUTH_REQUIRED] Redirecting {request.path} to login")
-            return redirect(url_for('login'))
         
-        return None
-
-    # Login/logout routes
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        if request.method == 'POST':
-            password = request.form.get('password', '')
-            if authenticate(password):
-                return redirect(url_for('expenses.add_expense'))
-            else:
-                return render_template_string(LOGIN_TEMPLATE, error="Incorrect password")
+        # Check if user is authenticated with new system
+        if current_user.is_authenticated:
+            return None
         
-        if check_auth():
-            return redirect(url_for('expenses.add_expense'))
+        # Check legacy authentication during migration period
+        if app.config.get('LEGACY_AUTH_ENABLED') and check_legacy_auth():
+            return None
             
-        return render_template_string(LOGIN_TEMPLATE)
-
-    @app.route('/logout')
-    def logout():
-        session.pop('authenticated', None)
-        return redirect(url_for('login'))
-    
+        # Redirect to login if not authenticated
+        print(f"[AUTH_REQUIRED] Redirecting {request.path} to login")
+        return redirect(url_for('auth.login'))
 
     # Register blueprints
-    from app.routes.expenses import expenses_bp
-    from app.routes.manage import manage_bp
-    from app.routes.balances import balances_bp
-    from app.routes.settlements import settlements_bp
-    from app.routes.management import management_bp
+    from app.routes.auth.auth import auth_bp
+    from app.routes.dashboard.dashboard import dashboard_bp
+    from app.routes.tracker.expenses import expenses_bp
+    from app.routes.settings.manage import manage_bp
+    from app.routes.tracker.balances import balances_bp
+    from app.routes.tracker.settlements import settlements_bp
+    from app.routes.tracker.management import management_bp
     from app.routes.admin import admin
+    from app.routes.dashboard.groups import groups_bp
 
+    # Register all blueprints
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
+    
+    # Existing blueprints (may need updates for multi-user)
+    app.register_blueprint(management_bp)
     app.register_blueprint(manage_bp)
     app.register_blueprint(expenses_bp)
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
-    app.register_blueprint(management_bp)
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
+    app.register_blueprint(groups_bp)
 
+    # Root route redirect
+    @app.route('/')
+    def index():
+        from flask_login import current_user
+        if current_user.is_authenticated:
+            return redirect(url_for('dashboard.home'))
+        else:
+            return redirect(url_for('auth.login'))
     
-    
-    # BACKUP: Direct route for GitHub Actions
+    # BACKUP: Direct route for GitHub Actions (unchanged)
     @app.route('/admin/recurring/wake-and-process', methods=['POST'])
     def backup_wake_and_process():
         """Backup endpoint for GitHub Actions"""
@@ -123,8 +130,8 @@ def create_app():
         print(f"[BACKUP_ROUTE] User-Agent: {request.headers.get('User-Agent', 'None')}")
         
         try:
-            from app.services.recurring_service import RecurringPaymentService
-            from app.startup_processor import StartupRecurringProcessor
+            from app.services.tracker.recurring_service import RecurringPaymentService
+            from app.services.tracker.startup_processor import StartupRecurringProcessor
             
             # Get request data
             request_data = request.get_json() or {}

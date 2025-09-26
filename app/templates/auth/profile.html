@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Profile - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/profile.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1>
+            <i class="fas fa-coins"></i>
+            Expense Tracker
+        </h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}">
+                <i class="fas fa-home"></i>
+                Dashboard
+            </a>
+            <a href="{{ url_for('auth.profile') }}" style="background: var(--primary-gradient); color: white;">
+                <i class="fas fa-user"></i>
+                Profile
+            </a>
+            <a href="{{ url_for('auth.logout') }}">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
+            </a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-message flash-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+
+        <div class="profile-container">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="profile-name">{{ user.full_name }}</div>
+                <div class="profile-email">{{ user.email }}</div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-section">
+                    <h3 class="section-title">
+                        <i class="fas fa-info-circle"></i>
+                        Account Information
+                    </h3>
+                    
+                    <div class="info-grid">
+                        <!-- Full Name -->
+                        <div class="info-item editable" id="full-name-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Full Name</div>
+                                        <div class="info-value" id="full-name-display">{{ user.full_name }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('full-name')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="full-name-form">
+                                <form onsubmit="saveField('full-name', event)">
+                                    <input type="text" class="form-input" id="full-name-input" value="{{ user.full_name }}" required>
+                                    <div class="field-help">Your complete name as you'd like it to appear</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('full-name')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Display Name -->
+                        <div class="info-item editable" id="display-name-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Display Name</div>
+                                        <div class="info-value" id="display-name-display">{{ user.display_name }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('display-name')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="display-name-form">
+                                <form onsubmit="saveField('display-name', event)">
+                                    <input type="text" class="form-input" id="display-name-input" value="{{ user.display_name }}" required>
+                                    <div class="field-help">How others see your name in groups (3-20 characters, letters, numbers, and underscores only)</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('display-name')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Email -->
+                        <div class="info-item editable" id="email-item">
+                            <div class="info-display">
+                                <div class="info-row">
+                                    <div>
+                                        <div class="info-label">Email Address</div>
+                                        <div class="info-value" id="email-display">{{ user.email }}</div>
+                                    </div>
+                                    <i class="fas fa-edit edit-icon" onclick="editField('email')"></i>
+                                </div>
+                            </div>
+                            <div class="edit-form" id="email-form">
+                                <form onsubmit="saveField('email', event)">
+                                    <input type="email" class="form-input" id="email-input" value="{{ user.email }}" required>
+                                    <div class="field-help">Used for login and notifications</div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-small">
+                                            <i class="fas fa-check"></i> Save
+                                        </button>
+                                        <button type="button" class="btn btn-secondary btn-small" onclick="cancelEdit('email')">
+                                            <i class="fas fa-times"></i> Cancel
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Account Status (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Account Status</div>
+                            <div class="info-value">
+                                <i class="fas fa-check-circle" style="color: var(--success-color);"></i>
+                                {{ 'Active' if user.is_active else 'Inactive' }}
+                            </div>
+                        </div>
+
+                        <!-- Member Since (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Member Since</div>
+                            <div class="info-value">{{ user.created_at.strftime('%B %d, %Y') if user.created_at else 'Unknown' }}</div>
+                        </div>
+
+                        {% if user.last_login %}
+                        <!-- Last Login (Read-only) -->
+                        <div class="info-item">
+                            <div class="info-label">Last Login</div>
+                            <div class="info-value">{{ user.last_login.strftime('%b %d, %Y at %I:%M %p') }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="password-section">
+                    <a href="{{ url_for('auth.change_password') }}" class="btn">
+                        <i class="fas fa-lock"></i>
+                        Change Password
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="danger-section">
+            <h3 class="section-title" style="color: var(--danger-color);">
+                <i class="fas fa-exclamation-triangle"></i>
+                Danger Zone
+            </h3>
+            <div class="danger-content">
+                <p>Once you delete your account, there is no going back. Please be certain.</p>
+                <button id="delete-account-btn" class="btn btn-danger">
+                    <i class="fas fa-trash-alt"></i>
+                    Delete My Account
+                </button>
+            </div>
+        </div>
+
+        <!-- Account Deletion Modal -->
+        <div id="delete-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        Delete Account
+                    </h2>
+                    <p class="modal-subtitle">This action cannot be undone</p>
+                </div>
+
+                <div id="modal-body">
+                    <!-- Content will be loaded here -->
+                </div>
+
+                <div class="modal-actions">
+                    <button id="cancel-delete" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        Cancel
+                    </button>
+                    <button id="confirm-delete" class="btn btn-danger" disabled>
+                        <i class="fas fa-trash-alt"></i>
+                        <span class="loading-spinner"></span>
+                        Delete Account
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration for JavaScript -->
+    <script>
+        window.profileConfig = {
+            updateUrl: '{{ url_for("auth.update_profile_field") }}',
+            deleteCheckUrl: '{{ url_for("auth.delete_account_check") }}',
+            deleteUrl: '{{ url_for("auth.delete_account") }}'
+        };
+    </script>
+
+    <!-- External JavaScript file -->
+    <script src="{{ url_for('static', filename='js/auth/profile.js') }}"></script>
+</body>
+</html>
