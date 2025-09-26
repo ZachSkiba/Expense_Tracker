@@ -24,6 +24,8 @@ def create_app():
     app.config['LEGACY_AUTH_ENABLED'] = True  # Enable during migration period
     app.config['ADMIN_ACCESS_ENABLED'] = True  # For admin endpoints
 
+    db.init_app(app)
+
     from models import db
 
     with app.app_context():
