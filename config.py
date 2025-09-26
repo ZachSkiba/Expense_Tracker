@@ -57,7 +57,7 @@ class Config:
             SQLALCHEMY_DATABASE_URI = SQLALCHEMY_DATABASE_URI.replace('postgresql://', 'postgresql+psycopg://', 1)
 
     else:
-        # Production: Use Neon database with psycopg3
+    # Production: Use Neon database with psycopg3
         database_url = os.environ.get('DATABASE_URL')
         if database_url:
             # Fix postgres:// to postgresql:// if needed (common issue)
@@ -66,13 +66,20 @@ class Config:
             
             # For psycopg3, we need to ensure the URL uses the right driver
             if 'postgresql://' in database_url and '+psycopg' not in database_url:
-                # Replace postgresql:// with postgresql+psycopg:// for psycopg3
                 database_url = database_url.replace('postgresql://', 'postgresql+psycopg://', 1)
+            
+            # 🔑 Force SSL if not already set
+            if "sslmode" not in database_url:
+                if "?" in database_url:
+                    database_url += "&sslmode=require"
+                else:
+                    database_url += "?sslmode=require"
             
             SQLALCHEMY_DATABASE_URI = database_url
         else:
             # Fallback (shouldn't happen on Render)
             SQLALCHEMY_DATABASE_URI = 'postgresql+psycopg://postgres:1234@localhost/expense_tracker'
+
     
     # Other configuration
     SQLALCHEMY_TRACK_MODIFICATIONS = False
