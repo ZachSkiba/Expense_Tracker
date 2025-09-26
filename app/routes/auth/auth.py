@@ -128,7 +128,7 @@ def verification_sent():
 
 @auth_bp.route('/verify-email/<token>')
 def verify_email(token):
-    """Handle email verification"""
+    """Handle email verification - SECURE: Prevents account confusion without force logout"""
     if not token:
         flash('Invalid verification link', 'error')
         return redirect(url_for('auth.login'))
@@ -143,11 +143,28 @@ def verify_email(token):
         
         # Verify token is valid and not expired
         if EmailService.verify_token(user, token, 'email_verification'):
-            # Activate user account
+            # Activate user account (this part is the same)
             EmailService.clear_verification_token(user)
             
-            flash('Email verified successfully! You can now sign in to your account.', 'success')
-            return redirect(url_for('auth.login'))
+            # SECURITY CHECK: Is someone else currently logged in?
+            if current_user.is_authenticated and current_user.id != user.id:
+                # Someone else is logged in - show secure verification page
+                flash(f'Email verified successfully for {user.email}!', 'success')
+                return render_template('auth/verification_success.html', 
+                                     verified_user=user,
+                                     current_user_email=current_user.email)
+            else:
+                # Either no one logged in, or the same user is logged in
+                # Safe to automatically log in the verified user
+                if current_user.is_authenticated:
+                    logout_user()  # Log out same user to refresh session
+                
+                login_user(user, remember=False)
+                user.last_login = datetime.utcnow()
+                db.session.commit()
+                
+                flash('Email verified successfully! Welcome to your account.', 'success')
+                return redirect(url_for('dashboard.home'))
         else:
             flash('Verification link has expired. Please sign up again.', 'error')
             # Clean up expired user
