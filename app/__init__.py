@@ -26,8 +26,6 @@ def create_app():
 
     db.init_app(app)
 
-    from models import db
-
     with app.app_context():
         db.create_all()  # Only runs if tables don't exist
 
