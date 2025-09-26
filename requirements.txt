@@ -20,4 +20,4 @@ python-dotenv==1.0.0
 gunicorn==21.2.0
 
 # Development tools (optional)
-flask-migrate==4.0.5
+Flask-Migrate>=4.0.5
