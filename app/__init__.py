@@ -6,8 +6,7 @@ from config import Config
 from app.routes.tracker.recurring import recurring
 import datetime
 from flask import jsonify
-import os
-from flask_migrate import Migrate, upgrade
+from flask_migrate import Migrate
 
 def create_app():
     app = Flask(__name__, static_folder='../static', static_url_path='/static')
@@ -24,8 +23,10 @@ def create_app():
     app.config['LEGACY_AUTH_ENABLED'] = True  # Enable during migration period
     app.config['ADMIN_ACCESS_ENABLED'] = True  # For admin endpoints
 
+    # Initialize extensions
     db.init_app(app)
 
+    migrate = Migrate(app, db)
 
     # Initialize Flask-Login
     from app.services.auth.auth import init_login_manager
