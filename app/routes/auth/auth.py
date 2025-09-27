@@ -1,4 +1,4 @@
-# app/routes/auth/auth.py - Updated with account deletion functionality
+# app/routes/auth/auth.py - Updated without email verification, with security questions
 
 from flask import Blueprint, request, redirect, url_for, render_template, flash, session, current_app, jsonify
 from flask_login import login_user, logout_user, login_required, current_user
@@ -6,7 +6,7 @@ from models import User, Category, db
 from app.services.auth.auth import (
     validate_email, validate_password, validate_display_name
 )
-from app.services.auth.email_service import EmailService
+from app.services.auth.security_questions import SecurityQuestionsService
 from app.services.auth.account_deletion_service import AccountDeletionService
 from datetime import datetime
 from sqlalchemy.exc import IntegrityError
@@ -16,7 +16,7 @@ auth_bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 @auth_bp.route('/signup', methods=['GET', 'POST'])
 def signup():
-    """User registration route - Updated with email verification"""
+    """User registration route - Updated with security questions (no email verification)"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.home'))
     
@@ -27,6 +27,8 @@ def signup():
         email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
         confirm_password = request.form.get('confirm_password', '')
+        security_question = request.form.get('security_question', '')
+        security_answer = request.form.get('security_answer', '').strip()
         
         # Validation
         errors = []
@@ -52,10 +54,7 @@ def signup():
             try:
                 existing_user = User.query.filter_by(email=email).first()
                 if existing_user:
-                    if existing_user.is_active:
-                        errors.append("Email already registered")
-                    else:
-                        errors.append("Email already registered but not verified. Check your email for verification link.")
+                    errors.append("Email already registered")
             except Exception as e:
                 current_app.logger.error(f"Database error checking email: {e}")
                 errors.append("Database error. Please try again.")
@@ -72,6 +71,17 @@ def signup():
         if password != confirm_password:
             errors.append("Passwords do not match")
         
+        # Security question validation
+        if not security_question:
+            errors.append("Please select a security question")
+        elif not SecurityQuestionsService.validate_question(security_question):
+            errors.append("Invalid security question selected")
+        
+        # Security answer validation
+        valid_answer, answer_msg = SecurityQuestionsService.validate_answer(security_answer)
+        if not valid_answer:
+            errors.append(answer_msg)
+        
         # If validation fails, show errors
         if errors:
             for error in errors:
@@ -79,7 +89,9 @@ def signup():
             return render_template('auth/signup.html', 
                                  full_name=full_name,
                                  display_name=display_name,
-                                 email=email), 400
+                                 email=email,
+                                 security_question=security_question,
+                                 security_questions=SecurityQuestionsService.get_questions()), 400
         
         # Create new user
         try:
@@ -87,22 +99,24 @@ def signup():
                 full_name=full_name,
                 display_name=display_name,
                 email=email,
-                is_active=False,  # Will be activated after email verification
+                is_active=True,  # Immediately active - no email verification
+                security_question=security_question,
                 created_at=datetime.utcnow()
             )
             user.set_password(password)
+            user.set_security_answer(security_answer)
             
             # Add user to database
             db.session.add(user)
             db.session.commit()
             
-            # Send verification email
-            if EmailService.send_verification_email(user):
-                flash('Account created successfully! Please check your email and click the verification link to activate your account.', 'success')
-            else:
-                flash('Account created, but we couldn\'t send the verification email. Please contact support.', 'warning')
+            # Automatically log in the new user
+            login_user(user, remember=False)
+            user.last_login = datetime.utcnow()
+            db.session.commit()
             
-            return redirect(url_for('auth.verification_sent', email=email))
+            flash('Account created successfully! Welcome to Expense Tracker.', 'success')
+            return redirect(url_for('dashboard.home'))
             
         except IntegrityError as e:
             db.session.rollback()
@@ -116,71 +130,13 @@ def signup():
             current_app.logger.error(f"Signup error: {e}")
             flash('An error occurred while creating your account. Please try again.', 'error')
     
-    return render_template('auth/signup.html')
-
-
-@auth_bp.route('/verification-sent')
-def verification_sent():
-    """Show verification sent page"""
-    email = request.args.get('email', '')
-    return render_template('auth/verification_sent.html', email=email)
-
-
-@auth_bp.route('/verify-email/<token>')
-def verify_email(token):
-    """Handle email verification - SECURE: Prevents account confusion without force logout"""
-    if not token:
-        flash('Invalid verification link', 'error')
-        return redirect(url_for('auth.login'))
-    
-    try:
-        # Find user with this token
-        user = User.query.filter_by(email_verification_token=token).first()
-        
-        if not user:
-            flash('Invalid or expired verification link', 'error')
-            return redirect(url_for('auth.login'))
-        
-        # Verify token is valid and not expired
-        if EmailService.verify_token(user, token, 'email_verification'):
-            # Activate user account (this part is the same)
-            EmailService.clear_verification_token(user)
-            
-            # SECURITY CHECK: Is someone else currently logged in?
-            if current_user.is_authenticated and current_user.id != user.id:
-                # Someone else is logged in - show secure verification page
-                flash(f'Email verified successfully for {user.email}!', 'success')
-                return render_template('auth/verification_success.html', 
-                                     verified_user=user,
-                                     current_user_email=current_user.email)
-            else:
-                # Either no one logged in, or the same user is logged in
-                # Safe to automatically log in the verified user
-                if current_user.is_authenticated:
-                    logout_user()  # Log out same user to refresh session
-                
-                login_user(user, remember=False)
-                user.last_login = datetime.utcnow()
-                db.session.commit()
-                
-                flash('Email verified successfully! Welcome to your account.', 'success')
-                return redirect(url_for('dashboard.home'))
-        else:
-            flash('Verification link has expired. Please sign up again.', 'error')
-            # Clean up expired user
-            db.session.delete(user)
-            db.session.commit()
-            return redirect(url_for('auth.signup'))
-            
-    except Exception as e:
-        current_app.logger.error(f"Email verification error: {e}")
-        flash('An error occurred during verification. Please try again.', 'error')
-        return redirect(url_for('auth.login'))
+    return render_template('auth/signup.html', 
+                          security_questions=SecurityQuestionsService.get_questions())
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
 def login():
-    """User login route - Updated with account verification check"""
+    """User login route - Simplified (no email verification check)"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.home'))
     
@@ -198,10 +154,6 @@ def login():
             
             # Check credentials
             if user and user.check_password(password):
-                if not user.is_active:
-                    flash('Please verify your email address before signing in. Check your email for the verification link.', 'warning')
-                    return render_template('auth/login.html')
-                
                 # Login successful
                 login_user(user, remember=False)
                 user.last_login = datetime.utcnow()
@@ -224,7 +176,7 @@ def login():
 
 @auth_bp.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
-    """Handle forgot password requests"""
+    """Handle forgot password requests using security questions"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.home'))
     
@@ -244,16 +196,13 @@ def forgot_password():
             user = User.query.filter_by(email=email).first()
             
             if user and user.is_active:
-                # Send password reset email
-                if EmailService.send_password_reset_email(user):
-                    flash('Password reset instructions have been sent to your email address.', 'success')
-                else:
-                    flash('Unable to send password reset email. Please try again later.', 'error')
+                # Store email in session for security question step
+                session['reset_email'] = email
+                return redirect(url_for('auth.security_question'))
             else:
                 # For security, show same message even if user doesn't exist
-                flash('If an account with that email exists, password reset instructions have been sent.', 'info')
-            
-            return redirect(url_for('auth.login'))
+                flash('If an account with that email exists, you will be redirected to answer your security question.', 'info')
+                return redirect(url_for('auth.login'))
             
         except Exception as e:
             current_app.logger.error(f"Forgot password error: {e}")
@@ -262,27 +211,71 @@ def forgot_password():
     return render_template('auth/forgot_password.html')
 
 
-@auth_bp.route('/reset-password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    """Handle password reset with token"""
+@auth_bp.route('/security-question', methods=['GET', 'POST'])
+def security_question():
+    """Handle security question for password reset"""
     if current_user.is_authenticated:
         return redirect(url_for('dashboard.home'))
     
-    if not token:
-        flash('Invalid password reset link', 'error')
-        return redirect(url_for('auth.login'))
+    # Check if we have an email in session
+    reset_email = session.get('reset_email')
+    if not reset_email:
+        flash('Please start the password reset process again', 'error')
+        return redirect(url_for('auth.forgot_password'))
     
     try:
-        # Find user with this token
-        user = User.query.filter_by(password_reset_token=token).first()
-        
+        user = User.query.filter_by(email=reset_email).first()
         if not user:
-            flash('Invalid or expired password reset link', 'error')
+            session.pop('reset_email', None)
+            flash('Invalid reset session. Please try again.', 'error')
             return redirect(url_for('auth.forgot_password'))
         
-        # Verify token is valid and not expired
-        if not EmailService.verify_token(user, token, 'password_reset'):
-            flash('Password reset link has expired. Please request a new one.', 'error')
+        if request.method == 'POST':
+            security_answer = request.form.get('security_answer', '').strip()
+            
+            if not security_answer:
+                flash('Please provide an answer to the security question', 'error')
+                return render_template('auth/security_question.html', 
+                                     question=user.security_question)
+            
+            # Check security answer
+            if user.check_security_answer(security_answer):
+                # Store user ID in session for password reset
+                session.pop('reset_email', None)
+                session['reset_user_id'] = user.id
+                return redirect(url_for('auth.reset_password'))
+            else:
+                flash('Incorrect answer to security question', 'error')
+                return render_template('auth/security_question.html', 
+                                     question=user.security_question)
+        
+        return render_template('auth/security_question.html', 
+                             question=user.security_question)
+        
+    except Exception as e:
+        current_app.logger.error(f"Security question error: {e}")
+        session.pop('reset_email', None)
+        flash('An error occurred. Please try again.', 'error')
+        return redirect(url_for('auth.forgot_password'))
+
+
+@auth_bp.route('/reset-password', methods=['GET', 'POST'])
+def reset_password():
+    """Handle password reset after security question verification"""
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard.home'))
+    
+    # Check if we have a verified user ID in session
+    reset_user_id = session.get('reset_user_id')
+    if not reset_user_id:
+        flash('Please complete the security question verification first', 'error')
+        return redirect(url_for('auth.forgot_password'))
+    
+    try:
+        user = User.query.get(reset_user_id)
+        if not user:
+            session.pop('reset_user_id', None)
+            flash('Invalid reset session. Please try again.', 'error')
             return redirect(url_for('auth.forgot_password'))
         
         if request.method == 'POST':
@@ -304,54 +297,25 @@ def reset_password(token):
             if errors:
                 for error in errors:
                     flash(error, 'error')
-                return render_template('auth/reset_password.html', token=token)
+                return render_template('auth/reset_password.html')
             
             # Update password
             user.set_password(new_password)
-            EmailService.clear_password_reset_token(user)
+            db.session.commit()
+            
+            # Clear reset session
+            session.pop('reset_user_id', None)
             
             flash('Password reset successfully! You can now sign in with your new password.', 'success')
             return redirect(url_for('auth.login'))
         
-        return render_template('auth/reset_password.html', token=token)
+        return render_template('auth/reset_password.html')
         
     except Exception as e:
         current_app.logger.error(f"Password reset error: {e}")
+        session.pop('reset_user_id', None)
         flash('An error occurred during password reset. Please try again.', 'error')
         return redirect(url_for('auth.forgot_password'))
-
-
-@auth_bp.route('/resend-verification', methods=['GET', 'POST'])
-def resend_verification():
-    """Resend email verification"""
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard.home'))
-    
-    if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
-        
-        if not email:
-            flash('Please enter your email address', 'error')
-            return render_template('auth/resend_verification.html')
-        
-        try:
-            user = User.query.filter_by(email=email, is_active=False).first()
-            
-            if user:
-                if EmailService.send_verification_email(user):
-                    flash('Verification email sent! Please check your email.', 'success')
-                else:
-                    flash('Unable to send verification email. Please try again later.', 'error')
-            else:
-                flash('No unverified account found with that email address.', 'info')
-            
-            return redirect(url_for('auth.login'))
-            
-        except Exception as e:
-            current_app.logger.error(f"Resend verification error: {e}")
-            flash('An error occurred. Please try again.', 'error')
-    
-    return render_template('auth/resend_verification.html')
 
 
 @auth_bp.route('/logout')
@@ -361,8 +325,10 @@ def logout():
         logout_user()
         flash('You have been logged out successfully', 'success')
     
-    # Also clear legacy session
+    # Also clear legacy session and any reset sessions
     session.pop('legacy_authenticated', None)
+    session.pop('reset_email', None)
+    session.pop('reset_user_id', None)
     
     return redirect(url_for('auth.login'))
 
@@ -546,6 +512,59 @@ def change_password():
             flash('An error occurred while changing your password', 'error')
     
     return render_template('auth/change_password.html')
+
+@auth_bp.route('/profile/update-security-question', methods=['GET', 'POST'])
+@login_required
+def update_security_question():
+    """Update user's security question and answer"""
+    if request.method == 'POST':
+        current_password = request.form.get('current_password', '')
+        new_question = request.form.get('security_question', '')
+        new_answer = request.form.get('security_answer', '').strip()
+        
+        errors = []
+        
+        # Verify current password
+        if not current_password:
+            errors.append("Current password is required")
+        elif not current_user.check_password(current_password):
+            errors.append("Current password is incorrect")
+        
+        # Validate security question
+        if not new_question:
+            errors.append("Please select a security question")
+        elif not SecurityQuestionsService.validate_question(new_question):
+            errors.append("Invalid security question selected")
+        
+        # Validate security answer
+        valid_answer, answer_msg = SecurityQuestionsService.validate_answer(new_answer)
+        if not valid_answer:
+            errors.append(answer_msg)
+        
+        if errors:
+            for error in errors:
+                flash(error, 'error')
+            return render_template('auth/update_security_question.html',
+                                 security_questions=SecurityQuestionsService.get_questions(),
+                                 current_question=current_user.security_question)
+        
+        try:
+            # Update security question and answer
+            current_user.security_question = new_question
+            current_user.set_security_answer(new_answer)
+            db.session.commit()
+            
+            flash('Security question updated successfully', 'success')
+            return redirect(url_for('auth.profile'))
+            
+        except Exception as e:
+            db.session.rollback()
+            current_app.logger.error(f"Security question update error: {e}")
+            flash('An error occurred while updating your security question', 'error')
+    
+    return render_template('auth/update_security_question.html',
+                         security_questions=SecurityQuestionsService.get_questions(),
+                         current_question=current_user.security_question)
 
 @auth_bp.route('/profile/delete-account-check', methods=['GET'])
 @login_required

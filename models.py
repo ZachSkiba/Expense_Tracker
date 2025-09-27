@@ -1,4 +1,4 @@
-# models.py - UPDATED with email verification fields
+# models.py - UPDATED with security questions (removed email verification)
 
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
@@ -35,16 +35,12 @@ class User(UserMixin, db.Model):
     # Legacy authentication fields (nullable for backward compatibility)
     password_hash = db.Column(db.String(255), nullable=True)  # Nullable for legacy users
     
-    # NEW: Email verification fields
-    email_verification_token = db.Column(db.String(64), nullable=True)
-    email_verification_expires = db.Column(db.DateTime, nullable=True)
+    # NEW: Security question fields (replacing email verification)
+    security_question = db.Column(db.String(255), nullable=True)  # The chosen question
+    security_answer_hash = db.Column(db.String(255), nullable=True)  # Hashed answer
     
-    # NEW: Password reset fields
-    password_reset_token = db.Column(db.String(64), nullable=True)
-    password_reset_expires = db.Column(db.DateTime, nullable=True)
-    
-    # Account status - UPDATED: Default to False for new users (requires email verification)
-    is_active = db.Column(db.Boolean, default=False)
+    # Account status - UPDATED: Default to True since no email verification
+    is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
 
@@ -74,6 +70,20 @@ class User(UserMixin, db.Model):
         if not self.password_hash:
             return False
         return check_password_hash(self.password_hash, password)
+    
+    def set_security_answer(self, answer):
+        """Set hashed security answer"""
+        # Normalize answer: lowercase and strip whitespace
+        normalized_answer = answer.lower().strip()
+        self.security_answer_hash = generate_password_hash(normalized_answer)
+    
+    def check_security_answer(self, answer):
+        """Check security answer against hash"""
+        if not self.security_answer_hash:
+            return False
+        # Normalize answer: lowercase and strip whitespace  
+        normalized_answer = answer.lower().strip()
+        return check_password_hash(self.security_answer_hash, normalized_answer)
 
     def get_net_balance(self):
         """Calculate net balance for this user (legacy method)"""

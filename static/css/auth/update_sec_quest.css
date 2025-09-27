@@ -1,0 +1,123 @@
+:root {
+            --primary-color: #667eea;
+            --light-gray: #f4f7f9;
+            --text-color: #334155;
+            --subtle-text-color: #64748b;
+            --border-color: #e2e8f0;
+            --card-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+
+        body {
+            background-color: var(--light-gray);
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+            margin: 0;
+        }
+        
+        /* Main container to center the card */
+        .main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 3rem 1rem;
+            min-height: calc(100vh - 120px); /* Adjust based on header/footer height */
+        }
+        
+        /* The Card Container */
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 2.5rem;
+            box-shadow: var(--card-shadow);
+            max-width: 500px;
+            width: 100%;
+            border: 1px solid var(--border-color);
+        }
+
+        .form-header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .form-title {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--text-color);
+        }
+        .form-subtitle {
+            color: var(--subtle-text-color);
+            margin-top: 0.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        .form-label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            font-size: 0.9rem;
+        }
+        
+        /* Unified style for input and select */
+        .form-input, .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            background-color: white;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        .form-input:focus, .form-select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            background-size: 16px 12px;
+        }
+
+        .help-text {
+            font-size: 0.85rem;
+            color: var(--subtle-text-color);
+            margin-top: 0.35rem; /* Moves text closer to the input */
+        }
+
+        .btn-full {
+            transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-full:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 10px rgba(102, 126, 234, 0.4);
+        }
+
+        .info-panel {
+            background: #f8f9fa;
+            border-left: 4px solid #ced4da;
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 2rem 0;
+            font-size: 0.9rem;
+        }
+        .info-panel h4, .info-panel p {
+            margin: 0;
+            color: var(--subtle-text-color);
+        }
+        .info-panel h4 {
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .info-panel.security {
+            background: rgba(255, 193, 7, 0.1);
+            border-left-color: #ffc107;
+        }
+        .info-panel.security p {
+            color: #856404;
+            font-weight: 500;
+        }
