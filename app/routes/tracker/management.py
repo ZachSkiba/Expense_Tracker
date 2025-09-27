@@ -87,8 +87,8 @@ def manage_data(group_id):
     categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
     
     next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
-    
-    return render_template("management.html", 
+
+    return render_template("tracker/management.html", 
                          users=users, 
                          categories=categories,
                          group=group,
@@ -135,7 +135,7 @@ def delete_user(user_id):
         next_url = url_for('expenses.group_tracker', group_id=group_id)
         
         # 3. Render the template directly, passing the error message.
-        return render_template("management.html",
+        return render_template("tracker/management.html",
                                group=group,
                                users=users,
                                categories=categories,

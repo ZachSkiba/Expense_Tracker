@@ -206,48 +206,93 @@ def manage_admins(group_id):
         
         # Validate all selected admins are group members
         selected_users = User.query.filter(User.id.in_(admin_ids)).all()
+        member_ids = [member.id for member in group.members]
+        
         for user in selected_users:
-            if user not in group.members:
+            if user.id not in member_ids:
                 return jsonify({'error': f'{user.name} is not a group member'}), 400
         
-        # Update admin rights for all group members
-        for member in group.members:
-            if member.id in admin_ids:
-                # Make this member an admin
-                stmt = user_groups.update().where(
-                    user_groups.c.user_id == member.id,
-                    user_groups.c.group_id == group.id
+        # Get current admin state for debugging
+        current_admins = db.session.execute(
+            user_groups.select().where(
+                user_groups.c.group_id == group_id,
+                user_groups.c.role == 'admin'
+            )
+        ).fetchall()
+        
+        print(f"=== MANAGE ADMINS DEBUG ===")
+        print(f"Group ID: {group_id}")
+        print(f"Current creator: {group.creator_id}")
+        print(f"Current admins in DB: {[admin.user_id for admin in current_admins]}")
+        print(f"New admin selection: {admin_ids}")
+        print(f"Changes requested: {data}")
+        
+        # STEP 1: Handle creator transfer if needed
+        creator_being_demoted = data.get('creator_being_demoted', False)
+        new_creator_candidate = data.get('new_creator_candidate')
+        
+        if creator_being_demoted and new_creator_candidate:
+            if new_creator_candidate not in admin_ids:
+                return jsonify({'error': 'New creator must be selected as admin'}), 400
+                
+            print(f"Transferring creator from {group.creator_id} to {new_creator_candidate}")
+            group.creator_id = new_creator_candidate
+        
+        # STEP 2: Update ALL member roles in one operation
+        # First, set everyone to 'member'
+        db.session.execute(
+            user_groups.update().where(
+                user_groups.c.group_id == group_id
+            ).values(role='member')
+        )
+        
+        # Then, set selected users to 'admin'
+        if admin_ids:
+            db.session.execute(
+                user_groups.update().where(
+                    user_groups.c.group_id == group_id,
+                    user_groups.c.user_id.in_(admin_ids)
                 ).values(role='admin')
-                db.session.execute(stmt)
-            else:
-                # Make this member a regular member (unless they're the original creator)
-                if member.id != group.creator_id:
-                    stmt = user_groups.update().where(
-                        user_groups.c.user_id == member.id,
-                        user_groups.c.group_id == group.id
-                    ).values(role='member')
-                    db.session.execute(stmt)
+            )
         
-        # Update the group creator if needed (first admin in the list becomes creator)
-        new_creator_id = admin_ids[0]
-        if new_creator_id != group.creator_id:
-            group.creator_id = new_creator_id
-        
+        # STEP 3: Commit all changes
         db.session.commit()
         
-        admin_names = [user.name for user in selected_users]
-        current_app.logger.info(f"Updated admin rights for group {group.name}: {', '.join(admin_names)}")
+        # STEP 4: Verify the changes worked
+        updated_admins = db.session.execute(
+            user_groups.select().where(
+                user_groups.c.group_id == group_id,
+                user_groups.c.role == 'admin'
+            )
+        ).fetchall()
         
-        return jsonify({
+        print(f"After update - Admins in DB: {[admin.user_id for admin in updated_admins]}")
+        print(f"After update - Creator: {group.creator_id}")
+        
+        # Build response
+        admin_names = [user.name for user in selected_users]
+        
+        response_data = {
             'success': True,
             'message': f'Admin rights updated successfully',
-            'admins': admin_names
-        })
+            'admins': admin_names,
+            'total_admins': len(admin_ids)
+        }
+        
+        if creator_being_demoted and new_creator_candidate:
+            new_creator_user = User.query.get(new_creator_candidate)
+            response_data['new_creator'] = new_creator_user.name if new_creator_user else 'Unknown'
+            response_data['creator_changed'] = True
+        
+        current_app.logger.info(f"Updated admin rights for group {group.name}: {', '.join(admin_names)}")
+        
+        return jsonify(response_data)
         
     except Exception as e:
         db.session.rollback()
         current_app.logger.error(f"Error managing admin rights for group {group_id}: {e}")
-        return jsonify({'error': 'An error occurred while updating admin rights'}), 500
+        print(f"Error in manage_admins: {str(e)}")
+        return jsonify({'error': f'An error occurred while updating admin rights: {str(e)}'}), 500
 
 @groups_bp.route('/<int:group_id>/leave', methods=['POST'])
 @login_required

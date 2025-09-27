@@ -1,5 +1,4 @@
 # models.py - UPDATED with security questions (removed email verification)
-
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -100,7 +99,6 @@ class User(UserMixin, db.Model):
         return float(total or 0)
     
     def is_group_admin(self, group):
-        """Check if user is admin of a group"""
         if isinstance(group, int):
             group_id = group
             # Get the group object to check creator
@@ -111,12 +109,12 @@ class User(UserMixin, db.Model):
             group_id = group.id
             group_obj = group
             
-        # Check if user created the group
+        # Check if user created the group (creator is always admin)
         if self.id == group_obj.creator_id:
             return True
             
         # Check association table for admin role
-        association = db.session.execute(
+        result = db.session.execute(
             user_groups.select().where(
                 user_groups.c.user_id == self.id,
                 user_groups.c.group_id == group_id,
@@ -124,7 +122,7 @@ class User(UserMixin, db.Model):
             )
         ).first()
         
-        return association is not None
+        return result is not None
     
     def is_legacy_user(self):
         """Check if this is a legacy user (no email/username)"""

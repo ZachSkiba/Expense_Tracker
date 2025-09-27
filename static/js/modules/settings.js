@@ -5,6 +5,7 @@ class SettingsManager {
         this.isEditMode = false;
         this.originalValues = {};
         this.init();
+        this.originalAdminState = new Map();
     }
 
     init() {
@@ -906,6 +907,9 @@ class SettingsManager {
             return;
         }
 
+        // CAPTURE ORIGINAL ADMIN STATE WHEN MODAL OPENS
+        this.captureOriginalAdminState();
+
         // Reset button state
         if (saveBtn) {
             saveBtn.disabled = false;
@@ -924,19 +928,86 @@ class SettingsManager {
             modal.style.display = 'none';
         }
         document.body.style.overflow = '';
+        
+        // Clear the captured state
+        this.originalAdminState.clear();
+        this.originalCreatorId = null;
     }
+
+    captureOriginalAdminState() {
+        this.originalAdminState.clear();
+        
+        const memberCheckboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]');
+        memberCheckboxes.forEach(checkbox => {
+            const userId = parseInt(checkbox.value);
+            this.originalAdminState.set(userId, checkbox.checked);
+        });
+        
+        // Also capture creator ID
+        const creatorBadge = document.querySelector('.creator-badge');
+        if (creatorBadge) {
+            const creatorCheckbox = creatorBadge.closest('.member-checkbox-item')?.querySelector('input[type="checkbox"]');
+            if (creatorCheckbox) {
+                this.originalCreatorId = parseInt(creatorCheckbox.value);
+            }
+        }
+        
+        console.log('Captured original admin state:', this.originalAdminState);
+        console.log('Original creator ID:', this.originalCreatorId);
+    }
+
+    // Fixed saveAdminRights function - replace the existing one in your settings.js
 
     async saveAdminRights() {
         const saveBtn = document.getElementById('saveAdminsBtn');
-        const checkboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]:checked');
+        const allCheckboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]');
+        const checkedCheckboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]:checked');
         
-        if (!saveBtn || !checkboxes.length) {
+        if (!saveBtn || !checkedCheckboxes.length) {
             alert('Please select at least one admin');
             return;
         }
 
-        // Get selected admin IDs
-        const adminIds = Array.from(checkboxes).map(cb => parseInt(cb.value));
+        // Get current selections
+        const currentSelections = new Map();
+        allCheckboxes.forEach(checkbox => {
+            const userId = parseInt(checkbox.value);
+            currentSelections.set(userId, checkbox.checked);
+        });
+
+        // Compare with original state to find changes
+        const changes = {
+            admin_ids: Array.from(checkedCheckboxes).map(cb => parseInt(cb.value)),
+            additions: [],
+            removals: [],
+            creator_being_demoted: false,
+            new_creator_candidate: null
+        };
+
+        // Find additions and removals
+        for (let [userId, originallyAdmin] of this.originalAdminState) {
+            const currentlySelected = currentSelections.get(userId) || false;
+            
+            if (!originallyAdmin && currentlySelected) {
+                changes.additions.push(userId);
+            } else if (originallyAdmin && !currentlySelected) {
+                changes.removals.push(userId);
+            }
+        }
+
+        // Check if creator is being demoted
+        if (this.originalCreatorId && !currentSelections.get(this.originalCreatorId)) {
+            changes.creator_being_demoted = true;
+            // Find a new creator from the selected admins (who isn't the current creator)
+            changes.new_creator_candidate = changes.admin_ids.find(id => id !== this.originalCreatorId);
+            
+            if (!changes.new_creator_candidate) {
+                alert('Cannot remove the creator without selecting a replacement admin');
+                return;
+            }
+        }
+
+        console.log('Admin changes to be made:', changes);
         
         // Show loading state
         saveBtn.classList.add('loading');
@@ -955,9 +1026,7 @@ class SettingsManager {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({
-                    admin_ids: adminIds
-                })
+                body: JSON.stringify(changes)
             });
 
             if (!response.ok) {
@@ -973,13 +1042,31 @@ class SettingsManager {
                 saveBtn.classList.add('save-success');
                 saveBtn.textContent = 'Saved Successfully!';
 
-                // Show success message
-                alert(data.message + '\nAdmins: ' + data.admins.join(', '));
+                // Build success message
+                let message = data.message || 'Admin rights updated successfully';
+                
+                if (data.admins && data.admins.length > 0) {
+                    message += '\n\nCurrent Admins: ' + data.admins.join(', ');
+                }
+                
+                if (data.new_creator) {
+                    message += '\nNew Group Creator: ' + data.new_creator;
+                }
+                
+                if (changes.additions.length > 0) {
+                    message += '\nPromoted to Admin: ' + changes.additions.length + ' user(s)';
+                }
+                
+                if (changes.removals.length > 0) {
+                    message += '\nRemoved from Admin: ' + changes.removals.length + ' user(s)';
+                }
+                
+                alert(message);
 
                 // Reload page to reflect changes
                 setTimeout(() => {
                     window.location.reload();
-                }, 1000);
+                }, 1500);
 
             } else {
                 throw new Error(data.error || 'Save failed');
@@ -997,7 +1084,39 @@ class SettingsManager {
             alert(`Failed to save admin rights: ${error.message}`);
         }
     }
-}
+
+// Also add this initialization function to properly track the original creator
+// Add this to your SettingsManager constructor or init method:
+setupManageAdminsModal() {
+        const memberCheckboxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]');
+        const saveBtn = document.getElementById('saveAdminsBtn');
+        
+        if (memberCheckboxes.length && saveBtn) {
+            memberCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    // Ensure at least one admin is selected
+                    const checkedBoxes = document.querySelectorAll('#memberCheckboxes input[type="checkbox"]:checked');
+                    saveBtn.disabled = checkedBoxes.length === 0;
+                    
+                    if (checkedBoxes.length === 0) {
+                        saveBtn.textContent = '⚠️ Select at least one admin';
+                    } else {
+                        saveBtn.textContent = '💾 Save Admin Rights';
+                    }
+                });
+            });
+        }
+
+        // Handle modal close events
+        const modal = document.getElementById('manageAdminsModal');
+        if (modal) {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    this.hideManageAdminsModal();
+                }
+            });
+        }
+    }}
 
 // Global functions for HTML onclick handlers
 window.settingsManager = new SettingsManager();

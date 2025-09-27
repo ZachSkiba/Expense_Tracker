@@ -22,7 +22,6 @@
     <div class="header-center">
         <nav class="header-nav">
             <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View All Expenses</a>
-            <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Payments</a>
             <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
             <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
             <a href="{{ url_for('manage.settings', group_id=group.id) }}">⚙️ Settings</a>
@@ -40,14 +39,14 @@
 
     <!-- Main Layout -->
     <div class="main-layout">
-        {% include 'balances_section.html' %}
-        {% include 'right_section.html' %}
+        {% include 'tracker/balances_section.html' %}
+        {% include 'tracker/right_section.html' %}
     </div>
 
     <!-- Expenses Section -->
     <div class="expenses-section">
         <!-- The expenses table will go here -->
-        {% include "_expenses_table.html" %}
+        {% include "tracker/_expenses_table.html" %}
     </div>
 
     <!-- Add Expense Modal -->

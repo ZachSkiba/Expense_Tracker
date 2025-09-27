@@ -17,7 +17,6 @@
             <nav class="header-nav">
                 <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}">🏠 Home</a>
                 <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View Expenses</a>
-                <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}">💰 Balances & Settlements</a>
                 <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
                 <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
             </nav>
@@ -115,19 +114,6 @@
                     <div class="setting-info">
                         <div class="setting-name">View All Expenses</div>
                         <div class="setting-description">Browse and filter your expense history</div>
-                    </div>
-                </div>
-                <div class="setting-right">
-                    <span class="setting-arrow">›</span>
-                </div>
-            </a>
-
-            <a href="{{ url_for('balances.combined_balances_settlements', group_id=group.id) }}" class="setting-item">
-                <div class="setting-left">
-                    <div class="setting-icon success">💰</div>
-                    <div class="setting-info">
-                        <div class="setting-name">Balances & Settlements</div>
-                        <div class="setting-description">Log a payment between roommates</div>
                     </div>
                 </div>
                 <div class="setting-right">
@@ -565,6 +551,7 @@
     <script>
       window.groupId = "{{ group.id }}";
       window.groupName = "{{ group.name }}";
+      window.groupCreatorId = "{{ group.creator_id }}";
     </script>
     <!-- Include settings JavaScript module -->
     <script src="{{ url_for('static', filename='js/modules/settings.js') }}"></script>
