@@ -120,7 +120,7 @@ def group_tracker(group_id):
         })
     
     # Use the ORIGINAL add_expense.html template with correct data
-    return render_template("add_expense.html",
+    return render_template("tracker/add_expense.html",
         error=error,
         group=group,
         categories=categories,       # Original objects for template loops
@@ -161,7 +161,7 @@ def group_expenses(group_id):
     # Set show_participants based on group size
     show_participants = (group.get_member_count() > 1)
     
-    return render_template("expenses.html", 
+    return render_template("tracker/expenses.html", 
                          expenses=expenses, 
                          categories=categories, 
                          users=users,
@@ -338,42 +338,6 @@ def expense_details(expense_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-# Group management routes
-@expenses_bp.route("/group/<int:group_id>/manage-categories", methods=["GET", "POST"])
-@login_required
-def manage_group_categories(group_id):
-    """Manage categories for a group"""
-    group = Group.query.get_or_404(group_id)
-    
-    if current_user not in group.members:
-        flash('You are not a member of this group', 'error')
-        return redirect(url_for('dashboard.home'))
-    
-    if request.method == "POST":
-        action = request.form.get("action")
-        if action == "add_category":
-            name = request.form.get("category_name", "").strip()
-            if name:
-                existing = Category.query.filter_by(name=name, group_id=group_id).first()
-                if existing:
-                    flash(f"Category '{name}' already exists in this group", 'error')
-                else:
-                    try:
-                        category = Category(name=name, group_id=group_id)
-                        db.session.add(category)
-                        db.session.commit()
-                        flash(f"Category '{name}' added successfully!", 'success')
-                    except Exception as e:
-                        db.session.rollback()
-                        flash(f"Error adding category: {str(e)}", 'error')
-    
-    categories = Category.query.filter_by(group_id=group_id).all()
-    next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
-    
-    return render_template("manage_categories_group.html", 
-                         group=group,
-                         categories=categories,
-                         next_url=next_url)
 
 @expenses_bp.route("/group/<int:group_id>/delete_category/<int:cat_id>")
 @login_required
@@ -400,31 +364,3 @@ def delete_group_category(group_id, cat_id):
             flash(f"Error deleting category: {str(e)}", 'error')
     
     return redirect(url_for('expenses.manage_group_categories', group_id=group_id))
-
-@expenses_bp.route("/group/<int:group_id>/manage-users", methods=["GET", "POST"])
-@login_required
-def manage_group_users(group_id):
-    """Manage users in a group (admin only)"""
-    group = Group.query.get_or_404(group_id)
-    
-    # Check if user is admin
-    if not current_user.is_group_admin(group):
-        flash('Only group admins can manage users', 'error')
-        return redirect(url_for('expenses.group_tracker', group_id=group_id))
-    
-    if request.method == "POST":
-        action = request.form.get("action")
-        
-        if action == "add_user":
-            # For groups, we don't add new users - they join via invite codes
-            flash('Users must join using the group invite code', 'info')
-    
-    # Get current members
-    users = list(group.members)
-    next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
-    
-    return render_template("group_management.html", 
-                         group=group,
-                         users=users, 
-                         next_url=next_url,
-                         section='users')

@@ -176,12 +176,6 @@ def add_settlement_api(group_id=None):
     except Exception as e:
         return jsonify({'error': str(e)}), 400
 
-# Keep existing routes for backward compatibility
-@balances_bp.route("/balances")
-def balances_page():
-    """Web page to view balances - render redirect template"""
-    return render_template("balances.html")
-
 @balances_bp.route("/api/balances/recalculate", methods=["POST"])
 def recalculate_balances():
     """Manually recalculate all balances from expenses and settlements (admin function)"""
