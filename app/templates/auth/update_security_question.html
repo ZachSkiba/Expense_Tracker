@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Update Security Question - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/profile.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/flash-messages.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/auth/update_sec_quest.css') }}">
+
+    
+</head>
+<body>
+    <div class="header">
+        <h1><i class="fas fa-coins"></i> Expense Tracker</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('dashboard.home') }}"><i class="fas fa-home"></i> Dashboard</a>
+            <a href="{{ url_for('auth.profile') }}"><i class="fas fa-user"></i> Profile</a>
+            <a href="{{ url_for('auth.logout') }}"><i class="fas fa-sign-out-alt"></i> Logout</a>
+        </div>
+    </div>
+
+    <div class="main">
+        <div class="card">
+            <div class="flash-messages">
+                {% for category, message in get_flashed_messages(with_categories=true) %}
+                    <div class="flash-message flash-{{ category }}">{{ message }}</div>
+                {% endfor %}
+            </div>
+
+            <div class="form-header">
+                <h1 class="form-title"><i class="fas fa-shield-alt"></i> Update Security Question</h1>
+                <p class="form-subtitle">Strengthen your account recovery options.</p>
+            </div>
+
+            {% if current_question %}
+            <div class="info-panel">
+                <h4>Your Current Question:</h4>
+                <p>{{ current_question }}</p>
+            </div>
+            {% endif %}
+
+            <div class="info-panel security">
+                <p><strong>Identity Check:</strong> Enter your current password to make changes.</p>
+            </div>
+
+            <form method="post" novalidate>
+                <div class="form-group">
+                    <label class="form-label" for="current_password">Current Password</label>
+                    <input type="password" id="current_password" name="current_password" class="form-input" required autocomplete="current-password">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="security_question">New Security Question</label>
+                    <select name="security_question" id="security_question" class="form-select" required>
+                        <option value="" disabled selected>Select a new question...</option>
+                        {% for question in security_questions %}
+                            <option value="{{ question }}">{{ question }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="security_answer">New Secret Answer</label>
+                    <input type="password" id="security_answer" name="security_answer" class="form-input" placeholder="Your secret answer" required autocomplete="off">
+                </div>
+
+                <button type="submit" class="btn btn-full">
+                    <i class="fas fa-save"></i> Update Security Question
+                </button>
+            </form>
+        </div>
+    </div>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const flashMessages = document.querySelectorAll('.flash-message');
+        flashMessages.forEach(function(message) {
+            setTimeout(function() {
+                message.style.opacity = '0';
+                setTimeout(() => {
+                    if (message.parentNode) {
+                        message.parentNode.removeChild(message);
+                    }
+                }, 500);
+            }, 5000);
+        });
+    });
+    </script>
+</body>
+</html>

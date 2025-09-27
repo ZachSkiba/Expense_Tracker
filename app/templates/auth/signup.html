@@ -5,6 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
+    <style>
+        .security-section {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .security-section h4 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        .security-section p {
+            margin-bottom: 15px;
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            background-color: white;
+            transition: border-color 0.3s ease;
+        }
+        .form-select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+    </style>
 </head>
 <body>
     <div class="form-container">
@@ -35,7 +68,7 @@
             <div class="form-group">
                 <label class="form-label">Email</label>
                 <input type="email" name="email" class="form-input" placeholder="john@gmail.com" value="{{ email or '' }}" required autocomplete="email">
-                <div class="field-help">Used for login and notifications</div>
+                <div class="field-help">Used for login and account recovery</div>
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
@@ -46,6 +79,36 @@
                 <label class="form-label">Confirm Password</label>
                 <input type="password" name="confirm_password" class="form-input" required autocomplete="new-password">
             </div>
+            
+            <div class="security-section">
+                <h4>🔐 Security Question Setup</h4>
+                <p>Choose a security question to help recover your account if you forget your password.</p>
+                
+                <div class="form-group">
+                    <label class="form-label">Security Question</label>
+                    <select name="security_question" class="form-select" required>
+                        <option value="">Select a security question...</option>
+                        {% for question in security_questions %}
+                            <option value="{{ question }}" 
+                                    {% if security_question == question %}selected{% endif %}>
+                                {{ question }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Your Answer</label>
+                    <input type="password" 
+                           name="security_answer" 
+                           class="form-input" 
+                           placeholder="Enter your answer..." 
+                           required 
+                           autocomplete="new-password">
+                    <div class="field-help">Answer will be case-insensitive. Keep it simple and memorable!</div>
+                </div>
+            </div>
+            
             <button type="submit" class="btn">Create Account</button>
         </form>
         

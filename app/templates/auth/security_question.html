@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Security Question - Expense Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="{{ url_for('static', filename='css/auth/login-signup.css') }}" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/auth/flash-messages.css') }}" rel="stylesheet">
+    <style>
+        .security-question-container {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .security-question-container h4 {
+            margin-top: 0;
+            color: #495057;
+            font-size: 16px;
+        }
+        .question-text {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 15px 0;
+            font-weight: 500;
+            color: #2c3e50;
+        }
+        .security-tips {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+        }
+        .security-tips h5 {
+            margin: 0 0 10px 0;
+            color: #856404;
+        }
+        .security-tips ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .security-tips li {
+            margin: 5px 0;
+            color: #856404;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="form-container">
+        <div class="form-header">
+            <h1 class="form-title">🔒 Security Question</h1>
+            <p class="form-subtitle">Answer your security question to reset your password</p>
+        </div>
+        
+        <div class="flash-messages">
+            {% for category, message in get_flashed_messages(with_categories=true) %}
+                <div class="flash-message flash-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        
+        <div class="security-question-container">
+            <h4>Your Security Question:</h4>
+            <div class="question-text">{{ question }}</div>
+        </div>
+        
+        <div class="security-tips">
+            <h5>💡 Tips for answering:</h5>
+            <ul>
+                <li>Answers are case-insensitive</li>
+                <li>Enter the same answer you provided during registration</li>
+                <li>Don't include extra spaces or punctuation</li>
+            </ul>
+        </div>
+        
+        <form method="post">
+            <div class="form-group">
+                <label class="form-label">Your Answer</label>
+                <input type="password" 
+                       name="security_answer" 
+                       class="form-input" 
+                       placeholder="Enter your answer..." 
+                       required 
+                       autocomplete="new-password"
+                       autofocus>
+                <div class="field-help">Provide the answer you set up when you created your account</div>
+            </div>
+            
+            <button type="submit" class="btn">Verify Answer</button>
+        </form>
+        
+        <div class="auth-link">
+            <a href="{{ url_for('auth.forgot_password') }}">← Back to Email Entry</a>
+        </div>
+        
+        <div class="auth-link">
+            Remember your password? <a href="{{ url_for('auth.login') }}">Sign In</a>
+        </div>
+    </div>
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Auto-hide flash messages after 3 seconds
+    const flashMessages = document.querySelectorAll('.flash-message');
+    flashMessages.forEach(function(message) {
+        setTimeout(function() {
+            message.classList.add('fade-out');
+            setTimeout(function() {
+                if (message.parentNode) {
+                    message.parentNode.removeChild(message);
+                }
+            }, 500);
+        }, 3000);
+    });
+});
+</script>
+</body>
+</html>
