@@ -1,0 +1,228 @@
+/* Income Tracking Styles */
+
+/* Income Button - Green theme to distinguish from expenses */
+.income-btn {
+    background-color: #b68a51;  /* Green */
+    color: white;
+    border: none;
+    padding: 10px 20px;          
+    border-radius: 8px;          
+    font-weight: 500;            
+    font-size: .9rem;           
+    cursor: pointer;
+    width: 100%;
+    transition: background-color 0.3s ease;
+    margin-bottom: 10px;
+}
+
+.income-btn:hover {
+    background-color: #b88036;
+}
+
+/* Large modal for income tracking */
+.income-modal .modal-content {
+    max-width: 1200px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.income-form-section {
+    margin-bottom: 40px;
+    padding: 20px;
+    background: #f0f8f0; /* Light green background */
+    border-radius: 10px;
+    border: 1px solid #d4edda;
+}
+
+.income-form-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #155724;
+    font-weight: 600;
+}
+
+/* Income entries table */
+.income-table-section {
+    padding: 20px;
+    background: white;
+    border-radius: 10px;
+    border: 1px solid #e9ecef;
+}
+
+.income-table-section h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #495057;
+    font-weight: 600;
+}
+
+.income-entries-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+.income-entries-table th {
+    background: #f8f9fa;
+    color: #495057;
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 2px solid #dee2e6;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.income-entries-table td {
+    padding: 12px 8px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.income-entries-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* Income category display */
+.income-category-display {
+    background: #d4edda;
+    color: #155724;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    display: inline-block;
+}
+
+/* Income amount styling - positive green */
+.income-amount {
+    color: #27ae60;
+    font-weight: 600;
+}
+
+/* Action buttons in income table */
+.income-action-btn {
+    padding: 4px 8px;
+    margin: 0 2px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.income-edit-btn {
+    background: #17a2b8;
+    color: white;
+}
+
+.income-edit-btn:hover {
+    background: #138496;
+}
+
+.income-delete-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.income-delete-btn:hover {
+    background: #c82333;
+}
+
+/* Form validation for income */
+.income-form-section .form-group input:invalid,
+.income-form-section .form-group select:invalid,
+.income-form-section .form-group input:valid,
+.income-form-section .form-group select:valid {
+    border-color: #ced4da; /* default gray */
+}
+
+/* Add red asterisk to required labels in income forms */
+.income-form-section .form-group label.required::after {
+    content: " *";
+    color: red;
+    font-weight: bold;
+}
+
+/* Loading state for income */
+.income-loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+/* Responsive design for income */
+@media (max-width: 768px) {
+    .income-modal .modal-content {
+        width: 95%;
+        margin: 10px;
+    }
+    
+    .income-entries-table {
+        font-size: 12px;
+    }
+    
+    .income-entries-table th,
+    .income-entries-table td {
+        padding: 8px 4px;
+    }
+    
+    .income-action-btn {
+        padding: 2px 4px;
+        font-size: 10px;
+    }
+}
+
+/* Empty state for income */
+.income-empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #6c757d;
+}
+
+.income-empty-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.income-empty-state-text {
+    font-size: 16px;
+    margin-bottom: 8px;
+}
+
+.income-empty-state-subtext {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* Inline editing for income table */
+.income-entries-table td.editable {
+    background: #f8f9fa;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.income-entries-table td.editable:hover {
+    background: #e9ecef;
+    border: 1px solid #27ae60;
+}
+
+.income-entries-table input,
+.income-entries-table select {
+    width: 100%;
+    border: 2px solid #27ae60;
+    padding: 4px 6px;
+    border-radius: 3px;
+    background: white;
+    font-size: inherit;
+    font-family: inherit;
+}
+
+.income-entries-table input:focus,
+.income-entries-table select:focus {
+    outline: none;
+    border-color: #229954;
+    box-shadow: 0 0 0 2px rgba(39, 174, 96, 0.25);
+}

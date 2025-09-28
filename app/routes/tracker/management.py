@@ -1,8 +1,9 @@
-# app/routes/tracker/management.py - UPDATED with proper placeholder user deletion
+# app/routes/tracker/management.py - UPDATED with income categories management
 
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import db, User, Category, Group, Expense, Balance, ExpenseParticipant, Settlement, RecurringPayment, user_groups
+from models.income_models import IncomeCategory, IncomeEntry
 from app.services.tracker.user_service import UserService
 from app.services.tracker.category_service import CategoryService
 from sqlalchemy import func
@@ -81,22 +82,40 @@ def manage_data(group_id):
                     except Exception as e:
                         db.session.rollback()
                         flash(f"Error adding category: {str(e)}", 'error')
+        
+        elif action == "add_income_category":
+            name = request.form.get("income_category_name", "").strip()
+            if name:
+                # Check if income category already exists in this group
+                existing = IncomeCategory.query.filter_by(name=name, group_id=group_id).first()
+                if existing:
+                    flash(f"Income category '{name}' already exists in this group", 'error')
+                else:
+                    try:
+                        # Create group-specific income category
+                        income_category = IncomeCategory(name=name, group_id=group_id)
+                        db.session.add(income_category)
+                        db.session.commit()
+                        flash(f"Income category '{name}' added successfully!", 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f"Error adding income category: {str(e)}", 'error')
     
     # Get group-specific data
     users = list(group.members)  # Only group members
     categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
+    income_categories = IncomeCategory.query.filter_by(group_id=group_id).all()  # Only group income categories
     
     next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
 
     return render_template("tracker/management.html", 
                          users=users, 
                          categories=categories,
+                         income_categories=income_categories,
                          group=group,
                          error=error,
                          success=success,
                          next_url=next_url)
-
-# In app/routes/tracker/management.py
 
 @management_bp.route("/delete_user/<int:user_id>")
 @login_required
@@ -122,28 +141,26 @@ def delete_user(user_id):
     can_remove, reasons = _can_remove_user_from_group(user, group)
     
     if not can_remove:
-        # --- THIS IS THE CORRECTED LOGIC ---
-        # Instead of flashing, we will re-render the page with the error message.
-        
-        # 1. Format the detailed error message.
+        # Format the detailed error message.
         error_message = f"<strong>{user.name} cannot be removed because:</strong><br>"
         error_message += "<br>".join(reasons)
         
-        # 2. Gather all the data needed to render the management page again.
+        # Gather all the data needed to render the management page again.
         users = list(group.members)
         categories = Category.query.filter_by(group_id=group_id).all()
+        income_categories = IncomeCategory.query.filter_by(group_id=group_id).all()
         next_url = url_for('expenses.group_tracker', group_id=group_id)
         
-        # 3. Render the template directly, passing the error message.
+        # Render the template directly, passing the error message.
         return render_template("tracker/management.html",
                                group=group,
                                users=users,
                                categories=categories,
+                               income_categories=income_categories,
                                error=error_message,  # Pass the error here
                                success=None,
                                next_url=next_url)
     else:
-        # This part of the logic for actually deleting or removing the user remains the same.
         try:
             is_placeholder_user = user.email.endswith('.local')
             user_group_count = len(user.groups)
@@ -154,9 +171,10 @@ def delete_user(user_id):
                 return redirect(url_for('management.manage_data', group_id=group_id))
             
             if is_placeholder_user and user_group_count <= 1 and _can_safely_delete_placeholder_user(user, group_id):
-                # This is the complex case we fixed before.
-                # A comprehensive deletion of all user's data within this group is needed.
                 user_id_to_delete = user.id
+                
+                # Delete income entries
+                IncomeEntry.query.filter_by(user_id=user_id_to_delete, group_id=group_id).delete(synchronize_session=False)
                 
                 ExpenseParticipant.query.filter_by(user_id=user_id_to_delete, group_id=group_id).delete(synchronize_session=False)
                 Expense.query.filter_by(user_id=user_id_to_delete, group_id=group_id).delete(synchronize_session=False)
@@ -224,6 +242,15 @@ def _can_safely_delete_placeholder_user(user, current_group_id):
     if other_expenses > 0:
         return False
     
+    # Check for income entries outside this group
+    other_income = IncomeEntry.query.filter(
+        IncomeEntry.user_id == user.id,
+        IncomeEntry.group_id != current_group_id
+    ).count()
+    
+    if other_income > 0:
+        return False
+    
     # Check for balances outside this group
     other_balances = Balance.query.filter(
         Balance.user_id == user.id,
@@ -256,8 +283,6 @@ def _can_safely_delete_placeholder_user(user, current_group_id):
     
     return True
 
-# ID sequence reset functionality removed - accepting gaps in IDs is normal and safer
-
 @management_bp.route("/delete_category/<int:cat_id>")
 @login_required
 def delete_category(cat_id):
@@ -287,5 +312,37 @@ def delete_category(cat_id):
         except Exception as e:
             db.session.rollback()
             flash(f"Error deleting category: {str(e)}", 'error')
+    
+    return redirect(url_for('management.manage_data', group_id=group_id))
+
+@management_bp.route("/delete_income_category/<int:income_cat_id>")
+@login_required
+def delete_income_category(income_cat_id):
+    """Delete income category from group"""
+    income_category = IncomeCategory.query.get_or_404(income_cat_id)
+    group_id = income_category.group_id
+    
+    if not group_id:
+        flash('Cannot delete system income categories', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        flash('Unauthorized', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    # Check if income category has income entries
+    if income_category.income_entries:
+        flash(f"Cannot delete income category '{income_category.name}' because it has existing income entries.", 'error')
+    else:
+        try:
+            db.session.delete(income_category)
+            db.session.commit()
+            flash(f"Income category '{income_category.name}' deleted successfully!", 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting income category: {str(e)}", 'error')
     
     return redirect(url_for('management.manage_data', group_id=group_id))

@@ -151,6 +151,8 @@ class Group(db.Model):
     invite_code = db.Column(db.String(20), unique=True, nullable=False, index=True)
     is_active = db.Column(db.Boolean, default=True)
     
+    is_personal_tracker = db.Column(db.Boolean, default=False, nullable=False)
+
     # Who created this group
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     creator = db.relationship('User', 

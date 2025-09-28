@@ -16,14 +16,12 @@ def home():
     # Get user's groups
     user_groups = current_user.groups
     
-    # Separate based on description pattern (since personal trackers have specific description)
+    # Separate based on is_personal_tracker field
     personal_trackers = []
     shared_groups = []
     
     for group in user_groups:
-        # Personal trackers created via dashboard have this specific description pattern
-        if (group.description and 
-            "Personal expense tracker for" in group.description):
+        if group.is_personal_tracker:
             personal_trackers.append(group)
         else:
             shared_groups.append(group)
@@ -86,7 +84,8 @@ def create_personal_tracker():
             name=tracker_name,
             description=f"Personal expense tracker for {current_user.display_name}",
             creator_id=current_user.id,
-            invite_code=Group.generate_invite_code()
+            invite_code=Group.generate_invite_code(),
+            is_personal_tracker=True  # NEW: Mark as personal tracker
         )
         
         db.session.add(tracker)
@@ -117,6 +116,27 @@ def create_personal_tracker():
                 is_default=True
             )
             db.session.add(category)
+        
+        # Create default income categories for personal trackers
+        from models.income_models import IncomeCategory
+        default_income_categories = [
+            'Employer',
+            'Freelance',
+            'Investments',
+            'Side Business',
+            'Rental Income',
+            'Government Benefits',
+            'Gifts',
+            'Other Income'
+        ]
+        
+        for income_cat_name in default_income_categories:
+            income_category = IncomeCategory(
+                name=income_cat_name,
+                group_id=tracker.id,
+                is_default=True
+            )
+            db.session.add(income_category)
         
         db.session.commit()
         

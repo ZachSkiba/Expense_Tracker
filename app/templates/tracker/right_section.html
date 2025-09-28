@@ -14,6 +14,13 @@
         <button class="recurring-payments-btn" onclick="openRecurringPaymentsModal()">
             🔄 Recurring Payments
         </button>
+        
+        <!-- Income Button - Only show for personal trackers -->
+        {% if group.is_personal_tracker %}
+        <button class="income-btn" onclick="openIncomeModal()">
+            💸 Track Income
+        </button>
+        {% endif %}
     </div>
     
     <!-- Sidebar version of settlements table -->

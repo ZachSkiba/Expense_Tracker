@@ -27,12 +27,49 @@
             border: 1px solid #bee5eb;
             color: #0c5460;
         }
+        
+        /* Updated grid for three sections */
+        .management-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        /* Mobile responsive - stack vertically on small screens */
+        @media (max-width: 768px) {
+            .management-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        
+        /* Income categories styling */
+        .income-category-section .add-form input[type="text"] {
+            border: 2px solid #27ae60;
+        }
+        
+        .income-category-section .add-form button {
+            background-color: #27ae60;
+        }
+        
+        .income-category-section .add-form button:hover {
+            background-color: #229954;
+        }
+        
+        .income-category-section h2 {
+            color: #27ae60;
+        }
     </style>
 </head>
 <body>
     <div class="management-container">
         <h1>🛠️ Manage Users & Categories</h1>
-        <p>Managing group: <strong>{{ group.name }}</strong></p>
+        <p>Managing group: <strong>{{ group.name }}</strong>
+            {% if group.is_personal_tracker %}
+            <span style="color: #27ae60; font-weight: bold;">(Personal Tracker)</span>
+            {% endif %}
+        </p>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -98,7 +135,7 @@
             
             <!-- Categories Section -->
             <div class="management-section">
-                <h2>📂 Categories</h2>
+                <h2>📂 Expense Categories</h2>
                 
                 <div class="add-form">
                     <form method="POST">
@@ -128,6 +165,52 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Income Categories Section - Only show for personal trackers -->
+            {% if group.is_personal_tracker %}
+            <div class="management-section income-category-section">
+                <h2>💰 Income Categories</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="income_category_name" placeholder="Enter new income category" required>
+                        <input type="hidden" name="action" value="add_income_category">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add Income Category</button>
+                    </form>
+                    <p style="font-size: 12px; color: #666; margin-top: 5px;">
+                        💡 Categories for tracking income sources (e.g., Employer, Freelance, Investments)
+                    </p>
+                </div>
+                
+                <div class="items-list">
+                    {% if income_categories %}
+                        {% for income_category in income_categories %}
+                            <div class="item">
+                                <span class="item-name">{{ income_category.name }}</span>
+                                <a href="{{ url_for('management.delete_income_category', income_cat_id=income_category.id) }}" 
+                                   class="delete-btn"
+                                   onclick="return confirm('Are you sure you want to delete {{ income_category.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No income categories yet. Add your first income category above!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <!-- Empty third column for non-personal trackers -->
+            <div class="management-section" style="opacity: 0.5;">
+                <h2>💰 Income Categories</h2>
+                <p style="color: #999; font-style: italic; text-align: center; margin-top: 40px;">
+                    Income tracking is only available<br>for personal trackers
+                </p>
+            </div>
+            {% endif %}
         </div>
 
         <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="back-link">⬅ Back to Tracker</a>
