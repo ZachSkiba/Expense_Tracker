@@ -91,6 +91,38 @@ class IncomeAllocationCategory(db.Model):
     user = db.relationship('User', foreign_keys=[user_id])
     allocations = db.relationship("IncomeAllocation", back_populates="allocation_category_obj")
 
+    @staticmethod
+    def create_default_categories(group_id):
+        """Create default income allocation categories for a group"""
+        default_categories = [
+            'Checking Account',
+            'Savings Account',
+            '401(k)',
+            'Roth IRA',
+            'Emergency Fund',
+            'Investment Account',
+            'Other'
+        ]
+        
+        created_categories = []
+        for category_name in default_categories:
+            # Check if category already exists
+            existing = IncomeAllocationCategory.query.filter_by(
+                name=category_name, 
+                group_id=group_id
+            ).first()
+            
+            if not existing:
+                category = IncomeAllocationCategory(
+                    name=category_name,
+                    group_id=group_id,
+                    is_default=True
+                )
+                db.session.add(category)
+                created_categories.append(category)
+        
+        return created_categories
+
     def __repr__(self):
         return f'<IncomeAllocationCategory {self.name}>'
 

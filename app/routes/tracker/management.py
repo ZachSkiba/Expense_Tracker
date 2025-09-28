@@ -100,13 +100,42 @@ def manage_data(group_id):
                     except Exception as e:
                         db.session.rollback()
                         flash(f"Error adding income category: {str(e)}", 'error')
-    
+
+        elif action == "add_income_allocation_category":
+            name = request.form.get("income_allocation_category_name", "").strip()
+            if name:
+                # Check if income allocation category already exists in this group
+                existing = IncomeAllocationCategory.query.filter_by(name=name, group_id=group_id).first()
+                if existing:
+                    flash(f"Income allocation category '{name}' already exists in this group", 'error')
+                else:
+                    try:
+                        # Create group-specific income allocation category
+                        income_allocation_category = IncomeAllocationCategory(name=name, group_id=group_id)
+                        db.session.add(income_allocation_category)
+                        db.session.commit()
+                        flash(f"Income allocation category '{name}' added successfully!", 'success')
+                    except Exception as e:
+                        db.session.rollback()
+                        flash(f"Error adding income allocation category: {str(e)}", 'error')
+            
     # Get group-specific data
     users = list(group.members)  # Only group members
     categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
     income_categories = IncomeCategory.query.filter_by(group_id=group_id).all()  # Only group income categories
     income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
     
+    if group.is_personal_tracker and not income_allocation_categories:
+        try:
+            created_defaults = IncomeAllocationCategory.create_default_categories(group_id)
+            if created_defaults:
+                db.session.commit()
+                income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
+                flash(f'Created {len(created_defaults)} default income allocation categories!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error creating default allocation categories: {str(e)}', 'error')
+
     next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
 
     return render_template("tracker/management.html", 
@@ -346,5 +375,40 @@ def delete_income_category(income_cat_id):
         except Exception as e:
             db.session.rollback()
             flash(f"Error deleting income category: {str(e)}", 'error')
+    
+    return redirect(url_for('management.manage_data', group_id=group_id))
+
+@management_bp.route("/delete_income_allocation_category/<int:allocation_cat_id>")
+@login_required
+def delete_income_allocation_category(allocation_cat_id):
+    """Delete income allocation category from group"""
+    allocation_category = IncomeAllocationCategory.query.get_or_404(allocation_cat_id)
+    group_id = allocation_category.group_id
+    
+    if not group_id:
+        flash('Cannot delete system income allocation categories', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        flash('Unauthorized', 'error')
+        return redirect(url_for('dashboard.home'))
+    
+    # Check if allocation category has allocations
+    from models.income_models import IncomeAllocation
+    allocation_count = IncomeAllocation.query.filter_by(allocation_category_id=allocation_cat_id).count()
+    
+    if allocation_count > 0:
+        flash(f"Cannot delete income allocation category '{allocation_category.name}' because it has existing allocations.", 'error')
+    else:
+        try:
+            db.session.delete(allocation_category)
+            db.session.commit()
+            flash(f"Income allocation category '{allocation_category.name}' deleted successfully!", 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash(f"Error deleting income allocation category: {str(e)}", 'error')
     
     return redirect(url_for('management.manage_data', group_id=group_id))

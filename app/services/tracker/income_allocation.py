@@ -23,7 +23,20 @@ def get_income_allocation_categories_api(group_id):
     
     try:
         # Get income allocation categories for this group
+        # Get income allocation categories for this group
         categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
+
+        # Create default allocation categories if none exist
+        if not categories:
+            try:
+                created_defaults = IncomeAllocationCategory.create_default_categories(group_id)
+                if created_defaults:
+                    db.session.commit()
+                    categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
+                    logger.info(f"Created {len(created_defaults)} default income allocation categories for group {group_id}")
+            except Exception as e:
+                db.session.rollback()
+                logger.error(f"Error creating default allocation categories for group {group_id}: {e}")
         
         categories_data = []
         for category in categories:

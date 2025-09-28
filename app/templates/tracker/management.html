@@ -28,10 +28,10 @@
             color: #0c5460;
         }
         
-        /* Updated grid for three sections */
+        /* Updated grid for four sections */
         .management-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
             gap: 30px;
             margin-top: 20px;
         }
@@ -189,50 +189,49 @@
                 </p>
             </div>
             {% endif %}
-        </div>
 
-        <!-- Income Allocation Categories Section - Only show for personal trackers -->
-        {% if group.is_personal_tracker %}
-        <div class="management-section income-allocation-category-section">
-            <h2>💳 Income Allocation Categories</h2>
-            
-            <div class="add-form">
-                <form method="POST">
-                    <input type="text" name="income_allocation_category_name" placeholder="Enter new allocation category (e.g., Checking Account)" required>
-                    <input type="hidden" name="action" value="add_income_allocation_category">
-                    <input type="hidden" name="next" value="{{ next_url }}">
-                    <button type="submit">Add Allocation Category</button>
-                </form>
-            </div>
-            
-            <div class="items-list">
-                {% if income_allocation_categories %}
-                    {% for allocation_category in income_allocation_categories %}
-                        <div class="item">
-                            <span class="item-name">{{ allocation_category.name }}</span>
-                            <a href="{{ url_for('management.delete_income_allocation_category', allocation_cat_id=allocation_category.id) }}" 
-                            class="delete-btn"
-                            onclick="return confirm('Are you sure you want to delete {{ allocation_category.name }}?')">
-                                🗑️
-                            </a>
+            <!-- Income Allocation Categories Section - Only show for personal trackers -->
+            {% if group.is_personal_tracker %}
+            <div class="management-section income-allocation-category-section">
+                <h2>💳 Income Allocation Categories</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="income_allocation_category_name" placeholder="Enter new allocation category (e.g., Checking Account)" required>
+                        <input type="hidden" name="action" value="add_income_allocation_category">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add Allocation Category</button>
+                    </form>
+                </div>
+                
+                <div class="items-list">
+                    {% if income_allocation_categories %}
+                        {% for allocation_category in income_allocation_categories %}
+                            <div class="item">
+                                <span class="item-name">{{ allocation_category.name }}</span>
+                                <a href="{{ url_for('management.delete_income_allocation_category', allocation_cat_id=allocation_category.id) }}" 
+                                class="delete-btn"
+                                onclick="return confirm('Are you sure you want to delete {{ allocation_category.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No allocation categories yet. Add categories like Checking Account, Savings, 401k, etc.
                         </div>
-                    {% endfor %}
-                {% else %}
-                    <div class="empty-state">
-                        No allocation categories yet. Add categories like Checking Account, Savings, 401k, etc.
-                    </div>
-                {% endif %}
+                    {% endif %}
+                </div>
             </div>
-        </div>
-        {% else %}
-        <!-- Empty fourth column for non-personal trackers -->
-        <div class="management-section" style="opacity: 0.5;">
-            <h2>💳 Allocation Categories</h2>
-            <p style="color: #999; font-style: italic; text-align: center; margin-top: 40px;">
-                Income allocation tracking is only available<br>for personal trackers
-            </p>
-        </div>
-        {% endif %}
+            {% else %}
+            <!-- Empty fourth column for non-personal trackers -->
+            <div class="management-section" style="opacity: 0.5;">
+                <h2>💳 Allocation Categories</h2>
+                <p style="color: #999; font-style: italic; text-align: center; margin-top: 40px;">
+                    Income allocation tracking is only available<br>for personal trackers
+                </p>
+            </div>
+            {% endif %}
         </div>
 
         <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="back-link">⬅ Back to Tracker</a>
