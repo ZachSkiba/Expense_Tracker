@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/recurring-payments.css') }}">
     {% if group.is_personal_tracker %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/income-tracking.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/income-allocation.css') }}">
     {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
 </head>
@@ -374,7 +375,42 @@
                             <!-- Empty space to maintain grid -->
                         </div>
                     </div>
-
+                    <!-- Income Allocation Section -->
+                    <div class="allocation-section">
+                        <h4>💰 Income Allocation</h4>
+                        <div class="allocation-toggle">
+                            <input type="checkbox" id="enable-allocation" name="enable_allocation">
+                            <label for="enable-allocation">Allocate this income to specific accounts/categories</label>
+                        </div>
+                        
+                        <div class="allocation-entries" id="allocation-entries">
+                            <div class="allocation-entry" data-allocation-index="0">
+                                <select name="allocation_category_id[]" required>
+                                    <option value="" disabled selected>Select allocation category</option>
+                                </select>
+                                <input type="number" step="0.01" min="0.01" name="allocation_amount[]" placeholder="Amount" required>
+                                <input type="text" name="allocation_notes[]" placeholder="Notes (optional)">
+                                <button type="button" class="remove-allocation" onclick="removeAllocation(this)">Remove</button>
+                            </div>
+                            
+                            <button type="button" class="add-allocation-btn" onclick="addAllocation()">+ Add Another Allocation</button>
+                            
+                            <div class="allocation-summary" id="allocation-summary">
+                                <div class="allocation-summary-row">
+                                    <span>Income Amount:</span>
+                                    <span id="income-amount-display">$0.00</span>
+                                </div>
+                                <div class="allocation-summary-row">
+                                    <span>Total Allocated:</span>
+                                    <span id="total-allocated-display">$0.00</span>
+                                </div>
+                                <div class="allocation-summary-row" id="remaining-display">
+                                    <span>Remaining:</span>
+                                    <span>$0.00</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     <div class="form-actions">
                         <button type="submit" class="submit-btn" id="income-submit-btn">Add Income Entry</button>
                         <button type="button" class="cancel-btn" onclick="resetIncomeForm()">Cancel</button>
@@ -406,6 +442,45 @@
             </div>
         </div>
     </div>
+    <!-- Allocation Details Modal -->
+    <div id="allocationDetailsModal" class="modal allocation-details-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>💰 Income Allocation Details</h2>
+                <button class="close-btn" onclick="closeModal('allocationDetailsModal')">&times;</button>
+            </div>
+            
+            <div class="modal-body">
+                <!-- Income Entry Details -->
+                <div class="income-entry-details" id="allocation-income-details">
+                    <!-- Will be populated by JavaScript -->
+                </div>
+                
+                <!-- Allocation Form -->
+                <div class="allocation-form-section">
+                    <h4>Manage Allocations</h4>
+                    <form id="allocation-form">
+                        <div class="allocation-entries" id="modal-allocation-entries">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                        
+                        <button type="button" class="add-allocation-btn" onclick="window.incomeAllocationManager.addAllocationRow()">
+                            + Add Allocation
+                        </button>
+                        
+                        <div class="allocation-summary" id="modal-allocation-summary">
+                            <!-- Will be populated by JavaScript -->
+                        </div>
+                        
+                        <div class="form-actions" style="margin-top: 20px;">
+                            <button type="submit" class="submit-btn" id="save-allocations-btn">Save Allocations</button>
+                            <button type="button" class="cancel-btn" onclick="closeModal('allocationDetailsModal')">Cancel</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
     {% endif %}
 
     <!-- JavaScript -->
@@ -422,7 +497,9 @@
             recurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
             getRecurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
             incomeApi: "/api/income/entries/{{ group.id }}",
-            incomeCategoriesApi: "/api/income/categories/{{ group.id }}"
+            incomeCategoriesApi: "/api/income/categories/{{ group.id }}",
+            incomeAllocationCategoriesApi: "/api/income/allocation/categories/{{ group.id }}",
+            incomeAllocationApi: "/api/income/allocation/entries/{{ group.id }}"
         };
         window.groupId = "{{ group.id }}";
         window.isPersonalTracker = "{{ 'true' if group.is_personal_tracker else 'false' }}";
@@ -438,6 +515,7 @@
     <script src="{{ url_for('static', filename='js/modules/recurring-payments-manager.js') }}"></script>
     {% if group.is_personal_tracker %}
     <script src="{{ url_for('static', filename='js/modules/income-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/modules/income-allocation-manager.js') }}"></script>
     {% endif %}
     <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

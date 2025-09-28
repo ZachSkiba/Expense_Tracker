@@ -6,5 +6,5 @@ from .income_models import *
 __all__ = [
     'db', 'User', 'Group', 'Category', 'Expense', 'ExpenseParticipant',
     'Balance', 'Settlement', 'RecurringPayment', 'user_groups',
-    'IncomeCategory', 'IncomeEntry',
+    'IncomeCategory', 'IncomeEntry', 'IncomeAllocationCategory', 'IncomeAllocation',
 ]

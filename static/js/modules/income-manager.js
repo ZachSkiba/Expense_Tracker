@@ -14,6 +14,8 @@ class IncomeManager {
         // Get data from template scripts - fallback to window data
         this.incomeCategoriesData = this.getDataFromScript('income-categories-data') || [];
         this.usersData = this.getDataFromScript('users-data') || window.usersData || [];
+        this.allocationEnabled = false;
+
         
         console.log('[INCOME_MANAGER] Initializing with data:', {
             categories: this.incomeCategoriesData.length,
@@ -115,7 +117,7 @@ class IncomeManager {
         console.log('[INCOME_MANAGER] Form data parsed:', data);
         
         // Validate form
-        if (!this.validateForm(data)) {
+        if (!this.validateFormWithAllocations(data)) {
             return;
         }
 
@@ -349,10 +351,13 @@ class IncomeManager {
                         ${this.formatDate(entry.date)}
                     </td>
                     <td>
-                        <button class="income-action-btn income-delete-btn" onclick="window.incomeManager.deleteIncomeEntry(${entry.id})">
-                            Delete
-                        </button>
-                    </td>
+                    <button class="income-action-btn view-allocations-btn" onclick="window.incomeManager.viewAllocations(${entry.id})">
+                        View
+                    </button>
+                    <button class="income-action-btn income-delete-btn" onclick="window.incomeManager.deleteIncomeEntry(${entry.id})">
+                        Delete
+                    </button>
+                </td>
                 </tr>
             `;
         }).join('');
@@ -644,6 +649,14 @@ class IncomeManager {
         }
     }
 
+        viewAllocations(incomeEntryId) {
+        if (window.incomeAllocationManager) {
+            window.incomeAllocationManager.viewAllocations(incomeEntryId);
+        } else {
+            console.error('Income allocation manager not available');
+        }
+    }
+
     resetForm() {
         this.isSubmitting = false;
         
@@ -658,6 +671,45 @@ class IncomeManager {
         }
         
         console.log('[INCOME_MANAGER] Form reset completed');
+    }
+
+        // Integration with allocation system
+    handleAllocationToggle(enabled) {
+        this.allocationEnabled = enabled;
+        if (enabled && window.incomeAllocationManager) {
+            window.incomeAllocationManager.updateAllocationSummary();
+        }
+    }
+
+    validateFormWithAllocations(data) {
+        // First do regular validation
+        if (!this.validateForm(data)) {
+            return false;
+        }
+        
+        // If allocations are enabled, validate them
+        const allocationEnabled = document.getElementById('enable-allocation')?.checked;
+        if (allocationEnabled) {
+            const allocationEntries = document.querySelectorAll('#allocation-entries .allocation-entry');
+            let hasValidAllocations = false;
+            
+            for (let entry of allocationEntries) {
+                const categoryId = entry.querySelector('select[name="allocation_category_id[]"]')?.value;
+                const amount = entry.querySelector('input[name="allocation_amount[]"]')?.value;
+                
+                if (categoryId && amount && parseFloat(amount) > 0) {
+                    hasValidAllocations = true;
+                    break;
+                }
+            }
+            
+            if (!hasValidAllocations) {
+                this.showErrorMessage('Please add at least one allocation or disable allocation tracking');
+                return false;
+            }
+        }
+        
+        return true;
     }
 
     // Utility methods

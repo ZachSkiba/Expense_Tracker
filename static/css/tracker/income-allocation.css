@@ -1,0 +1,255 @@
+/* Income Allocation Styles */
+
+/* Allocation section in income modal */
+.allocation-section {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.allocation-section h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #495057;
+    font-weight: 600;
+}
+
+.allocation-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.allocation-toggle input[type="checkbox"] {
+    margin-right: 8px;
+    transform: scale(1.1);
+}
+
+.allocation-toggle label {
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+}
+
+/* Allocation entries container */
+.allocation-entries {
+    display: none; /* Hidden by default */
+}
+
+.allocation-entries.show {
+    display: block;
+}
+
+.allocation-entry {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+    align-items: flex-start;
+}
+
+.allocation-entry select,
+.allocation-entry input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.allocation-entry select {
+    min-width: 150px;
+}
+
+.allocation-entry input[type="number"] {
+    max-width: 120px;
+}
+
+.allocation-entry input[type="text"] {
+    max-width: 200px;
+}
+
+.allocation-entry .remove-allocation {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    min-width: 60px;
+}
+
+.allocation-entry .remove-allocation:hover {
+    background: #c82333;
+}
+
+/* Add allocation button */
+.add-allocation-btn {
+    background: #28a745;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+}
+
+.add-allocation-btn:hover {
+    background: #218838;
+}
+
+/* Allocation summary */
+.allocation-summary {
+    margin-top: 15px;
+    padding: 12px;
+    background: white;
+    border-radius: 4px;
+    border: 1px solid #dee2e6;
+}
+
+.allocation-summary-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.allocation-summary-row:last-child {
+    margin-bottom: 0;
+    font-weight: 600;
+    border-top: 1px solid #dee2e6;
+    padding-top: 8px;
+    margin-top: 8px;
+}
+
+.allocation-summary-row.negative {
+    color: #dc3545;
+}
+
+.allocation-summary-row.positive {
+    color: #28a745;
+}
+
+/* Allocation details modal */
+.allocation-details-modal .modal-content {
+    max-width: 800px;
+}
+
+.allocation-details-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+.allocation-details-table th,
+.allocation-details-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.allocation-details-table th {
+    background: #f8f9fa;
+    font-weight: 600;
+    color: #495057;
+}
+
+.allocation-details-table tr:hover {
+    background: #f8f9fa;
+}
+
+/* Income entry details in modal */
+.income-entry-details {
+    background: #e8f5e8;
+    padding: 15px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+    border-left: 4px solid #28a745;
+}
+
+.income-entry-details h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    color: #155724;
+}
+
+.income-detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 5px;
+    font-size: 14px;
+}
+
+.income-detail-row:last-child {
+    margin-bottom: 0;
+}
+
+/* View allocations button in income table */
+.view-allocations-btn {
+    background: #17a2b8;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    margin-right: 4px;
+}
+
+.view-allocations-btn:hover {
+    background: #138496;
+}
+
+/* Allocation status indicator */
+.allocation-status {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.allocation-status.fully-allocated {
+    background: #d4edda;
+    color: #155724;
+}
+
+.allocation-status.partially-allocated {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.allocation-status.not-allocated {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .allocation-entry {
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .allocation-entry select,
+    .allocation-entry input {
+        max-width: 100%;
+        min-width: auto;
+    }
+    
+    .allocation-summary-row {
+        font-size: 12px;
+    }
+    
+    .allocation-details-table {
+        font-size: 12px;
+    }
+    
+    .allocation-details-table th,
+    .allocation-details-table td {
+        padding: 8px 4px;
+    }
+}

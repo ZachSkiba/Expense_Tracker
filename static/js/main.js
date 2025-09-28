@@ -67,7 +67,17 @@ function initializeForPage(pageName, urls) {
         window.recurringPaymentsManager = new RecurringPaymentsManager();
         console.log('Recurring payments manager initialized');
     }
-    
+
+    // Initialize income allocation manager for personal trackers
+    if (window.isPersonalTracker === 'true' && typeof IncomeAllocationManager !== 'undefined') {
+        setTimeout(() => {
+            if (!window.incomeAllocationManager) {
+                window.incomeAllocationManager = new IncomeAllocationManager();
+                console.log('Income allocation manager initialized');
+            }
+        }, 150);
+    }
+        
     // Page-specific initializations
     switch (pageName) {
         case 'add-expense':

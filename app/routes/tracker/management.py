@@ -3,7 +3,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import db, User, Category, Group, Expense, Balance, ExpenseParticipant, Settlement, RecurringPayment, user_groups
-from models.income_models import IncomeCategory, IncomeEntry
+from models.income_models import IncomeCategory, IncomeEntry, IncomeAllocationCategory, IncomeAllocation
 from app.services.tracker.user_service import UserService
 from app.services.tracker.category_service import CategoryService
 from sqlalchemy import func
@@ -105,6 +105,7 @@ def manage_data(group_id):
     users = list(group.members)  # Only group members
     categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
     income_categories = IncomeCategory.query.filter_by(group_id=group_id).all()  # Only group income categories
+    income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
     
     next_url = request.args.get('next', url_for('expenses.group_tracker', group_id=group_id))
 
@@ -112,6 +113,7 @@ def manage_data(group_id):
                          users=users, 
                          categories=categories,
                          income_categories=income_categories,
+                         income_allocation_categories=income_allocation_categories,
                          group=group,
                          error=error,
                          success=success,
