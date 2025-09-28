@@ -1,5 +1,6 @@
 /**
  * Income Manager - Handles income tracking functionality
+ * UPDATED: Fixed initialization and category loading
  */
 
 class IncomeManager {
@@ -10,8 +11,16 @@ class IncomeManager {
         this.isSubmitting = false;
         this.lastSubmissionTime = 0;
         
-        this.incomeCategoriesData = this.getDataFromScript('income-categories-data');
-        this.usersData = this.getDataFromScript('users-data');
+        // Get data from template scripts - fallback to window data
+        this.incomeCategoriesData = this.getDataFromScript('income-categories-data') || [];
+        this.usersData = this.getDataFromScript('users-data') || window.usersData || [];
+        
+        console.log('[INCOME_MANAGER] Initializing with data:', {
+            categories: this.incomeCategoriesData.length,
+            users: this.usersData.length,
+            form: !!this.form,
+            tableBody: !!this.tableBody
+        });
         
         this.init();
     }
@@ -19,22 +28,40 @@ class IncomeManager {
     getDataFromScript(id) {
         try {
             const script = document.getElementById(id);
-            return script ? JSON.parse(script.textContent) : [];
+            if (script && script.textContent.trim()) {
+                return JSON.parse(script.textContent);
+            }
         } catch (e) {
-            console.error(`Error parsing ${id}:`, e);
-            return [];
+            console.warn(`Error parsing ${id}:`, e);
         }
+        return [];
     }
     
     init() {
-        this.bindEvents();
+        // Always try to load categories first
         this.loadIncomeCategories().then(() => {
-            this.loadIncomeEntries();
+            console.log('[INCOME_MANAGER] Categories loaded, now binding events');
+            this.bindEvents();
+            // Only load entries if we have a table
+            if (this.tableBody) {
+                this.loadIncomeEntries();
+            }
+        }).catch(error => {
+            console.error('[INCOME_MANAGER] Error during initialization:', error);
+            // Still bind events even if category loading fails
+            this.bindEvents();
         });
     }
     
     bindEvents() {
         if (this.form) {
+            // Remove existing listeners to prevent duplicates
+            const existingHandler = this.form.onsubmit;
+            if (existingHandler) {
+                this.form.removeEventListener('submit', existingHandler);
+            }
+            
+            // Add submit handler
             this.form.addEventListener('submit', (e) => {
                 e.preventDefault();
                 e.stopImmediatePropagation();
@@ -44,6 +71,8 @@ class IncomeManager {
             
             const submitBtn = document.getElementById('income-submit-btn');
             if (submitBtn) {
+                // Remove existing click handler
+                submitBtn.onclick = null;
                 submitBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     e.stopImmediatePropagation();
@@ -51,10 +80,10 @@ class IncomeManager {
                     return false;
                 });
             }
-        }
-        const frequencySelect = this.form ? this.form.querySelector('[name="frequency"]') : null;
-        if (frequencySelect) {
-            frequencySelect.addEventListener('change', (e) => this.handleFrequencyChange(e));
+            
+            console.log('[INCOME_MANAGER] Event handlers bound successfully');
+        } else {
+            console.warn('[INCOME_MANAGER] No income form found, skipping event binding');
         }
     }
     
@@ -63,13 +92,13 @@ class IncomeManager {
         
         // Prevent rapid successive clicks (within 2 seconds)
         if (currentTime - this.lastSubmissionTime < 2000) {
-            console.log('BLOCKED: Submission too soon after last one');
+            console.log('[INCOME_MANAGER] BLOCKED: Submission too soon after last one');
             return;
         }
         
         // Prevent if already submitting
         if (this.isSubmitting) {
-            console.log('BLOCKED: Already submitting');
+            console.log('[INCOME_MANAGER] BLOCKED: Already submitting');
             return;
         }
         
@@ -78,10 +107,12 @@ class IncomeManager {
     }
     
     async handleFormSubmit() {
-        console.log('Starting income form submission...');
+        console.log('[INCOME_MANAGER] Starting income form submission...');
         
         const formData = new FormData(this.form);
         const data = this.parseFormData(formData);
+        
+        console.log('[INCOME_MANAGER] Form data parsed:', data);
         
         // Validate form
         if (!this.validateForm(data)) {
@@ -98,10 +129,10 @@ class IncomeManager {
             this.isSubmitting = true;
             this.setLoadingState(true);
 
-            console.log('CREATING new income entry');
+            console.log('[INCOME_MANAGER] CREATING new income entry for group:', groupId);
             const response = await this.createIncomeEntry(data, groupId);
             
-            console.log('Server response:', response);
+            console.log('[INCOME_MANAGER] Server response:', response);
             
             if (response && response.success) {
                 this.showSuccessMessage('Income entry created successfully!');
@@ -115,8 +146,8 @@ class IncomeManager {
                 this.showErrorMessage(response?.message || 'An error occurred while saving');
             }
         } catch (error) {
-            console.error('Error in form submission:', error);
-            this.showErrorMessage('Network error occurred while saving');
+            console.error('[INCOME_MANAGER] Error in form submission:', error);
+            this.showErrorMessage('Network error occurred while saving: ' + error.message);
         } finally {
             this.isSubmitting = false;
             this.setLoadingState(false);
@@ -163,7 +194,10 @@ class IncomeManager {
     }
 
     async createIncomeEntry(data, groupId) {
-        const response = await fetch(`/api/income/entries/${groupId}`, {
+        const url = `/api/income/entries/${groupId}`;
+        console.log('[INCOME_MANAGER] Making POST request to:', url);
+        
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -172,6 +206,8 @@ class IncomeManager {
         });
         
         if (!response.ok) {
+            const errorText = await response.text();
+            console.error('[INCOME_MANAGER] HTTP Error:', response.status, errorText);
             throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
         
@@ -181,23 +217,44 @@ class IncomeManager {
     async loadIncomeCategories() {
         try {
             const groupId = window.groupId;
-            const response = await fetch(`/api/income/categories/${groupId}`);
+            if (!groupId) {
+                console.error('[INCOME_MANAGER] No group ID available for loading categories');
+                return;
+            }
+            
+            const url = `/api/income/categories/${groupId}`;
+            console.log('[INCOME_MANAGER] Loading income categories from:', url);
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log('[INCOME_MANAGER] Categories API response:', data);
             
             if (data.success) {
                 this.incomeCategoriesData = data.income_categories;
+                console.log('[INCOME_MANAGER] Loaded categories:', this.incomeCategoriesData);
                 this.populateIncomeCategorySelect();
             } else {
-                console.error('Error loading income categories:', data.message);
+                console.error('[INCOME_MANAGER] Error loading income categories:', data.message);
+                this.showErrorMessage('Failed to load income categories: ' + data.message);
             }
         } catch (error) {
-            console.error('Error loading income categories:', error);
+            console.error('[INCOME_MANAGER] Error loading income categories:', error);
+            this.showErrorMessage('Error loading income categories: ' + error.message);
         }
     }
 
     populateIncomeCategorySelect() {
         const select = this.form ? this.form.querySelector('[name="income_category_id"]') : null;
-        if (!select) return;
+        if (!select) {
+            console.warn('[INCOME_MANAGER] No income category select found');
+            return;
+        }
+
+        console.log('[INCOME_MANAGER] Populating category select with', this.incomeCategoriesData.length, 'categories');
 
         // Clear existing options except the first placeholder
         while (select.children.length > 1) {
@@ -210,37 +267,55 @@ class IncomeManager {
             option.value = category.id;
             option.textContent = category.name;
             select.appendChild(option);
+            console.log('[INCOME_MANAGER] Added category option:', category.name, category.id);
         });
+        
+        console.log('[INCOME_MANAGER] Category select populated, total options:', select.children.length);
     }
 
     async loadIncomeEntries() {
         try {
             const groupId = window.groupId;
-            const response = await fetch(`/api/income/entries/${groupId}`);
+            if (!groupId) {
+                console.error('[INCOME_MANAGER] No group ID available for loading entries');
+                return;
+            }
+            
+            const url = `/api/income/entries/${groupId}`;
+            console.log('[INCOME_MANAGER] Loading income entries from:', url);
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log('[INCOME_MANAGER] Entries API response:', data);
             
             if (data.success) {
                 this.renderIncomeEntriesTable(data.income_entries);
                 setTimeout(() => this.setupInlineEditing(), 200);
             } else {
-                console.error('Error loading income entries:', data.message);
+                console.error('[INCOME_MANAGER] Error loading income entries:', data.message);
+                this.showErrorMessage('Failed to load income entries: ' + data.message);
             }
         } catch (error) {
-            console.error('Error loading income entries:', error);
+            console.error('[INCOME_MANAGER] Error loading income entries:', error);
+            this.showErrorMessage('Error loading income entries: ' + error.message);
         }
     }
 
     renderIncomeEntriesTable(incomeEntries) {
-        console.log('[DEBUG] renderIncomeEntriesTable called with:', incomeEntries);
-        console.log('[DEBUG] Table body element:', this.tableBody);
+        console.log('[INCOME_MANAGER] renderIncomeEntriesTable called with:', incomeEntries?.length, 'entries');
+        console.log('[INCOME_MANAGER] Table body element:', this.tableBody);
         
         if (!this.tableBody) {
-            console.error('[ERROR] Income table body element not found!');
+            console.error('[INCOME_MANAGER] Income table body element not found!');
             return;
         }
         
         if (!incomeEntries || incomeEntries.length === 0) {
-            console.log('[DEBUG] No income entries to display');
+            console.log('[INCOME_MANAGER] No income entries to display');
             this.tableBody.innerHTML = `
                 <tr>
                     <td colspan="6" class="income-empty-state">
@@ -253,7 +328,7 @@ class IncomeManager {
             return;
         }
         
-        console.log('[DEBUG] Rendering income table with', incomeEntries.length, 'entries');
+        console.log('[INCOME_MANAGER] Rendering income table with', incomeEntries.length, 'entries');
         
         this.tableBody.innerHTML = incomeEntries.map(entry => {
             return `
@@ -274,7 +349,7 @@ class IncomeManager {
                         ${this.formatDate(entry.date)}
                     </td>
                     <td>
-                        <button class="income-action-btn income-delete-btn" onclick="incomeManager.deleteIncomeEntry(${entry.id})">
+                        <button class="income-action-btn income-delete-btn" onclick="window.incomeManager.deleteIncomeEntry(${entry.id})">
                             Delete
                         </button>
                     </td>
@@ -282,32 +357,34 @@ class IncomeManager {
             `;
         }).join('');
         
-        console.log('[DEBUG] Income table HTML updated, rows added:', incomeEntries.length);
+        console.log('[INCOME_MANAGER] Income table HTML updated, rows added:', incomeEntries.length);
     }
 
     setupInlineEditing() {
-        console.log('Setting up income inline editing...');
+        console.log('[INCOME_MANAGER] Setting up income inline editing...');
         
         if (!this.tableBody) {
-            console.error('Income table body not found for inline editing setup');
+            console.error('[INCOME_MANAGER] Income table body not found for inline editing setup');
             return;
         }
         
         // Remove existing event listeners to prevent duplicates
-        this.tableBody.removeEventListener('click', this.handleTableClick);
+        if (this.handleTableClick) {
+            this.tableBody.removeEventListener('click', this.handleTableClick);
+        }
         
         // Add click event listener for inline editing
         this.handleTableClick = (e) => {
             const cell = e.target.closest('.editable');
             if (cell && !cell.querySelector('input, select')) {
-                console.log('Clicked editable income cell:', cell.className);
+                console.log('[INCOME_MANAGER] Clicked editable income cell:', cell.className);
                 this.startEditCell(cell);
             }
         };
         
         this.tableBody.addEventListener('click', this.handleTableClick);
         
-        console.log('Income inline editing setup complete');
+        console.log('[INCOME_MANAGER] Income inline editing setup complete');
     }
 
     startEditCell(cell) {
@@ -321,7 +398,7 @@ class IncomeManager {
         const currentValue = cell.getAttribute('data-value') || '';
         const originalHTML = cell.innerHTML;
         
-        console.log('Editing income cell type:', type, 'current value:', currentValue);
+        console.log('[INCOME_MANAGER] Editing income cell type:', type, 'current value:', currentValue);
         
         const input = this.createInputForType(type, currentValue, cell);
         
@@ -470,7 +547,7 @@ class IncomeManager {
         }
         
         try {
-            console.log('Updating income entry:', incomeEntryId, 'with data:', data);
+            console.log('[INCOME_MANAGER] Updating income entry:', incomeEntryId, 'with data:', data);
             
             const groupId = window.groupId;
             const response = await fetch(`/api/income/entries/${groupId}/${incomeEntryId}`, {
@@ -496,7 +573,7 @@ class IncomeManager {
                 cell.innerHTML = originalHTML;
             }
         } catch (error) {
-            console.error('Error updating income entry:', error);
+            console.error('[INCOME_MANAGER] Error updating income entry:', error);
             this.showMessage('Network error: ' + error.message, 'red');
             cell.innerHTML = originalHTML;
         }
@@ -562,7 +639,7 @@ class IncomeManager {
                 this.showErrorMessage(result.message || 'Error deleting income entry');
             }
         } catch (error) {
-            console.error('Error deleting income entry:', error);
+            console.error('[INCOME_MANAGER] Error deleting income entry:', error);
             this.showErrorMessage('Error deleting income entry');
         }
     }
@@ -579,6 +656,8 @@ class IncomeManager {
             submitBtn.textContent = 'Add Income Entry';
             submitBtn.disabled = false;
         }
+        
+        console.log('[INCOME_MANAGER] Form reset completed');
     }
 
     // Utility methods
@@ -654,29 +733,11 @@ class IncomeManager {
     }
 }
 
-// Global functions for template onclick handlers
-function openIncomeModal() {
-    const modal = document.getElementById('incomeModal');
-    if (modal) {
-        modal.style.display = 'block';
-        
-        if (window.incomeManager) {
-            window.incomeManager.loadIncomeEntries();
-        }
-    }
-}
-
-function resetIncomeForm() {
-    if (window.incomeManager) {
-        window.incomeManager.resetForm();
-    }
-}
-
 // Initialize when DOM is ready - ensure single initialization
 if (!window.incomeManager) {
-    document.addEventListener('DOMContentLoaded', () => {
-        if (!window.incomeManager) {
-            window.incomeManager = new IncomeManager();
-        }
-    });
+    // Don't auto-initialize here - let main.js handle it
+    console.log('[INCOME_MANAGER] Class definition loaded, waiting for main.js initialization');
 }
+
+// Make IncomeManager available globally
+window.IncomeManager = IncomeManager;

@@ -51,6 +51,7 @@
             border-radius: 4px;
             cursor: pointer;
             font-weight: bold;
+            margin-top: 5px;
         }
         
         .add-form button:hover {

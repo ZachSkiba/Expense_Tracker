@@ -1,4 +1,4 @@
-# app/__init__.py - Updated with income blueprint
+# app/__init__.py - Updated with income blueprint registration fix
 
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
@@ -99,7 +99,7 @@ def create_app():
     from app.routes.tracker.balances import balances_bp
     from app.routes.tracker.settlements import settlements_bp
     from app.routes.tracker.management import management_bp
-    from app.routes.tracker.income_routes import income_bp  # NEW: Import income blueprint
+    from app.routes.tracker.income_routes import income_bp as income_routes_bp  # RENAMED to avoid conflict
     from app.routes.admin import admin
     from app.routes.dashboard.groups import groups_bp
 
@@ -114,9 +114,13 @@ def create_app():
     app.register_blueprint(balances_bp)
     app.register_blueprint(settlements_bp)
     app.register_blueprint(recurring)
-    app.register_blueprint(income_bp)  # NEW: Register income blueprint
+    app.register_blueprint(income_routes_bp)  # REGISTER income routes blueprint
     app.register_blueprint(admin)
     app.register_blueprint(groups_bp)
+
+    # REGISTER THE INCOME API BLUEPRINT SEPARATELY
+    from app.services.tracker.income import income_bp as income_api_bp
+    app.register_blueprint(income_api_bp)  # Register the API blueprint
 
     # Root route redirect
     @app.route('/')
