@@ -12,7 +12,7 @@ class IncomeCategory(db.Model):
     name = db.Column(db.String(50), nullable=False)
     
     # Group-specific categories (same pattern as expense categories)
-    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # For personal categories
     
     # Default categories (system-wide) - for backward compatibility
@@ -25,7 +25,7 @@ class IncomeCategory(db.Model):
     # Relationships
     group = db.relationship('Group', foreign_keys=[group_id])
     user = db.relationship('User', foreign_keys=[user_id])
-    income_entries = db.relationship("IncomeEntry", back_populates="income_category_obj")
+    income_entries = db.relationship("IncomeEntry", back_populates="income_category_obj", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f'<IncomeCategory {self.name}>'
@@ -50,7 +50,7 @@ class IncomeEntry(db.Model):
     user = db.relationship("User", foreign_keys=[user_id])
     
     # Which group this income belongs to (for personal trackers)
-    group_id = db.Column(db.Integer, db.ForeignKey("group.id"), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("group.id", ondelete='CASCADE'), nullable=True)
     group = db.relationship("Group")
     allocations = db.relationship("IncomeAllocation", back_populates="income_entry", cascade="all, delete-orphan")
     
@@ -89,7 +89,7 @@ class IncomeAllocationCategory(db.Model):
     # Relationships
     group = db.relationship("Group", back_populates="alloc_categories", foreign_keys=[group_id])
     user = db.relationship('User', foreign_keys=[user_id])
-    allocations = db.relationship("IncomeAllocation", back_populates="allocation_category_obj")
+    allocations = db.relationship("IncomeAllocation", back_populates="allocation_category_obj", cascade="all, delete-orphan")
 
     @staticmethod
     def create_default_categories(group_id):
@@ -135,11 +135,11 @@ class IncomeAllocation(db.Model):
     amount = db.Column(db.Float, nullable=False)
     
     # Link to income entry
-    income_entry_id = db.Column(db.Integer, db.ForeignKey("income_entry.id"), nullable=False)
+    income_entry_id = db.Column(db.Integer, db.ForeignKey("income_entry.id", ondelete='CASCADE'), nullable=False)
     income_entry = db.relationship("IncomeEntry", back_populates="allocations")
     
     # Link to allocation category
-    allocation_category_id = db.Column(db.Integer, db.ForeignKey("income_allocation_category.id"), nullable=False)
+    allocation_category_id = db.Column(db.Integer, db.ForeignKey("income_allocation_category.id", ondelete='CASCADE'), nullable=False)
     allocation_category_obj = db.relationship("IncomeAllocationCategory", back_populates="allocations")
     
     # Optional notes for this specific allocation
