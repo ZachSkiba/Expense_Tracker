@@ -29,9 +29,10 @@
         }
         
         /* Updated grid for four sections */
+        /* Updated grid - 2 or 4 columns depending on personal tracker */
         .management-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 30px;
             margin-top: 20px;
         }
@@ -180,14 +181,6 @@
                     {% endif %}
                 </div>
             </div>
-            {% else %}
-            <!-- Empty third column for non-personal trackers -->
-            <div class="management-section" style="opacity: 0.5;">
-                <h2>💰 Income Categories</h2>
-                <p style="color: #999; font-style: italic; text-align: center; margin-top: 40px;">
-                    Income tracking is only available<br>for personal trackers
-                </p>
-            </div>
             {% endif %}
 
             <!-- Income Allocation Categories Section - Only show for personal trackers -->
@@ -224,13 +217,6 @@
                 </div>
             </div>
             {% else %}
-            <!-- Empty fourth column for non-personal trackers -->
-            <div class="management-section" style="opacity: 0.5;">
-                <h2>💳 Allocation Categories</h2>
-                <p style="color: #999; font-style: italic; text-align: center; margin-top: 40px;">
-                    Income allocation tracking is only available<br>for personal trackers
-                </p>
-            </div>
             {% endif %}
         </div>
 
