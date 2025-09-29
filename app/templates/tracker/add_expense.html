@@ -8,6 +8,10 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/settlements-table.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/expense-filter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/recurring-payments.css') }}">
+    {% if group.is_personal_tracker %}
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/income/income-tracking.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/income/income-allocation.css') }}">
+    {% endif %}
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/mobile-optimization.css') }}">
 </head>
 <body>
@@ -183,7 +187,6 @@
     </div>
 
     <!-- Recurring Payments Modal -->
-    <!-- Recurring Payments Modal -->
     <div id="recurringPaymentsModal" class="modal large-modal">
         <div class="modal-content">
             <div class="modal-header">
@@ -315,6 +318,12 @@
             </div>
         </div>
     </div>
+    </div>
+
+    <!-- Income Modal - Only shows for personal trackers -->
+    {% if group.is_personal_tracker %}
+    {% include 'tracker/income/income_modal.html' %}
+    {% endif %}
 
     <!-- JavaScript -->
     <script id="categories-data" type="application/json">{{ categories_json | tojson | safe }}</script>
@@ -328,20 +337,29 @@
             getSettlementsApi: "{{ url_for('settlements.get_settlements_api', group_id=group.id) }}",
             storeSuggestions: "{{ url_for('expenses.store_suggestions') }}?group_id={{ group.id }}",
             recurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
-            getRecurringPaymentsApi: "/api/recurring/payments/{{ group.id }}"
+            getRecurringPaymentsApi: "/api/recurring/payments/{{ group.id }}",
+            incomeApi: "/api/income/entries/{{ group.id }}",
+            incomeCategoriesApi: "/api/income/categories/{{ group.id }}",
+            incomeAllocationCategoriesApi: "/api/income/allocation/categories/{{ group.id }}",
+            incomeAllocationApi: "/api/income/allocation/entries/{{ group.id }}"
         };
         window.groupId = "{{ group.id }}";
+        window.isPersonalTracker = "{{ 'true' if group.is_personal_tracker else 'false' }}";
     </script>
 
     <!-- Load your existing JavaScript modules -->
-    <script src="{{ url_for('static', filename='js/autocomplete.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/expense-table-manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/expense-filter.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/expense-filter-integration.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/expense-form-manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/settlement-manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/modules/recurring-payments-manager.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/totals-calculator.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/autocomplete.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/expense/expense-table-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/expense/expense-filter.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/expense/expense-filter-integration.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/expense/expense-form-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/settlement-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/recurring-payments-manager.js') }}"></script>
+    {% if group.is_personal_tracker %}
+    <script src="{{ url_for('static', filename='js/tracker/income/income-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/income/income-allocation-manager.js') }}"></script>
+    {% endif %}
+    <script src="{{ url_for('static', filename='js/tracker/totals-calculator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

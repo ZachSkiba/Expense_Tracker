@@ -1,0 +1,54 @@
+<!-- Add Income Entry Form -->
+<div class="income-form-section">
+    <h3 id="income-form-title">Add New Income Entry</h3>
+    
+    <form id="income-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label class="required">Amount Received (Take Home Pay)</label>
+                <input type="number" step="0.01" min="0.01" name="amount" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="required">Income Category</label>
+                <select name="income_category_id" required>
+                    <option value="" disabled selected>Select income category</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label>Description</label>
+                <input type="text" name="description" placeholder="Optional description (e.g., company name, project)">
+            </div>
+            
+            <div class="form-group">
+                <label class="required">Received By</label>
+                <select name="user_id" required>
+                    <option value="" disabled selected>Select user</option>
+                    {% for user in users %}
+                        <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label class="required">Date</label>
+                <input type="date" name="date" required>
+            </div>
+            <div class="form-group">
+                <!-- Empty space to maintain grid -->
+            </div>
+        </div>
+
+        {% include 'tracker/income/allocation_section.html' %}
+
+        <div class="form-actions">
+            <button type="submit" class="submit-btn" id="income-submit-btn">Add Income Entry</button>
+            <button type="button" class="cancel-btn" onclick="resetIncomeForm()">Cancel</button>
+        </div>
+    </form>
+</div>

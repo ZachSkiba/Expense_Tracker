@@ -1,4 +1,5 @@
-// Main JavaScript initialization - UPDATED with group-aware API calls
+console.log('main.js loaded');
+// Main JavaScript initialization - UPDATED with income support
 document.addEventListener('DOMContentLoaded', function() {
     // Get page context from body data attribute or URL
     const pageName = document.body.dataset.page || getPageFromURL();
@@ -66,7 +67,26 @@ function initializeForPage(pageName, urls) {
         window.recurringPaymentsManager = new RecurringPaymentsManager();
         console.log('Recurring payments manager initialized');
     }
-    
+
+    // Initialize income allocation manager for personal trackers
+    if (window.isPersonalTracker === 'true') {
+        // Initialize income manager first
+        if (typeof IncomeManager !== 'undefined' && !window.incomeManager) {
+            window.incomeManager = new IncomeManager();
+            console.log('Income manager initialized');
+        }
+        
+        // Initialize income allocation manager
+        if (typeof IncomeAllocationManager !== 'undefined') {
+            setTimeout(() => {
+                if (!window.incomeAllocationManager) {
+                    window.incomeAllocationManager = new IncomeAllocationManager();
+                    console.log('Income allocation manager initialized');
+                }
+            }, 300);
+        }
+    }
+        
     // Page-specific initializations
     switch (pageName) {
         case 'add-expense':
@@ -323,15 +343,66 @@ function openSettleUpModal() {
     document.getElementById('settleUpModal').style.display = 'block';
 }
 
+function openRecurringPaymentsModal() {
+    const modal = document.getElementById('recurringPaymentsModal');
+    if (modal) {
+        modal.style.display = 'block';
+        
+        // Load recurring payments data if manager exists
+        if (window.recurringPaymentsManager) {
+            window.recurringPaymentsManager.loadRecurringPayments();
+        }
+    }
+}
+
+// REPLACE the entire openIncomeModal function:
+function openIncomeModal() {
+    console.log('=== openIncomeModal called ===');
+    const modal = document.getElementById('incomeModal');
+    console.log('Modal element:', modal);
+    
+    if (!modal) {
+        console.error('Income modal not found in DOM!');
+        return;
+    }
+    
+    console.log('Current modal display style:', modal.style.display);
+    modal.style.display = 'block';
+    console.log('After setting display to block:', modal.style.display);
+
+    // Force show with additional styles
+    modal.style.visibility = 'visible';
+    modal.style.opacity = '1';
+
+    // Load income data if managers are already initialized
+    if (window.incomeManager) {
+        setTimeout(() => {
+            window.incomeManager.loadIncomeCategories().then(() => {
+                window.incomeManager.loadIncomeEntries();
+            });
+        }, 100);
+    }
+}
+
+
+// NEW: Income form reset function
+function resetIncomeForm() {
+    if (window.incomeManager) {
+        window.incomeManager.resetForm();
+    }
+}
+
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
 
 // Close modals when clicking outside
 window.onclick = function(event) {
+    // Only close modals if clicking directly on the modal backdrop, not on buttons or content
     const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {
         if (event.target === modal) {
+            console.log('Closing modal:', modal.id);
             modal.style.display = 'none';
         }
     });
@@ -449,4 +520,14 @@ document.addEventListener("DOMContentLoaded", () => {
     preventMultipleSubmissions("expense-form", "add-expense-btn");
     preventMultipleSubmissions("settlement-form", "record-payment-btn");
     preventMultipleSubmissions("recurring-form", "recurring-submit-btn");
+    
+    // Add income form prevention
+    if (window.isPersonalTracker === 'true') {
+        preventMultipleSubmissions("income-form", "income-submit-btn");
+    }
 });
+
+// Make functions globally available
+window.openIncomeModal = openIncomeModal;
+window.resetIncomeForm = resetIncomeForm;
+window.openRecurringPaymentsModal = openRecurringPaymentsModal;

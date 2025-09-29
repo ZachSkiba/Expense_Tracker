@@ -1,4 +1,4 @@
-# app/__init__.py - Updated with FIXED authentication system
+# app/__init__.py - Updated with income blueprint registration fix
 
 from flask import Flask, request, session, redirect, url_for, render_template_string, render_template
 from models import db
@@ -115,6 +115,14 @@ def create_app():
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
     app.register_blueprint(groups_bp)
+
+    # REGISTER THE INCOME API BLUEPRINT SEPARATELY
+    from app.services.tracker.income.income import income_bp as income_api_bp
+    app.register_blueprint(income_api_bp)  # Register the API blueprint
+
+    from app.services.tracker.income.income_allocation import income_allocation_bp
+    app.register_blueprint(income_allocation_bp)  # Register the allocation API blueprint
+
 
     # Root route redirect
     @app.route('/')

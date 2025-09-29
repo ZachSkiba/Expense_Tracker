@@ -27,12 +27,31 @@
             border: 1px solid #bee5eb;
             color: #0c5460;
         }
+        
+        /* Updated grid for four sections */
+        /* Updated grid - 2 or 4 columns depending on personal tracker */
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-top: 20px;
+        }
+        
+        /* Mobile responsive - stack vertically on small screens */
+        @media (max-width: 768px) {
+            .management-grid {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        
     </style>
 </head>
 <body>
     <div class="management-container">
         <h1>🛠️ Manage Users & Categories</h1>
-        <p>Managing group: <strong>{{ group.name }}</strong></p>
+        <p>Managing group: <strong>{{ group.name }}</strong>
+        </p>
         
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
@@ -98,7 +117,7 @@
             
             <!-- Categories Section -->
             <div class="management-section">
-                <h2>📂 Categories</h2>
+                <h2>📂 Expense Categories</h2>
                 
                 <div class="add-form">
                     <form method="POST">
@@ -128,6 +147,77 @@
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Income Categories Section - Only show for personal trackers -->
+            {% if group.is_personal_tracker %}
+            <div class="management-section income-category-section">
+                <h2>💰 Income Categories</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="income_category_name" placeholder="Enter new income category" required>
+                        <input type="hidden" name="action" value="add_income_category">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add Income Category</button>
+                    </form>
+                </div>
+                
+                <div class="items-list">
+                    {% if income_categories %}
+                        {% for income_category in income_categories %}
+                            <div class="item">
+                                <span class="item-name">{{ income_category.name }}</span>
+                                <a href="{{ url_for('management.delete_income_category', income_cat_id=income_category.id) }}" 
+                                   class="delete-btn"
+                                   onclick="return confirm('Are you sure you want to delete {{ income_category.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No income categories yet. Add your first income category above!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Income Allocation Categories Section - Only show for personal trackers -->
+            {% if group.is_personal_tracker %}
+            <div class="management-section income-allocation-category-section">
+                <h2>💳 Income Allocation Categories</h2>
+                
+                <div class="add-form">
+                    <form method="POST">
+                        <input type="text" name="income_allocation_category_name" placeholder="Enter new allocation category (e.g., Checking Account)" required>
+                        <input type="hidden" name="action" value="add_income_allocation_category">
+                        <input type="hidden" name="next" value="{{ next_url }}">
+                        <button type="submit">Add Allocation Category</button>
+                    </form>
+                </div>
+                
+                <div class="items-list">
+                    {% if income_allocation_categories %}
+                        {% for allocation_category in income_allocation_categories %}
+                            <div class="item">
+                                <span class="item-name">{{ allocation_category.name }}</span>
+                                <a href="{{ url_for('management.delete_income_allocation_category', allocation_cat_id=allocation_category.id) }}" 
+                                class="delete-btn"
+                                onclick="return confirm('Are you sure you want to delete {{ allocation_category.name }}?')">
+                                    🗑️
+                                </a>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-state">
+                            No allocation categories yet. Add categories like Checking Account, Savings, 401k, etc.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            {% endif %}
         </div>
 
         <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="back-link">⬅ Back to Tracker</a>

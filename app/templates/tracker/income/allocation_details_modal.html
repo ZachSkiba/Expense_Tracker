@@ -1,0 +1,35 @@
+<!-- Allocation Details Modal -->
+<div id="allocationDetailsModal" class="modal allocation-details-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>💰 Income Allocation Details</h2>
+            <button class="close-btn" onclick="closeModal('allocationDetailsModal')">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            <!-- Income Entry Details -->
+            <div class="income-entry-details" id="allocation-income-details">
+                <!-- Will be populated by JavaScript -->
+            </div>
+            
+            <!-- Allocation Form -->
+            <div class="allocation-form-section">
+                <h4>Manage Allocations</h4>
+                <form id="allocation-form">
+                    <div class="allocation-entries" id="modal-allocation-entries">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    
+                    <div class="allocation-summary" id="modal-allocation-summary">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                    
+                    <div class="form-actions" style="margin-top: 20px;">
+                        <button type="submit" class="submit-btn" id="save-allocations-btn">Save Allocations</button>
+                        <button type="button" class="cancel-btn" onclick="closeModal('allocationDetailsModal')">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,36 @@
+<!-- Income Allocation Section -->
+<div class="allocation-section">
+    <h4>💰 Income Allocation</h4>
+    <div class="allocation-toggle">
+        <input type="checkbox" id="enable-allocation" name="enable_allocation">
+        <label for="enable-allocation">Allocate this income to specific accounts/categories</label>
+    </div>
+    
+    <div class="allocation-entries" id="allocation-entries">
+        <div class="allocation-entry" data-allocation-index="0">
+            <select name="allocation_category_id[]" required>
+                <option value="" disabled selected>Select allocation category</option>
+            </select>
+            <input type="number" step="0.01" min="0.01" name="allocation_amount[]" placeholder="Amount" required>
+            <input type="text" name="allocation_notes[]" placeholder="Notes (optional)">
+            <button type="button" class="remove-allocation" onclick="removeAllocation(this)">Remove</button>
+        </div>
+        
+        <button type="button" class="add-allocation-btn" onclick="addAllocation()">+ Add Another Allocation</button>
+        
+        <div class="allocation-summary" id="allocation-summary">
+            <div class="allocation-summary-row">
+                <span>Income Amount:</span>
+                <span id="income-amount-display">$0.00</span>
+            </div>
+            <div class="allocation-summary-row">
+                <span>Total Allocated:</span>
+                <span id="total-allocated-display">$0.00</span>
+            </div>
+            <div class="allocation-summary-row" id="remaining-display">
+                <span>Remaining:</span>
+                <span>$0.00</span>
+            </div>
+        </div>
+    </div>
+</div>
