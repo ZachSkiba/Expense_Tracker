@@ -684,7 +684,7 @@ class IncomeManager {
         this.form.reset();
     }
     
-    // ADD these lines to close allocation section:
+    // Close and reset allocation section
     const enableAllocationCheckbox = document.getElementById('enable-allocation');
     if (enableAllocationCheckbox) {
         enableAllocationCheckbox.checked = false;
@@ -693,6 +693,20 @@ class IncomeManager {
     const allocationEntries = document.getElementById('allocation-entries');
     if (allocationEntries) {
         allocationEntries.classList.remove('show');
+        
+        // Remove all allocation entries except the first one
+        const entries = allocationEntries.querySelectorAll('.allocation-entry');
+        entries.forEach((entry, index) => {
+            if (index === 0) {
+                // Clear the first entry's values
+                entry.querySelector('select[name="allocation_category_id[]"]').value = '';
+                entry.querySelector('input[name="allocation_amount[]"]').value = '';
+                entry.querySelector('input[name="allocation_notes[]"]').value = '';
+            } else {
+                // Remove all other entries
+                entry.remove();
+            }
+        });
     }
     
     const submitBtn = document.getElementById('income-submit-btn');

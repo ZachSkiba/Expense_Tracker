@@ -194,7 +194,7 @@ def save_income_allocations_api(group_id, income_entry_id):
             allocation = IncomeAllocation(
                 amount=float(allocation_data['amount']),
                 allocation_category_id=int(allocation_data['allocation_category_id']),
-                notes=allocation_data.get('notes', '').strip() or None,
+                notes=allocation_data.get('notes') if allocation_data.get('notes') else None,
                 income_entry_id=income_entry_id
             )
             db.session.add(allocation)

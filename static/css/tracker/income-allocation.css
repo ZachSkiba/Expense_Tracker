@@ -34,12 +34,18 @@
 }
 
 /* Allocation entries container */
-.allocation-entries {
+/* Allocation entries container - only for main form */
+#allocation-entries {
     display: none; /* Hidden by default */
 }
 
-.allocation-entries.show {
+#allocation-entries.show {
     display: block;
+}
+
+/* Modal allocation entries - always visible */
+#modal-allocation-entries {
+    display: block !important;
 }
 
 .allocation-entry {

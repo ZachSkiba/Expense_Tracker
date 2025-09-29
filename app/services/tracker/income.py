@@ -125,10 +125,44 @@ def create_income_entry_api(group_id):
         )
         
         db.session.add(income_entry)
-        db.session.commit()
-        
+        db.session.flush()  # Get the income_entry.id before committing
+
         logger.info(f"[CREATE_INCOME] Created income entry with ID: {income_entry.id}")
-        
+
+        # Handle allocations if provided
+        allocations_data = data.get('allocations', [])
+        if allocations_data:
+            from models.income_models import IncomeAllocation, IncomeAllocationCategory
+            
+            logger.info(f"[CREATE_INCOME] Processing {len(allocations_data)} allocations")
+            
+            for allocation_data in allocations_data:
+                # Validate category belongs to group
+                category = IncomeAllocationCategory.query.filter_by(
+                    id=allocation_data['allocation_category_id'],
+                    group_id=group_id
+                ).first()
+                
+                if not category:
+                    db.session.rollback()
+                    return jsonify({
+                        'success': False,
+                        'message': 'Invalid allocation category'
+                    }), 400
+                
+                # Create allocation
+                allocation = IncomeAllocation(
+                    amount=float(allocation_data['amount']),
+                    allocation_category_id=int(allocation_data['allocation_category_id']),
+                    notes=allocation_data.get('notes') or None,
+                    income_entry_id=income_entry.id
+                )
+                db.session.add(allocation)
+            
+            logger.info(f"[CREATE_INCOME] Added {len(allocations_data)} allocations")
+
+        db.session.commit()
+
         return jsonify({
             'success': True,
             'message': 'Income entry created successfully',

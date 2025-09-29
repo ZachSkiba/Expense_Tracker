@@ -125,8 +125,17 @@ class IncomeAllocationManager {
         // Insert before the add button
         container.insertBefore(newEntry, addButton);
         
-        // Populate the new select
-        this.populateAllocationSelects();
+        // Populate the new select WITH the placeholder properly selected
+        const select = newEntry.querySelector('select');
+        this.allocationCategories.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            select.appendChild(option);
+        });
+        
+        // Explicitly set the select to show placeholder
+        select.value = '';
         
         // Bind events to the new entry
         this.bindAllocationEntryEvents(newEntry);
@@ -198,49 +207,54 @@ class IncomeAllocationManager {
     }
     
     async viewAllocations(incomeEntryId) {
-        try {
-            const groupId = window.groupId;
-            const response = await fetch(`/api/income/allocation/entries/${groupId}/${incomeEntryId}`);
-            const data = await response.json();
-            
-            if (data.success) {
-                this.currentIncomeEntry = data.income_entry;
-                this.showAllocationDetailsModal(data.income_entry, data.allocations);
-            } else {
-                this.showMessage('Error loading allocations: ' + data.message, 'red');
-            }
-        } catch (error) {
-            console.error('[ALLOCATION] Error loading allocations:', error);
-            this.showMessage('Error loading allocations', 'red');
+    try {
+        const groupId = window.groupId;
+        console.log('[ALLOCATION] Loading allocations for income entry:', incomeEntryId, 'in group:', groupId);
+        const response = await fetch(`/api/income/allocation/entries/${groupId}/${incomeEntryId}`);
+        const data = await response.json();
+        
+        console.log('[ALLOCATION] API Response:', data);
+        
+        if (data.success) {
+            this.currentIncomeEntry = data.income_entry;
+            console.log('[ALLOCATION] Current income entry set:', this.currentIncomeEntry);
+            console.log('[ALLOCATION] Allocations:', data.allocations);
+            this.showAllocationDetailsModal(data.income_entry, data.allocations);
+        } else {
+            this.showMessage('Error loading allocations: ' + data.message, 'red');
         }
+    } catch (error) {
+        console.error('[ALLOCATION] Error loading allocations:', error);
+        this.showMessage('Error loading allocations', 'red');
     }
+}
     
-    showAllocationDetailsModal(incomeEntry, allocations) {
-        // Populate income entry details
-        const detailsContainer = document.getElementById('allocation-income-details');
-        detailsContainer.innerHTML = `
-            <h4>Income Entry Details</h4>
-            <div class="income-detail-row">
-                <span><strong>Amount:</strong></span>
-                <span>$${parseFloat(incomeEntry.amount).toFixed(2)}</span>
-            </div>
-            <div class="income-detail-row">
-                <span><strong>Category:</strong></span>
-                <span>${incomeEntry.category_name || 'N/A'}</span>
-            </div>
-            <div class="income-detail-row">
-                <span><strong>Description:</strong></span>
-                <span>${incomeEntry.description || 'No description'}</span>
-            </div>
-            <div class="income-detail-row">
-                <span><strong>Received By:</strong></span>
-                <span>${incomeEntry.user_name || 'N/A'}</span>
-            </div>
-            <div class="income-detail-row">
-                <span><strong>Date:</strong></span>
-                <span>${this.formatDate(incomeEntry.date)}</span>
-            </div>
-        `;
+        showAllocationDetailsModal(incomeEntry, allocations) {
+            // Populate income entry details
+            const detailsContainer = document.getElementById('allocation-income-details');
+            detailsContainer.innerHTML = `
+                <h4>Income Entry Details</h4>
+                <div class="income-detail-row">
+                    <span><strong>Amount:</strong></span>
+                    <span>$${parseFloat(incomeEntry.amount).toFixed(2)}</span>
+                </div>
+                <div class="income-detail-row">
+                    <span><strong>Category:</strong></span>
+                    <span>${incomeEntry.income_category_name || incomeEntry.category_name || 'N/A'}</span>
+                </div>
+                <div class="income-detail-row">
+                    <span><strong>Description:</strong></span>
+                    <span>${incomeEntry.description || 'No description'}</span>
+                </div>
+                <div class="income-detail-row">
+                    <span><strong>Received By:</strong></span>
+                    <span>${incomeEntry.user_name || 'N/A'}</span>
+                </div>
+                <div class="income-detail-row">
+                    <span><strong>Date:</strong></span>
+                    <span>${this.formatDate(incomeEntry.date)}</span>
+                </div>
+            `;
         
         // Populate allocation form
         this.populateAllocationForm(allocations);
@@ -250,67 +264,83 @@ class IncomeAllocationManager {
     }
     
     populateAllocationForm(allocations) {
-        const container = document.getElementById('modal-allocation-entries');
-        container.innerHTML = '';
-        
-        if (allocations.length === 0) {
-            // Add one empty row
-            this.addAllocationRow();
-        } else {
-            // Add existing allocations
-            allocations.forEach((allocation, index) => {
-                this.addAllocationRow(allocation);
-            });
-        }
-        
-        // Add the "Add Allocation" button
-        const addButton = document.createElement('button');
-        addButton.type = 'button';
-        addButton.className = 'add-allocation-btn';
-        addButton.textContent = '+ Add Allocation';
-        addButton.onclick = () => this.addAllocationRow();
-        container.appendChild(addButton);
-        
-        this.updateModalAllocationSummary();
-        this.bindModalEvents(); // ← ADD THIS LINE
-
-    }
+    const container = document.getElementById('modal-allocation-entries');
     
-    addAllocationRow(allocation = null) {
-        const container = document.getElementById('modal-allocation-entries');
-        const addButton = container.querySelector('.add-allocation-btn');
-        
-        const newEntry = document.createElement('div');
-        newEntry.className = 'allocation-entry';
-        
-        newEntry.innerHTML = `
-            <select name="allocation_category_id" required>
-                <option value="" disabled selected>Select allocation category</option>
-            </select>
-            <input type="number" step="0.01" min="0.01" name="allocation_amount" placeholder="Amount" required 
-                   value="${allocation ? allocation.amount : ''}" onchange="window.incomeAllocationManager.updateModalAllocationSummary()">
-            <input type="text" name="allocation_notes" placeholder="Notes (optional)" 
-                   value="${allocation ? allocation.notes || '' : ''}">
-            <button type="button" class="remove-allocation" onclick="window.incomeAllocationManager.removeModalAllocation(this)">Remove</button>
-        `;
-        
-        // Insert before the add button
-        if (addButton) {
-            container.insertBefore(newEntry, addButton);
-        } else {
-            container.appendChild(newEntry);
-        }
-        
-        // Populate select options
-        const select = newEntry.querySelector('select');
-        this.allocationCategories.forEach(category => {
-            const option = document.createElement('option');
-            option.value = category.id;
-            option.textContent = category.name;
-            option.selected = allocation && allocation.allocation_category_id === category.id;
-            select.appendChild(option);
+    // Clear everything including any existing buttons
+    container.innerHTML = '';
+    
+    console.log('[ALLOCATION] Populating form with', allocations.length, 'allocations');
+    
+    if (allocations.length === 0) {
+        // Add one empty row
+        this.addAllocationRow();
+    } else {
+        // Add existing allocations
+        allocations.forEach((allocation, index) => {
+            console.log('[ALLOCATION] Adding row for allocation', index, allocation);
+            this.addAllocationRow(allocation);
         });
     }
+    
+    // Add the "Add Allocation" button (only one)
+    const addButton = document.createElement('button');
+    addButton.type = 'button';
+    addButton.className = 'add-allocation-btn';
+    addButton.textContent = '+ Add Allocation';
+    addButton.onclick = (e) => {
+        e.preventDefault();
+        this.addAllocationRow();
+    };
+    container.appendChild(addButton);
+    
+    this.updateModalAllocationSummary();
+}
+    
+    addAllocationRow(allocation = null) {
+    const container = document.getElementById('modal-allocation-entries');
+    if (!container) {
+        console.error('[ALLOCATION] Container not found!');
+        return;
+    }
+    
+    const addButton = container.querySelector('.add-allocation-btn');
+    
+    const newEntry = document.createElement('div');
+    newEntry.className = 'allocation-entry';
+    
+    newEntry.innerHTML = `
+        <select name="allocation_category_id" required>
+            <option value="" disabled selected>Select allocation category</option>
+        </select>
+        <input type="number" step="0.01" min="0.01" name="allocation_amount" placeholder="Amount" required 
+               value="${allocation ? allocation.amount : ''}" 
+               oninput="window.incomeAllocationManager.updateModalAllocationSummary()"
+               onchange="window.incomeAllocationManager.updateModalAllocationSummary()">
+        <input type="text" name="allocation_notes" placeholder="Notes (optional)" 
+               value="${allocation ? (allocation.notes || '') : ''}">
+        <button type="button" class="remove-allocation" onclick="window.incomeAllocationManager.removeModalAllocation(this)">Remove</button>
+    `;
+    
+    // Insert before the add button or append to container
+    if (addButton) {
+        container.insertBefore(newEntry, addButton);
+    } else {
+        container.appendChild(newEntry);
+    }
+    
+    // Populate select options
+    const select = newEntry.querySelector('select');
+    this.allocationCategories.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category.id;
+        option.textContent = category.name;
+        option.selected = allocation && allocation.allocation_category_id === category.id;
+        select.appendChild(option);
+    });
+    
+    console.log('[ALLOCATION] Added allocation row, total rows now:', container.querySelectorAll('.allocation-entry').length);
+    console.log('[ALLOCATION] Container HTML:', container.innerHTML.substring(0, 200));
+}
     
     removeModalAllocation(button) {
         const entry = button.closest('.allocation-entry');
@@ -365,7 +395,14 @@ class IncomeAllocationManager {
     // Bind the add allocation button in modal
     const addButton = document.querySelector('#modal-allocation-entries .add-allocation-btn');
     if (addButton) {
-        addButton.onclick = () => this.addAllocationRow();
+        // Remove any existing onclick handler
+        addButton.onclick = null;
+        // Add new handler
+        addButton.onclick = (e) => {
+            e.preventDefault();
+            this.addAllocationRow();
+        };
+        console.log('[ALLOCATION] Bound add allocation button in modal');
     }
 }
     
