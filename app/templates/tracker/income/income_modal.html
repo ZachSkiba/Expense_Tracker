@@ -1,0 +1,16 @@
+<!-- Income Modal - Main income tracking interface -->
+<div id="incomeModal" class="modal income-modal large-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>💸 Income Tracking</h2>
+            <button class="close-btn" onclick="closeModal('incomeModal')">&times;</button>
+        </div>
+        
+        <div class="modal-body">
+            {% include 'tracker/income/income_form.html' %}
+            {% include 'tracker/income/income_table.html' %}
+        </div>
+    </div>
+</div>
+
+{% include 'tracker/income/allocation_details_modal.html' %}
