@@ -245,7 +245,18 @@ class ExpenseService:
                         group = Group.query.get(expense.group_id)
                         if user not in group.members:
                             return False, "User must be a group member"
+                    
+                    # Update the payer
+                    old_payer_id = expense.user_id
                     expense.user_id = user.id
+                    
+                    # IMPORTANT: When payer changes, we need to recalculate participant shares
+                    # This ensures the new payer gets the correct balance adjustments
+                    if old_payer_id != user.id and len(expense.participants) > 0:
+                        # Recalculate shares for existing participants
+                        individual_share = expense.amount / len(expense.participants)
+                        for participant in expense.participants:
+                            participant.amount_owed = individual_share
                     
             if 'description' in update_data:
                 expense.category_description = update_data['description']

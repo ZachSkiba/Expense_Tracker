@@ -555,8 +555,8 @@ class ExpenseTableManager {
                     const numValue = parseFloat(newValue);
                     cell.innerHTML = `$${numValue.toFixed(2)}`;
                     cell.setAttribute('data-value', numValue.toFixed(2));
-                } else if (type === 'participants') {
-                    // Refresh the entire row to get updated participant info
+                } else if (type === 'participants' || type === 'user') {
+                    // Refresh the entire page to show updated balances when participants or payer changes
                     window.location.reload();
                     return;
                 } else {
