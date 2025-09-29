@@ -226,7 +226,7 @@ class IncomeAllocationManager {
             </div>
             <div class="income-detail-row">
                 <span><strong>Category:</strong></span>
-                <span>${incomeEntry.category_name}</span>
+                <span>${incomeEntry.category_name || 'N/A'}</span>
             </div>
             <div class="income-detail-row">
                 <span><strong>Description:</strong></span>
@@ -234,7 +234,7 @@ class IncomeAllocationManager {
             </div>
             <div class="income-detail-row">
                 <span><strong>Received By:</strong></span>
-                <span>${incomeEntry.user_name}</span>
+                <span>${incomeEntry.user_name || 'N/A'}</span>
             </div>
             <div class="income-detail-row">
                 <span><strong>Date:</strong></span>
@@ -272,6 +272,8 @@ class IncomeAllocationManager {
         container.appendChild(addButton);
         
         this.updateModalAllocationSummary();
+        this.bindModalEvents(); // ← ADD THIS LINE
+
     }
     
     addAllocationRow(allocation = null) {
@@ -358,6 +360,14 @@ class IncomeAllocationManager {
             </div>
         `;
     }
+
+    bindModalEvents() {
+    // Bind the add allocation button in modal
+    const addButton = document.querySelector('#modal-allocation-entries .add-allocation-btn');
+    if (addButton) {
+        addButton.onclick = () => this.addAllocationRow();
+    }
+}
     
     async saveAllocations() {
         if (!this.currentIncomeEntry) return;

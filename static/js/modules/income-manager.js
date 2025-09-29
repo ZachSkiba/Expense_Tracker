@@ -164,9 +164,36 @@ class IncomeManager {
         data.description = formData.get('description');
         data.user_id = formData.get('user_id');
         data.date = formData.get('date');
+
+        const allocationEnabled = document.getElementById('enable-allocation')?.checked;
+        if (allocationEnabled) {
+            data.allocations = this.parseAllocationData();
+        }
         
         return data;
     }
+
+    // ADD this new method:
+    parseAllocationData() {
+        const allocations = [];
+        const entries = document.querySelectorAll('#allocation-entries .allocation-entry');
+        
+        entries.forEach(entry => {
+            const categoryId = entry.querySelector('select[name="allocation_category_id[]"]')?.value;
+            const amount = entry.querySelector('input[name="allocation_amount[]"]')?.value;
+            const notes = entry.querySelector('input[name="allocation_notes[]"]')?.value;
+            
+            if (categoryId && amount && parseFloat(amount) > 0) {
+                allocations.push({
+                    allocation_category_id: parseInt(categoryId),
+                    amount: parseFloat(amount),
+                    notes: notes?.trim() || null
+                });
+            }
+        });
+        
+        return allocations;
+}
     
     validateForm(data) {
         const errors = [];
@@ -351,8 +378,8 @@ class IncomeManager {
                         ${this.formatDate(entry.date)}
                     </td>
                     <td>
-                    <button class="income-action-btn view-allocations-btn" onclick="window.incomeManager.viewAllocations(${entry.id})">
-                        View
+                    <button class="income-action-btn view-allocations-btn" onclick="window.incomeAllocationManager.viewAllocations(${entry.id})">
+                        View Allocations
                     </button>
                     <button class="income-action-btn income-delete-btn" onclick="window.incomeManager.deleteIncomeEntry(${entry.id})">
                         Delete
@@ -649,67 +676,61 @@ class IncomeManager {
         }
     }
 
-        viewAllocations(incomeEntryId) {
-        if (window.incomeAllocationManager) {
-            window.incomeAllocationManager.viewAllocations(incomeEntryId);
-        } else {
-            console.error('Income allocation manager not available');
-        }
-    }
 
     resetForm() {
-        this.isSubmitting = false;
-        
-        if (this.form) {
-            this.form.reset();
-        }
-        
-        const submitBtn = document.getElementById('income-submit-btn');
-        if (submitBtn) {
-            submitBtn.textContent = 'Add Income Entry';
-            submitBtn.disabled = false;
-        }
-        
-        console.log('[INCOME_MANAGER] Form reset completed');
+    this.isSubmitting = false;
+    
+    if (this.form) {
+        this.form.reset();
     }
-
-        // Integration with allocation system
-    handleAllocationToggle(enabled) {
-        this.allocationEnabled = enabled;
-        if (enabled && window.incomeAllocationManager) {
-            window.incomeAllocationManager.updateAllocationSummary();
-        }
+    
+    // ADD these lines to close allocation section:
+    const enableAllocationCheckbox = document.getElementById('enable-allocation');
+    if (enableAllocationCheckbox) {
+        enableAllocationCheckbox.checked = false;
     }
+    
+    const allocationEntries = document.getElementById('allocation-entries');
+    if (allocationEntries) {
+        allocationEntries.classList.remove('show');
+    }
+    
+    const submitBtn = document.getElementById('income-submit-btn');
+    if (submitBtn) {
+        submitBtn.textContent = 'Add Income Entry';
+        submitBtn.disabled = false;
+    }
+    
+    console.log('[INCOME_MANAGER] Form reset completed');
+}
 
     validateFormWithAllocations(data) {
-        // First do regular validation
-        if (!this.validateForm(data)) {
+    // First do regular validation
+    if (!this.validateForm(data)) {
+        return false;
+    }
+    
+    // If allocations are enabled, validate them
+    const allocationEnabled = document.getElementById('enable-allocation')?.checked;
+    if (allocationEnabled) {
+        const incomeAmount = parseFloat(data.amount);
+        const allocations = data.allocations || [];
+        
+        if (allocations.length === 0) {
+            this.showErrorMessage('Please add at least one allocation or disable allocation tracking');
             return false;
         }
         
-        // If allocations are enabled, validate them
-        const allocationEnabled = document.getElementById('enable-allocation')?.checked;
-        if (allocationEnabled) {
-            const allocationEntries = document.querySelectorAll('#allocation-entries .allocation-entry');
-            let hasValidAllocations = false;
-            
-            for (let entry of allocationEntries) {
-                const categoryId = entry.querySelector('select[name="allocation_category_id[]"]')?.value;
-                const amount = entry.querySelector('input[name="allocation_amount[]"]')?.value;
-                
-                if (categoryId && amount && parseFloat(amount) > 0) {
-                    hasValidAllocations = true;
-                    break;
-                }
-            }
-            
-            if (!hasValidAllocations) {
-                this.showErrorMessage('Please add at least one allocation or disable allocation tracking');
-                return false;
-            }
+        // Check total allocation amount doesn't exceed income
+        const totalAllocated = allocations.reduce((sum, allocation) => sum + allocation.amount, 0);
+        if (totalAllocated > incomeAmount) {
+            this.showErrorMessage(`Total allocated ($${totalAllocated.toFixed(2)}) cannot exceed income amount ($${incomeAmount.toFixed(2)})`);
+            return false;
         }
-        
-        return true;
+    }
+    
+    return true;
+
     }
 
     // Utility methods

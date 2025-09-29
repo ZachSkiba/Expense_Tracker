@@ -173,6 +173,7 @@ class Group(db.Model):
     categories = db.relationship('Category', foreign_keys='Category.group_id', back_populates='group', cascade="all, delete-orphan")
     balances = db.relationship("Balance", back_populates="group", cascade="all, delete-orphan")
     settlements = db.relationship("Settlement", back_populates="group", cascade="all, delete-orphan")
+    alloc_categories = db.relationship("IncomeAllocationCategory", back_populates="group", cascade="all, delete-orphan")
     
     @staticmethod
     def generate_invite_code():

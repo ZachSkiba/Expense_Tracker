@@ -69,13 +69,22 @@ function initializeForPage(pageName, urls) {
     }
 
     // Initialize income allocation manager for personal trackers
-    if (window.isPersonalTracker === 'true' && typeof IncomeAllocationManager !== 'undefined') {
-        setTimeout(() => {
-            if (!window.incomeAllocationManager) {
-                window.incomeAllocationManager = new IncomeAllocationManager();
-                console.log('Income allocation manager initialized');
-            }
-        }, 150);
+    if (window.isPersonalTracker === 'true') {
+        // Initialize income manager first
+        if (typeof IncomeManager !== 'undefined' && !window.incomeManager) {
+            window.incomeManager = new IncomeManager();
+            console.log('Income manager initialized');
+        }
+        
+        // Initialize income allocation manager
+        if (typeof IncomeAllocationManager !== 'undefined') {
+            setTimeout(() => {
+                if (!window.incomeAllocationManager) {
+                    window.incomeAllocationManager = new IncomeAllocationManager();
+                    console.log('Income allocation manager initialized');
+                }
+            }, 300);
+        }
     }
         
     // Page-specific initializations
@@ -346,7 +355,7 @@ function openRecurringPaymentsModal() {
     }
 }
 
-// NEW: Income modal function
+// REPLACE the entire openIncomeModal function:
 function openIncomeModal() {
     console.log('=== openIncomeModal called ===');
     const modal = document.getElementById('incomeModal');
@@ -365,26 +374,15 @@ function openIncomeModal() {
     modal.style.visibility = 'visible';
     modal.style.opacity = '1';
 
-    // Always initialize income manager when modal opens
-    if (window.isPersonalTracker === 'true') {
-        if (typeof IncomeManager !== 'undefined') {
-            console.log('Initializing income manager on modal open');
-            window.incomeManager = new IncomeManager();
-                
-                // Give it a moment to initialize, then load data
-                setTimeout(() => {
-                    if (window.incomeManager) {
-                        window.incomeManager.loadIncomeCategories().then(() => {
-                            window.incomeManager.loadIncomeEntries();
-                        });
-                    }
-                }, 200);
-            } else {
-                console.error('IncomeManager class not available');
-                return;
-            }
-        }
+    // Load income data if managers are already initialized
+    if (window.incomeManager) {
+        setTimeout(() => {
+            window.incomeManager.loadIncomeCategories().then(() => {
+                window.incomeManager.loadIncomeEntries();
+            });
+        }, 100);
     }
+}
 
 
 // NEW: Income form reset function

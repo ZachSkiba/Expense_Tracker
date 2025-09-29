@@ -102,7 +102,11 @@ def get_income_allocations_api(group_id, income_entry_id):
                 'description': income_entry.description,
                 'date': income_entry.date.isoformat(),
                 'user_name': income_entry.user.name,
-                'category_name': income_entry.income_category_obj.name
+                'category_name': income_entry.income_category_obj.name,
+                # Add these additional fields that JavaScript expects
+                'income_category_name': income_entry.income_category_obj.name,
+                'user_id': income_entry.user_id,
+                'income_category_id': income_entry.income_category_id
             }
         })
     

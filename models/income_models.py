@@ -76,7 +76,7 @@ class IncomeAllocationCategory(db.Model):
     name = db.Column(db.String(50), nullable=False)
     
     # Group-specific allocation categories
-    group_id = db.Column(db.Integer, db.ForeignKey('group.id'), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey('group.id', ondelete='CASCADE'), nullable=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # For personal categories
     
     # Default categories (system-wide)
@@ -87,7 +87,7 @@ class IncomeAllocationCategory(db.Model):
     )
 
     # Relationships
-    group = db.relationship('Group', foreign_keys=[group_id])
+    group = db.relationship("Group", back_populates="alloc_categories", foreign_keys=[group_id])
     user = db.relationship('User', foreign_keys=[user_id])
     allocations = db.relationship("IncomeAllocation", back_populates="allocation_category_obj")
 
