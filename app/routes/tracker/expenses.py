@@ -5,10 +5,11 @@ from flask_login import login_required, current_user
 from datetime import datetime
 
 from sqlalchemy import desc
-from models import db, Expense, User, Category, ExpenseParticipant, Balance, Group
+from models import db, Expense, User, Category, ExpenseParticipant, Balance, Group, user_groups
 from app.services.tracker.expense_service import ExpenseService
 from app.services.tracker.user_service import UserService
 from app.services.tracker.category_service import CategoryService
+
 
 expenses_bp = Blueprint("expenses", __name__)
 
@@ -78,11 +79,19 @@ def group_tracker(group_id):
     
     # GET request - show the tracker page
     
-    # Get group categories
-    categories = Category.query.filter_by(group_id=group_id).all()
-    
-    # Get group members
-    users = list(group.members)
+   # Get group categories - ordered by display_order
+    categories = Category.query.filter_by(group_id=group_id).order_by(
+        Category.display_order.nullslast(), 
+        Category.id
+    ).all()
+
+    # Get group members - ordered by display_order from user_groups
+    users = db.session.query(User).join(user_groups).filter(
+        user_groups.c.group_id == group_id
+    ).order_by(
+        user_groups.c.display_order.nullslast(),
+        User.id
+    ).all()
     
     # Get recent expenses for the group
     expenses = Expense.query.filter_by(group_id=group_id)\
@@ -155,8 +164,17 @@ def group_expenses(group_id):
         .order_by(Expense.date.desc()).all()
     
     # Get group categories and members for the template
-    categories = [{"id": c.id, "name": c.name} for c in Category.query.filter_by(group_id=group_id).all()]
-    users = [{"id": u.id, "name": u.name} for u in group.members]
+    # Get group categories and members for the template - ordered
+    categories = [{"id": c.id, "name": c.name} for c in Category.query.filter_by(group_id=group_id).order_by(
+        Category.display_order.nullslast(), 
+        Category.id
+    ).all()]
+    users = [{"id": u.id, "name": u.name} for u in db.session.query(User).join(user_groups).filter(
+        user_groups.c.group_id == group_id
+    ).order_by(
+        user_groups.c.display_order.nullslast(),
+        User.id
+    ).all()]
     
     # Set show_participants based on group size
     show_participants = (group.get_member_count() > 1)

@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify, render_template
 from flask_login import login_required, current_user
-from models import db, User, Group
+from models import db, User, Group, user_groups
 from models.income_models import IncomeCategory, IncomeEntry
 from datetime import datetime, date
 import logging
@@ -347,7 +347,7 @@ def get_income_categories_api(group_id):
     
     try:
         # Get income categories for this group
-        categories = IncomeCategory.query.filter_by(group_id=group_id).order_by(IncomeCategory.name).all()
+        categories = IncomeCategory.query.filter_by(group_id=group_id).order_by(IncomeCategory.display_order.nullslast(), IncomeCategory.id).all()
         
         categories_data = []
         for category in categories:

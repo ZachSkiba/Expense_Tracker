@@ -1,7 +1,7 @@
 # Fixed recurring.py routes with proper group context and balance updates
 
 from flask import Blueprint, request, jsonify
-from models import ExpenseParticipant, db, RecurringPayment, User, Category, Group, Expense
+from models import ExpenseParticipant, db, RecurringPayment, User, Category, Group, Expense, user_groups
 from app.services.tracker.recurring_service import RecurringPaymentService
 from app.services.tracker.balance_service import BalanceService
 from datetime import datetime, date
@@ -25,6 +25,13 @@ def get_recurring_payments_api(group_id):
     try:
         # Get recurring payments for this group only
         recurring_payments = RecurringPaymentService.get_all_recurring_payments(group_id=group_id)
+        # Get ordered users for this group
+        ordered_users = db.session.query(User).join(user_groups).filter(
+            user_groups.c.group_id == group_id
+        ).order_by(
+            user_groups.c.display_order.nullslast(),
+            User.id
+        ).all()
         
         payments_data = []
         for payment in recurring_payments:
