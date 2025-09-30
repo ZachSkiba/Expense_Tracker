@@ -110,19 +110,20 @@ class ExpenseFilterManager {
                 <h4>Filter Expenses</h4>
                 <button class="clear-filters-btn" type="button">Clear All Filters</button>
             </div>
+
             <div class="filter-row">
-                <div class="filter-group">
-                    <label>Paid By</label>
+            <div class="filter-group">
+                    <label>Amount Sort</label>
                     <div class="multi-select-container">
-                        <button class="multi-select-btn" data-filter="paidBy">
-                            <span class="selected-text">All Users</span>
+                        <button class="multi-select-btn" data-filter="amountSort">
+                            <span class="selected-text">No Sorting</span>
                             <span class="arrow">▼</span>
                         </button>
                         <div class="multi-select-dropdown">
-                            ${uniqueUsers.map(user => `
+                            ${amountSortOptions.map(option => `
                                 <label class="checkbox-item">
-                                    <input type="checkbox" value="${user}" data-filter="paidBy">
-                                    <span>${user}</span>
+                                    <input type="checkbox" value="${option.value}" data-filter="amountSort">
+                                    <span>${option.label}</span>
                                 </label>
                             `).join('')}
                         </div>
@@ -171,6 +172,24 @@ class ExpenseFilterManager {
                 </div>
                 
                 <div class="filter-group">
+                    <label>Paid By</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="paidBy">
+                            <span class="selected-text">All Users</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueUsers.map(user => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${user}" data-filter="paidBy">
+                                    <span>${user}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="filter-group">
                     <label>Participants</label>
                     <div class="multi-select-container">
                         <button class="multi-select-btn" data-filter="participants">
@@ -188,23 +207,7 @@ class ExpenseFilterManager {
                     </div>
                 </div>
 
-                <div class="filter-group">
-                    <label>Amount Sort</label>
-                    <div class="multi-select-container">
-                        <button class="multi-select-btn" data-filter="amountSort">
-                            <span class="selected-text">No Sorting</span>
-                            <span class="arrow">▼</span>
-                        </button>
-                        <div class="multi-select-dropdown">
-                            ${amountSortOptions.map(option => `
-                                <label class="checkbox-item">
-                                    <input type="checkbox" value="${option.value}" data-filter="amountSort">
-                                    <span>${option.label}</span>
-                                </label>
-                            `).join('')}
-                        </div>
-                    </div>
-                </div>
+                
                 
                 <div class="filter-group date-filter-group">
                     <label>Year</label>
