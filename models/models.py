@@ -18,7 +18,8 @@ user_groups = Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('group.id', ondelete="CASCADE"), primary_key=True),
     db.Column('joined_at', db.DateTime, default=datetime.utcnow),
-    db.Column('role', db.String(20), default='member')  # 'admin', 'member'
+    db.Column('role', db.String(20), default='member'),  # 'admin', 'member'
+    db.Column('display_order', db.Integer, nullable=True)  # Per-group user ordering
 )
 
 class User(UserMixin, db.Model):
@@ -234,6 +235,7 @@ class Category(db.Model):
     
     # Default categories (system-wide) - keep for backward compatibility
     is_default = db.Column(db.Boolean, default=False)
+    display_order = db.Column(db.Integer, nullable=True)
     
     __table_args__ = (
         db.UniqueConstraint('name', 'user_id', name='category_user_unique'),

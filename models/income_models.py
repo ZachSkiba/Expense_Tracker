@@ -17,6 +17,7 @@ class IncomeCategory(db.Model):
     
     # Default categories (system-wide) - for backward compatibility
     is_default = db.Column(db.Boolean, default=False)
+    display_order = db.Column(db.Integer, nullable=True)
     
     __table_args__ = (
         db.UniqueConstraint('name', 'group_id', name='income_category_group_unique'),
@@ -81,6 +82,7 @@ class IncomeAllocationCategory(db.Model):
     
     # Default categories (system-wide)
     is_default = db.Column(db.Boolean, default=False)
+    display_order = db.Column(db.Integer, nullable=True)
     
     __table_args__ = (
         db.UniqueConstraint('name', 'group_id', name='income_allocation_category_group_unique'),

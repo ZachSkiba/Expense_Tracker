@@ -1,6 +1,6 @@
 # app/routes/tracker/management.py - UPDATED with income categories management
 
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, jsonify, render_template, request, redirect, url_for, flash
 from flask_login import login_required, current_user
 from models import db, User, Category, Group, Expense, Balance, ExpenseParticipant, Settlement, RecurringPayment, user_groups
 from models.income_models import IncomeCategory, IncomeEntry, IncomeAllocationCategory, IncomeAllocation
@@ -120,10 +120,11 @@ def manage_data(group_id):
                         flash(f"Error adding income allocation category: {str(e)}", 'error')
             
     # Get group-specific data
-    users = list(group.members)  # Only group members
-    categories = Category.query.filter_by(group_id=group_id).all()  # Only group categories
-    income_categories = IncomeCategory.query.filter_by(group_id=group_id).all()  # Only group income categories
-    income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
+    # Get group-specific data - ordered by display_order
+    users = db.session.query(User).join(user_groups).filter(user_groups.c.group_id == group_id).order_by(user_groups.c.display_order.nullslast(), User.id).all()
+    categories = Category.query.filter_by(group_id=group_id).order_by(Category.display_order.nullslast(), Category.id).all()
+    income_categories = IncomeCategory.query.filter_by(group_id=group_id).order_by(IncomeCategory.display_order.nullslast(), IncomeCategory.id).all()
+    income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.display_order.nullslast(), IncomeAllocationCategory.id).all()
     
     if group.is_personal_tracker and not income_allocation_categories:
         try:
@@ -412,3 +413,62 @@ def delete_income_allocation_category(allocation_cat_id):
             flash(f"Error deleting income allocation category: {str(e)}", 'error')
     
     return redirect(url_for('management.manage_data', group_id=group_id))
+
+@management_bp.route("/reorder/<int:group_id>", methods=["POST"])
+@login_required
+def reorder_items(group_id):
+    """Update display order for users or categories"""
+    group = Group.query.get_or_404(group_id)
+    
+    # Check if user is member
+    if current_user not in group.members:
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
+    
+    data = request.get_json()
+    item_type = data.get('type')  # 'user', 'category', 'income_category', 'income_allocation_category'
+    ordered_ids = data.get('ordered_ids', [])
+    
+    try:
+        if item_type == 'user':
+    # Update user display order in user_groups table (per-group ordering)
+            for index, user_id in enumerate(ordered_ids):
+                user = User.query.get(user_id)
+                if user and user in group.members:
+                    # Update the display_order in the association table
+                    db.session.execute(
+                        user_groups.update().where(
+                            user_groups.c.user_id == user_id,
+                            user_groups.c.group_id == group_id
+                        ).values(display_order=index)
+                    )
+        
+        elif item_type == 'category':
+            # Update category display order
+            for index, cat_id in enumerate(ordered_ids):
+                category = Category.query.get(cat_id)
+                if category and category.group_id == group_id:
+                    category.display_order = index
+        
+        elif item_type == 'income_category':
+            # Update income category display order
+            for index, cat_id in enumerate(ordered_ids):
+                income_category = IncomeCategory.query.get(cat_id)
+                if income_category and income_category.group_id == group_id:
+                    income_category.display_order = index
+        
+        elif item_type == 'income_allocation_category':
+            # Update income allocation category display order
+            for index, cat_id in enumerate(ordered_ids):
+                allocation_category = IncomeAllocationCategory.query.get(cat_id)
+                if allocation_category and allocation_category.group_id == group_id:
+                    allocation_category.display_order = index
+        
+        else:
+            return jsonify({'success': False, 'error': 'Invalid item type'}), 400
+        
+        db.session.commit()
+        return jsonify({'success': True})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'error': str(e)}), 500

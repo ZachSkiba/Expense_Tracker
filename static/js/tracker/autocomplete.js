@@ -54,7 +54,11 @@ function createAutocomplete(input, containerId = null) {
             return;
         }
         
-        fetch(`/store_suggestions?q=${encodeURIComponent(query)}`)
+        const groupId = window.groupId || '';
+        const url = groupId 
+            ? `/store_suggestions?q=${encodeURIComponent(query)}&group_id=${groupId}`
+            : `/store_suggestions?q=${encodeURIComponent(query)}`;
+        fetch(url)
             .then(res => res.json())
             .then(data => {
                 suggestionsContainer.innerHTML = '';
