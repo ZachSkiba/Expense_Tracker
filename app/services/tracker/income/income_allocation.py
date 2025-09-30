@@ -23,8 +23,7 @@ def get_income_allocation_categories_api(group_id):
     
     try:
         # Get income allocation categories for this group
-        # Get income allocation categories for this group
-        categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.name).all()
+        categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.display_order.nullslast(),IncomeAllocationCategory.id).all()
 
         # Create default allocation categories if none exist
         if not categories:
