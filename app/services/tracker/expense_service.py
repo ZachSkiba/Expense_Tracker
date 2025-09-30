@@ -237,15 +237,33 @@ class ExpenseService:
                 if category:
                     expense.category_id = category.id
                     
-            if 'user' in update_data:
-                user = User.query.filter_by(name=update_data['user']).first()
+            # Handle both 'user' (name) and 'user_id' (ID) for backward compatibility
+            if 'user_id' in update_data or 'user' in update_data:
+                # Prefer user_id if provided, otherwise look up by name
+                if 'user_id' in update_data:
+                    user_id = int(update_data['user_id'])
+                    user = User.query.get(user_id)
+                else:
+                    user = User.query.filter_by(name=update_data['user']).first()
+                
                 if user:
                     # For group expenses, verify user is group member
                     if expense.group_id:
                         group = Group.query.get(expense.group_id)
                         if user not in group.members:
                             return False, "User must be a group member"
+                    
+                    # Update the payer
+                    old_payer_id = expense.user_id
                     expense.user_id = user.id
+                    
+                    # IMPORTANT: When payer changes, we need to recalculate participant shares
+                    # This ensures the new payer gets the correct balance adjustments
+                    if old_payer_id != user.id and len(expense.participants) > 0:
+                        # Recalculate shares for existing participants
+                        individual_share = expense.amount / len(expense.participants)
+                        for participant in expense.participants:
+                            participant.amount_owed = individual_share
                     
             if 'description' in update_data:
                 expense.category_description = update_data['description']

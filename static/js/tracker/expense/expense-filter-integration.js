@@ -9,6 +9,7 @@ class ExpenseFilterManager {
             paidBy: [],
             category: [],
             description: [],
+            participants: [],
             amountSort: [],
             dateFilter: { years: [], months: [] },
             dateRange: { start: null, end: null }
@@ -78,6 +79,19 @@ class ExpenseFilterManager {
         const uniqueCategories = [...new Set(this.originalRows.map(row => row.data.category))];
         const uniqueDescriptions = [...new Set(this.originalRows.map(row => row.data.description).filter(d => d))];
         
+        // Get unique participants from all expenses
+        const allParticipants = new Set();
+        this.originalRows.forEach(row => {
+            if (row.data.participants) {
+                // participants is a comma-separated string
+                row.data.participants.split(',').forEach(p => {
+                    const name = p.trim();
+                    if (name) allParticipants.add(name);
+                });
+            }
+        });
+        const uniqueParticipants = [...allParticipants].sort();
+
         // Get unique years from dates (assuming YYYY-MM-DD format)
         const dates = this.originalRows.map(row => {
             const [year, month] = row.data.date.split('-').map(num => parseInt(num));
@@ -156,6 +170,24 @@ class ExpenseFilterManager {
                     </div>
                 </div>
                 
+                <div class="filter-group">
+                    <label>Participants</label>
+                    <div class="multi-select-container">
+                        <button class="multi-select-btn" data-filter="participants">
+                            <span class="selected-text">All Participants</span>
+                            <span class="arrow">▼</span>
+                        </button>
+                        <div class="multi-select-dropdown">
+                            ${uniqueParticipants.map(participant => `
+                                <label class="checkbox-item">
+                                    <input type="checkbox" value="${participant}" data-filter="participants">
+                                    <span>${participant}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+
                 <div class="filter-group">
                     <label>Amount Sort</label>
                     <div class="multi-select-container">
@@ -270,6 +302,16 @@ class ExpenseFilterManager {
                 this.closeAllDropdowns();
             }
         });
+
+        // Close dropdowns on scroll/resize
+        window.addEventListener('scroll', () => {
+            this.closeAllDropdowns();
+        }, true);
+
+        window.addEventListener('resize', () => {
+            this.closeAllDropdowns();
+        });
+
     }
 
     handleMultiSelectFilter(checkbox) {
@@ -413,6 +455,7 @@ class ExpenseFilterManager {
                 'paidBy': 'All Users',
                 'category': 'All Categories',
                 'description': 'All Descriptions',
+                'participants': 'All Participants',
                 'amountSort': 'No Sorting'
             }[filterType];
         }
@@ -441,20 +484,44 @@ class ExpenseFilterManager {
     }
 
     toggleMultiSelectDropdown(btn) {
-        // Don't open month dropdown if it's disabled
-        if (btn.disabled) {
-            return;
-        }
+    // Don't open month dropdown if it's disabled
+    if (btn.disabled) {
+        return;
+    }
+    
+    const dropdown = btn.nextElementSibling;
+    const isOpen = dropdown.style.display === 'block';
+    
+    this.closeAllDropdowns();
+    
+    if (!isOpen) {
+        dropdown.style.display = 'block';
         
-        const dropdown = btn.nextElementSibling;
-        const isOpen = dropdown.style.display === 'block';
+        // Position the dropdown relative to the button
+        const btnRect = btn.getBoundingClientRect();
+        const viewportHeight = window.innerHeight;
+        const dropdownMaxHeight = 300;
         
-        this.closeAllDropdowns();
+        // Calculate if there's enough space below
+        const spaceBelow = viewportHeight - btnRect.bottom;
+        const spaceAbove = btnRect.top;
         
-        if (!isOpen) {
-            dropdown.style.display = 'block';
+        // Position dropdown
+        dropdown.style.left = `${btnRect.left}px`;
+        dropdown.style.width = `${Math.max(btnRect.width, 200)}px`;
+        
+        // If not enough space below, show above
+        if (spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow) {
+            dropdown.style.bottom = `${viewportHeight - btnRect.top}px`;
+            dropdown.style.top = 'auto';
+            dropdown.style.maxHeight = `${Math.min(spaceAbove - 10, dropdownMaxHeight)}px`;
+        } else {
+            dropdown.style.top = `${btnRect.bottom + 2}px`;
+            dropdown.style.bottom = 'auto';
+            dropdown.style.maxHeight = `${Math.min(spaceBelow - 10, dropdownMaxHeight)}px`;
         }
     }
+}
 
     closeAllDropdowns() {
         document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
@@ -478,6 +545,16 @@ class ExpenseFilterManager {
         // Apply description filter
         if (this.filters.description.length > 0) {
             filtered = filtered.filter(row => this.filters.description.includes(row.data.description));
+        }
+
+        if (this.filters.participants.length > 0) {
+            filtered = filtered.filter(row => {
+                // Check if ANY selected participant is in the expense
+                const rowParticipants = row.data.participants.split(',').map(p => p.trim());
+                return this.filters.participants.some(selectedParticipant => 
+                    rowParticipants.includes(selectedParticipant)
+                );
+            });
         }
 
         // Apply date filter
@@ -579,6 +656,7 @@ class ExpenseFilterManager {
             paidBy: [],
             category: [],
             description: [],
+            participants: [],
             amountSort: [],
             dateFilter: { years: [], months: [] },
             dateRange: { start: null, end: null }
@@ -598,6 +676,7 @@ class ExpenseFilterManager {
                 'paidBy': 'All Users',
                 'category': 'All Categories', 
                 'description': 'All Descriptions',
+                'participants': 'All Participants',
                 'amountSort': 'No Sorting',
                 'year': 'All Years',
                 'month': 'Select Year First'

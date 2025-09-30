@@ -172,6 +172,7 @@ class ExpenseFilterIntegration {
             // Update total expenses card and count
             this.updateTotalExpensesCard(filteredData);
             this.updateExpenseCount(filteredData);
+            this.updateParticipantTotal(filteredData);
             
             // Try to initialize the payments table if not already done
             if (!this.originalPaymentsHTML) {
@@ -429,6 +430,59 @@ class ExpenseFilterIntegration {
         }
     }
 
+    updateParticipantTotal(filteredData) {
+        const participantCard = document.getElementById('participant-total-card');
+        const participantLabel = document.getElementById('participant-total-label');
+        const participantTotal = document.getElementById('participant-total');
+        
+        if (!participantCard || !participantLabel || !participantTotal) {
+            return;
+        }
+        
+        // Check if participants filter is active
+        const selectedParticipants = this.filterManager.filters.participants || [];
+        
+        if (selectedParticipants.length === 0) {
+            // Hide the card if no participants are selected
+            participantCard.style.display = 'none';
+            return;
+        }
+        
+        // Calculate total amount owed by selected participants
+        let participantOwedTotal = 0;
+        
+        filteredData.expenses.forEach(expense => {
+            // Get participants for this expense
+            const expenseParticipants = expense.participants.split(',').map(p => p.trim());
+            
+            // Check if any selected participant is in this expense
+            const matchingParticipants = selectedParticipants.filter(sp => 
+                expenseParticipants.includes(sp)
+            );
+            
+            if (matchingParticipants.length > 0) {
+                // Calculate the share for each matching participant
+                const sharePerPerson = expense.amount / expenseParticipants.length;
+                participantOwedTotal += sharePerPerson * matchingParticipants.length;
+            }
+        });
+        
+        // Update the label based on number of selected participants
+        if (selectedParticipants.length === 1) {
+            participantLabel.textContent = `${selectedParticipants[0]}'s Total`;
+        } else {
+            participantLabel.textContent = `Selected Participants' Total`;
+        }
+        
+        // Update the amount
+        participantTotal.textContent = `$${participantOwedTotal.toFixed(2)}`;
+        
+        // Show the card
+        participantCard.style.display = 'block';
+        
+        console.log(`[DEBUG] Participant total: $${participantOwedTotal.toFixed(2)} for ${selectedParticipants.join(', ')}`);
+    }
+
     // Public method to get current filter state
     getFilterState() {
         return this.filterManager ? this.filterManager.filters : null;
@@ -439,6 +493,13 @@ class ExpenseFilterIntegration {
         if (this.filterManager) {
             console.log('[DEBUG] Clearing all filters');
             this.currentFilter = null;
+
+            // Hide participant total card
+            const participantCard = document.getElementById('participant-total-card');
+            if (participantCard) {
+                participantCard.style.display = 'none';
+            }
+
             this.filterManager.clearAllFilters();
             
             // Get fresh copy of payments table

@@ -267,10 +267,24 @@ class ExpenseTableManager {
         const input = this.createInputForType(type, currentValue, cell);
         
         // Handle participants differently (no blur event)
+        // Handle participants differently (no blur event)
         if (type === 'participants') {
-            // Replace content with participants editor
-            cell.innerHTML = '';
-            cell.appendChild(input);
+            // Remove the editable class to prevent hover conflicts
+            cell.classList.remove('editable');
+            
+            // Append editor to body instead of cell to avoid conflicts
+            document.body.appendChild(input);
+            
+            // Add backdrop
+            const backdrop = document.createElement('div');
+            backdrop.className = 'participants-editor-backdrop';
+            backdrop.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999;';
+            document.body.insertBefore(backdrop, input);
+            
+            // Store references for cleanup
+            input._backdrop = backdrop;
+            input._originalCell = cell;
+            
             return; // Exit early for participants
         }
         
@@ -371,57 +385,55 @@ class ExpenseTableManager {
     
     createParticipantsEditor(cell) {
         const container = document.createElement('div');
-        container.style.cssText = 'background: white; border: 2px solid #3498db; border-radius: 6px; padding: 8px; max-height: 180px; overflow-y: auto; min-width: 200px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);';
+        container.className = 'participants-editor';
         
         // Get current participant IDs
         const currentParticipantIds = (cell.getAttribute('data-participant-ids') || '').split(',').filter(id => id);
         
         // Title
         const title = document.createElement('div');
+        title.className = 'editor-title';
         title.textContent = 'Select Participants:';
-        title.style.cssText = 'font-weight: bold; margin-bottom: 6px; font-size: 0.85rem; color: #2c3e50;';
         container.appendChild(title);
         
-        // Checkboxes for each user - more compact layout
+        // Scrollable checkbox area
+        const checkboxArea = document.createElement('div');
+        checkboxArea.className = 'editor-checkboxes';
+        
+        // Checkboxes for each user - compact mobile-friendly layout
         this.usersData.forEach(user => {
             const wrapper = document.createElement('label');
-            wrapper.style.cssText = 'display: flex; align-items: center; margin: 2px 0; padding: 3px 6px; background: #f8f9fa; border-radius: 3px; cursor: pointer; font-size: 0.8rem; transition: background-color 0.2s;';
+            wrapper.className = 'editor-checkbox-wrapper';
             
             const checkbox = document.createElement('input');
             checkbox.type = 'checkbox';
             checkbox.value = user.id;
             checkbox.checked = currentParticipantIds.includes(user.id.toString());
-            checkbox.style.cssText = 'margin-right: 6px; transform: scale(0.9);';
             
             const labelText = document.createElement('span');
             labelText.textContent = user.name;
-            labelText.style.cssText = 'flex: 1; color: #2c3e50;';
+            labelText.className = 'editor-checkbox-label';
             
             wrapper.appendChild(checkbox);
             wrapper.appendChild(labelText);
-            
-            // Add hover effect
-            wrapper.addEventListener('mouseenter', () => {
-                wrapper.style.backgroundColor = '#e9ecef';
-            });
-            wrapper.addEventListener('mouseleave', () => {
-                wrapper.style.backgroundColor = '#f8f9fa';
-            });
-            
-            container.appendChild(wrapper);
+            checkboxArea.appendChild(wrapper);
         });
         
-        // Buttons - more compact
+        container.appendChild(checkboxArea);
+        
+        // Buttons
         const buttonContainer = document.createElement('div');
-        buttonContainer.style.cssText = 'display: flex; gap: 6px; margin-top: 8px;';
+        buttonContainer.className = 'editor-buttons';
         
         const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save';
-        saveBtn.style.cssText = 'background: #27ae60; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; flex: 1;';
+        saveBtn.textContent = '✓ Save';
+        saveBtn.className = 'editor-btn editor-btn-save';
+        saveBtn.type = 'button';
         
         const cancelBtn = document.createElement('button');
-        cancelBtn.textContent = 'Cancel';
-        cancelBtn.style.cssText = 'background: #95a5a6; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; font-size: 0.75rem; flex: 1;';
+        cancelBtn.textContent = '✕ Cancel';
+        cancelBtn.className = 'editor-btn editor-btn-cancel';
+        cancelBtn.type = 'button';
         
         buttonContainer.appendChild(saveBtn);
         buttonContainer.appendChild(cancelBtn);
@@ -521,7 +533,19 @@ class ExpenseTableManager {
             }
             
             // Prepare data
-            data[type === 'user' ? 'user' : type] = newValue;
+            if (type === 'user') {
+                // Find the user ID from the selected name
+                const selectedUser = this.usersData.find(u => u.name === newValue);
+                if (!selectedUser) {
+                    this.showMessage('Invalid user selected', 'red');
+                    cell.innerHTML = originalHTML;
+                    return;
+                }
+                data['user_id'] = selectedUser.id;  // Send user_id instead of name
+                data['user'] = newValue;  // Also send name for display
+            } else {
+                data[type] = newValue;
+            }
             await this.performSave(cell, data, expenseId, type, originalHTML, input, newValue);
         }
     }
@@ -555,8 +579,8 @@ class ExpenseTableManager {
                     const numValue = parseFloat(newValue);
                     cell.innerHTML = `$${numValue.toFixed(2)}`;
                     cell.setAttribute('data-value', numValue.toFixed(2));
-                } else if (type === 'participants') {
-                    // Refresh the entire row to get updated participant info
+                } else if (type === 'participants' || type === 'user') {
+                    // Refresh the entire page to show updated balances when participants or payer changes
                     window.location.reload();
                     return;
                 } else {
@@ -654,13 +678,21 @@ class ExpenseTableManager {
             const result = await response.json();
             
             if (result.success) {
+                // Cleanup editor
+                if (container._backdrop && container._backdrop.parentNode) {
+                    container._backdrop.parentNode.removeChild(container._backdrop);
+                }
+                if (container.parentNode) {
+                    container.parentNode.removeChild(container);
+                }
+                
                 this.showMessage('Participants updated successfully!', 'green');
                 // Update expense count after participant edit
                 if (window.updateExpenseCount) window.updateExpenseCount();
                 // Refresh the page to show updated participant info
                 setTimeout(() => {
                     window.location.reload();
-                }, 1000);
+                }, 500);
                 
                 if (window.loadBalancesData) {
                     window.loadBalancesData();
@@ -676,13 +708,19 @@ class ExpenseTableManager {
     }
     
     handleParticipantsCancel(container, cell) {
-        // Restore original HTML
-        const originalHTML = cell.getAttribute('data-original-html');
-        if (originalHTML) {
-            cell.innerHTML = originalHTML;
-        } else {
-            // Fallback: reload the page if we can't restore
-            window.location.reload();
+        // Remove backdrop if exists
+        if (container._backdrop && container._backdrop.parentNode) {
+            container._backdrop.parentNode.removeChild(container._backdrop);
+        }
+        
+        // Remove container if exists
+        if (container.parentNode) {
+            container.parentNode.removeChild(container);
+        }
+        
+        // Restore editable class
+        if (cell) {
+            cell.classList.add('editable');
         }
     }
 }
