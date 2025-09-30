@@ -42,6 +42,7 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
+    display_order = db.Column(db.Integer, nullable=True)
 
     # Original relationships (keep for backward compatibility)
     expenses = db.relationship("Expense", foreign_keys="Expense.user_id", back_populates="user")
@@ -234,6 +235,7 @@ class Category(db.Model):
     
     # Default categories (system-wide) - keep for backward compatibility
     is_default = db.Column(db.Boolean, default=False)
+    display_order = db.Column(db.Integer, nullable=True)
     
     __table_args__ = (
         db.UniqueConstraint('name', 'user_id', name='category_user_unique'),

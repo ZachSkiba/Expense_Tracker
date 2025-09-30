@@ -320,3 +320,81 @@
         padding: 4px 8px;
     }
 }
+
+/* Container for items */
+.items-list {
+    background: #f9f9f9;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 8px;
+    min-height: 50px;
+}
+
+/* Each draggable item */
+.item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 6px;
+    padding: 10px 14px;
+    margin-bottom: 2px;
+    cursor: grab;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* When item is being dragged */
+.item:active {
+    cursor: grabbing;
+}
+
+/* Slightly lift the dragged item */
+.item[draggable="true"]:hover {
+    transform: scale(1.02);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+/* Drag handle style */
+.drag-handle {
+    cursor: grab;
+    font-size: 18px;
+    margin-right: 10px;
+    color: #888;
+}
+
+/* Hovered drop target */
+.item.drag-over {
+    border: 2px dashed #007bff;
+    background: #eaf4ff;
+}
+
+/* Delete button */
+.delete-btn {
+    color: #e74c3c;
+    text-decoration: none;
+    font-size: 16px;
+    transition: color 0.2s ease;
+}
+.delete-btn:hover {
+    color: #c0392b;
+}
+
+/* Empty state styling */
+.empty-state {
+    text-align: center;
+    padding: 12px;
+    font-size: 14px;
+    color: #666;
+    font-style: italic;
+}
+
+/* Ghost placeholder takes full height of item */
+.placeholder {
+    background-color: #e6f0ff;
+    border: 2px dashed #007bff;
+    border-radius: 6px;
+    margin: 6px 0;
+    opacity: 0.7;
+}
+

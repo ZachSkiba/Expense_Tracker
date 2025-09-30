@@ -88,10 +88,11 @@
                     </p>
                 </div>
                 
-                <div class="items-list">
+                <div class="items-list sortable-list" data-type="user">
                     {% if users %}
                         {% for user in users %}
-                            <div class="item">
+                            <div class="item" data-id="{{ user.id }}" draggable="true">
+                                <span class="drag-handle">⋮⋮</span>
                                 <span class="item-name">
                                     {{ user.name }}
                                     {% if user == group.creator %}
@@ -100,8 +101,8 @@
                                 </span>
                                 {% if user != group.creator %}
                                     <a href="{{ url_for('management.delete_user', user_id=user.id, group_id=group.id) }}" 
-                                       class="delete-btn" 
-                                       onclick="return confirm('Are you sure you want to remove {{ user.name }} from this group?')">
+                                    class="delete-btn" 
+                                    onclick="return confirm('Are you sure you want to remove {{ user.name }} from this group?')">
                                         🗑️
                                     </a>
                                 {% endif %}
@@ -128,14 +129,15 @@
                     </form>
                 </div>
                 
-                <div class="items-list">
+                <div class="items-list sortable-list" data-type="category">
                     {% if categories %}
                         {% for category in categories %}
-                            <div class="item">
+                            <div class="item" data-id="{{ category.id }}" draggable="true">
+                                <span class="drag-handle">⋮⋮</span>
                                 <span class="item-name">{{ category.name }}</span>
                                 <a href="{{ url_for('management.delete_category', cat_id=category.id) }}" 
-                                   class="delete-btn"
-                                   onclick="return confirm('Are you sure you want to delete {{ category.name }}?')">
+                                class="delete-btn"
+                                onclick="return confirm('Are you sure you want to delete {{ category.name }}?')">
                                     🗑️
                                 </a>
                             </div>
@@ -162,14 +164,15 @@
                     </form>
                 </div>
                 
-                <div class="items-list">
+                <div class="items-list sortable-list" data-type="income_category">
                     {% if income_categories %}
                         {% for income_category in income_categories %}
-                            <div class="item">
+                            <div class="item" data-id="{{ income_category.id }}" draggable="true">
+                                <span class="drag-handle">⋮⋮</span>
                                 <span class="item-name">{{ income_category.name }}</span>
                                 <a href="{{ url_for('management.delete_income_category', income_cat_id=income_category.id) }}" 
-                                   class="delete-btn"
-                                   onclick="return confirm('Are you sure you want to delete {{ income_category.name }}?')">
+                                class="delete-btn"
+                                onclick="return confirm('Are you sure you want to delete {{ income_category.name }}?')">
                                     🗑️
                                 </a>
                             </div>
@@ -197,10 +200,11 @@
                     </form>
                 </div>
                 
-                <div class="items-list">
+                <div class="items-list sortable-list" data-type="income_allocation_category">
                     {% if income_allocation_categories %}
                         {% for allocation_category in income_allocation_categories %}
-                            <div class="item">
+                            <div class="item" data-id="{{ allocation_category.id }}" draggable="true">
+                                <span class="drag-handle">⋮⋮</span>
                                 <span class="item-name">{{ allocation_category.name }}</span>
                                 <a href="{{ url_for('management.delete_income_allocation_category', allocation_cat_id=allocation_category.id) }}" 
                                 class="delete-btn"
@@ -222,5 +226,110 @@
 
         <a href="{{ url_for('expenses.group_tracker', group_id=group.id) }}" class="back-link">⬅ Back to Tracker</a>
     </div>
+    <script>
+let draggedElement = null;
+let placeholder = document.createElement('div');
+placeholder.className = 'placeholder';
+
+// how close (px) to the edge before scrolling starts
+const SCROLL_ZONE = 40;
+const SCROLL_SPEED = 5;
+
+document.addEventListener('DOMContentLoaded', function () {
+    const sortableLists = document.querySelectorAll('.sortable-list');
+
+    sortableLists.forEach(list => {
+        list.addEventListener('dragover', handleListDragOver);
+        list.addEventListener('drop', handleListDrop);
+
+        const items = list.querySelectorAll('.item[draggable="true"]');
+        items.forEach(item => {
+            item.addEventListener('dragstart', handleDragStart);
+            item.addEventListener('dragover', handleDragOver);
+            item.addEventListener('drop', handleDrop);
+            item.addEventListener('dragend', handleDragEnd);
+        });
+    });
+});
+
+function handleDragStart(e) {
+    draggedElement = this;
+    this.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', this.dataset.id);
+
+    // placeholder height matches dragged item
+    placeholder.style.height = `${this.offsetHeight}px`;
+}
+
+function handleDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (this !== draggedElement) {
+        const bounding = this.getBoundingClientRect();
+        const offset = e.clientY - bounding.top;
+
+        if (offset > bounding.height / 2) {
+            this.insertAdjacentElement('afterend', placeholder);
+        } else {
+            this.insertAdjacentElement('beforebegin', placeholder);
+        }
+    }
+
+    autoScroll(e, this.closest('.sortable-list'));
+    return false;
+}
+
+function handleDrop(e) {
+    e.stopPropagation();
+    if (placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(draggedElement, placeholder);
+        placeholder.remove();
+        const list = this.closest('.sortable-list');
+        saveOrder(list);
+    }
+}
+
+function handleDragEnd(e) {
+    this.style.opacity = '1';
+    if (placeholder.parentNode) {
+        placeholder.remove();
+    }
+}
+
+function handleListDragOver(e) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+
+    const list = this;
+    if (!list.querySelector('.placeholder')) {
+        list.appendChild(placeholder);
+    }
+
+    autoScroll(e, list);
+}
+
+function handleListDrop(e) {
+    e.preventDefault();
+    if (placeholder.parentNode) {
+        placeholder.parentNode.insertBefore(draggedElement, placeholder);
+        placeholder.remove();
+        saveOrder(this);
+    }
+}
+
+// 🔽 NEW helper for scrolling while dragging
+function autoScroll(e, container) {
+    const rect = container.getBoundingClientRect();
+    const y = e.clientY;
+
+    if (y < rect.top + SCROLL_ZONE) {
+        container.scrollTop -= SCROLL_SPEED; // scroll up
+    } else if (y > rect.bottom - SCROLL_ZONE) {
+        container.scrollTop += SCROLL_SPEED; // scroll down
+    }
+}
+</script>
 </body>
 </html>
