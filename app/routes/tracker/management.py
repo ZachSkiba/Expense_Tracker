@@ -121,7 +121,7 @@ def manage_data(group_id):
             
     # Get group-specific data
     # Get group-specific data - ordered by display_order
-    users = sorted(list(group.members), key=lambda u: u.display_order if u.display_order is not None else u.id)
+    users = db.session.query(User).join(user_groups).filter(user_groups.c.group_id == group_id).order_by(user_groups.c.display_order.nullslast(), User.id).all()
     categories = Category.query.filter_by(group_id=group_id).order_by(Category.display_order.nullslast(), Category.id).all()
     income_categories = IncomeCategory.query.filter_by(group_id=group_id).order_by(IncomeCategory.display_order.nullslast(), IncomeCategory.id).all()
     income_allocation_categories = IncomeAllocationCategory.query.filter_by(group_id=group_id).order_by(IncomeAllocationCategory.display_order.nullslast(), IncomeAllocationCategory.id).all()
@@ -430,11 +430,17 @@ def reorder_items(group_id):
     
     try:
         if item_type == 'user':
-            # Update user display order
+    # Update user display order in user_groups table (per-group ordering)
             for index, user_id in enumerate(ordered_ids):
                 user = User.query.get(user_id)
                 if user and user in group.members:
-                    user.display_order = index
+                    # Update the display_order in the association table
+                    db.session.execute(
+                        user_groups.update().where(
+                            user_groups.c.user_id == user_id,
+                            user_groups.c.group_id == group_id
+                        ).values(display_order=index)
+                    )
         
         elif item_type == 'category':
             # Update category display order

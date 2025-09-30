@@ -17,6 +17,97 @@
     margin-bottom: 25px;
 }
 
+/* Page header styling */
+.page-header {
+    margin-bottom: 30px;
+}
+
+.header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.back-link-top {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    background: white;
+    color: #2c3e50;
+    text-decoration: none;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    border: 2px solid #e9ecef;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.back-link-top:hover {
+    background: #f8f9fa;
+    border-color: #3498db;
+    color: #3498db;
+    transform: translateX(-2px);
+    box-shadow: 0 4px 8px rgba(52, 152, 219, 0.15);
+}
+
+.back-link-top svg {
+    transition: transform 0.2s ease;
+}
+
+.back-link-top:hover svg {
+    transform: translateX(-3px);
+}
+
+.page-header h1 {
+    margin: 0;
+    font-size: 2.2rem;
+    color: #2c3e50;
+    font-weight: 700;
+}
+
+.group-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 1.05rem;
+}
+
+.group-name .label {
+    color: #6c757d;
+    font-weight: 400;
+}
+
+.group-name strong {
+    color: #2c3e50;
+    font-size: 1.1rem;
+}
+
+.badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-personal {
+    background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+    color: #1565c0;
+    border: 1px solid #90caf9;
+}
+
+.badge-group {
+    background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+    color: #6a1b9a;
+    border: 1px solid #ce93d8;
+}
+
 .management-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -43,6 +134,13 @@
     font-weight: 600;
     background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
     border-bottom: 2px solid #dee2e6;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.management-section h2::first-letter {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 }
 
 .add-form {
@@ -185,26 +283,6 @@
     color: #0c5460;
 }
 
-.back-link {
-    display: inline-block;
-    margin-top: 30px;
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #95a5a6, #7f8c8d);
-    color: white;
-    text-decoration: none;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(127, 140, 141, 0.2);
-}
-
-.back-link:hover {
-    background: linear-gradient(135deg, #7f8c8d, #6c7a7b);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(127, 140, 141, 0.3);
-    color: white;
-}
-
 .empty-state {
     text-align: center;
     color: #95a5a6;
@@ -264,6 +342,7 @@
     }
 }
 
+
 @media (max-width: 768px) {
     .management-container {
         padding: 20px 15px;
@@ -318,6 +397,28 @@
     .delete-btn {
         font-size: 1rem;
         padding: 4px 8px;
+    }
+}
+
+@media (max-width: 768px) {
+    .page-header h1 {
+        font-size: 1.6rem;
+    }
+    
+    .header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    
+    .back-link-top {
+        padding: 8px 14px;
+        font-size: 0.9rem;
+    }
+    
+    .group-name {
+        flex-wrap: wrap;
+        font-size: 0.95rem;
     }
 }
 

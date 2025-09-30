@@ -18,7 +18,8 @@ user_groups = Table('user_groups',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('group_id', db.Integer, db.ForeignKey('group.id', ondelete="CASCADE"), primary_key=True),
     db.Column('joined_at', db.DateTime, default=datetime.utcnow),
-    db.Column('role', db.String(20), default='member')  # 'admin', 'member'
+    db.Column('role', db.String(20), default='member'),  # 'admin', 'member'
+    db.Column('display_order', db.Integer, nullable=True)  # Per-group user ordering
 )
 
 class User(UserMixin, db.Model):
@@ -42,7 +43,6 @@ class User(UserMixin, db.Model):
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     last_login = db.Column(db.DateTime)
-    display_order = db.Column(db.Integer, nullable=True)
 
     # Original relationships (keep for backward compatibility)
     expenses = db.relationship("Expense", foreign_keys="Expense.user_id", back_populates="user")
