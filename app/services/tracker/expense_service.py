@@ -237,8 +237,15 @@ class ExpenseService:
                 if category:
                     expense.category_id = category.id
                     
-            if 'user' in update_data:
-                user = User.query.filter_by(name=update_data['user']).first()
+            # Handle both 'user' (name) and 'user_id' (ID) for backward compatibility
+            if 'user_id' in update_data or 'user' in update_data:
+                # Prefer user_id if provided, otherwise look up by name
+                if 'user_id' in update_data:
+                    user_id = int(update_data['user_id'])
+                    user = User.query.get(user_id)
+                else:
+                    user = User.query.filter_by(name=update_data['user']).first()
+                
                 if user:
                     # For group expenses, verify user is group member
                     if expense.group_id:
