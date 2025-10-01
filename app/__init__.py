@@ -115,6 +115,10 @@ def create_app():
     app.register_blueprint(recurring)
     app.register_blueprint(admin)
     app.register_blueprint(groups_bp)
+   
+
+    from app.routes.tracker.budgeting import budgeting_bp
+    app.register_blueprint(budgeting_bp)
 
     # REGISTER THE INCOME API BLUEPRINT SEPARATELY
     from app.services.tracker.income.income import income_bp as income_api_bp
