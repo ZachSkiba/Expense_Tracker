@@ -30,36 +30,39 @@
 
     <!-- Filters Section -->
     <div class="filters-container">
-        <div class="filter-group">
-            <label for="year-select">Year:</label>
-            <select id="year-select" class="filter-select">
-                {% for year in range(current_year, current_year - 3, -1) %}
-                <option value="{{ year }}" {% if year == selected_year %}selected{% endif %}>
-                    {{ year }}
-                </option>
-                {% endfor %}
-            </select>
+        <div class="filter-header">
+            <h4>Filters</h4>
+            <button class="clear-filters-btn" type="button" id="clear-filters-btn">Clear All Filters</button>
         </div>
 
-        <div class="filter-group">
-            <label>Months:</label>
-            <div class="month-selector">
-                <button type="button" class="month-toggle" data-action="select-all">Select All</button>
-                <button type="button" class="month-toggle" data-action="clear">Clear</button>
+        <div class="filter-row">
+            <div class="filter-group">
+                <label>Years</label>
+                <div class="multi-select-container">
+                    <button class="multi-select-btn" data-filter="years">
+                        <span class="selected-text">All Years</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div class="multi-select-dropdown" id="years-dropdown">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
             </div>
-            <div class="month-checkboxes">
-                {% set month_names = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] %}
-                {% for i in range(1, 13) %}
-                <label class="month-checkbox">
-                    <input type="checkbox" name="months" value="{{ i }}" 
-                           {% if i in selected_months %}checked{% endif %}>
-                    <span>{{ month_names[i-1] }}</span>
-                </label>
-                {% endfor %}
+
+            <div class="filter-group">
+                <label>Months</label>
+                <div class="multi-select-container">
+                    <button class="multi-select-btn" data-filter="months" disabled>
+                        <span class="selected-text">Select Year First</span>
+                        <span class="arrow">▼</span>
+                    </button>
+                    <div class="multi-select-dropdown" id="months-dropdown">
+                        <!-- Will be populated by JavaScript -->
+                    </div>
+                </div>
             </div>
         </div>
 
-        <button id="apply-filters" class="btn-primary">Apply Filters</button>
         <div id="loading-indicator" class="loading-indicator" style="display: none;">
             <span class="spinner"></span> Loading...
         </div>
@@ -73,51 +76,68 @@
             <div class="kpi-card kpi-income">
                 <div class="kpi-icon">💰</div>
                 <div class="kpi-content">
-                    <div class="kpi-label">Monthly Income</div>
+                    <div class="kpi-label">Total Income</div>
                     <div class="kpi-value" id="kpi-income">$0</div>
                     <div class="kpi-change" id="kpi-income-change"></div>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-essentials">
+            <div class="kpi-card kpi-spending">
                 <div class="kpi-icon">🏠</div>
                 <div class="kpi-content">
-                    <div class="kpi-label">Essentials Total</div>
-                    <div class="kpi-value" id="kpi-essentials">$0</div>
-                    <div class="kpi-status" id="kpi-essentials-status">Stable</div>
+                    <div class="kpi-label">Total Spending</div>
+                    <div class="kpi-value" id="kpi-spending">$0</div>
+                    <div class="kpi-status" id="kpi-spending-status">Stable</div>
                 </div>
             </div>
 
-            <div class="kpi-card kpi-discretionary">
+            <div class="kpi-card kpi-savings">
                 <div class="kpi-icon">💳</div>
                 <div class="kpi-content">
-                    <div class="kpi-label">Discretionary Left</div>
-                    <div class="kpi-value" id="kpi-discretionary">$0</div>
-                    <div class="kpi-change" id="kpi-discretionary-change"></div>
+                    <div class="kpi-label">Net Savings</div>
+                    <div class="kpi-value" id="kpi-savings">$0</div>
+                    <div class="kpi-change" id="kpi-savings-change"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Left Column: Categories & Charts -->
+        <!-- Left Column: Expenses Pie Chart -->
         <div class="left-column">
             
-            <!-- Auto-filled Essentials Section -->
-            <div class="card essentials-card">
-                <h2>Auto-filled Essentials</h2>
-                <div id="essentials-list" class="category-list">
-                    <div class="loading">Loading essentials...</div>
+            <!-- Expenses Pie Chart -->
+            <div class="card expenses-chart-card">
+                <h2>Expenses Breakdown</h2>
+                <p class="chart-instruction">Click on any category to see detailed breakdown</p>
+                
+                <div class="chart-container">
+                    <canvas id="expenses-pie-chart"></canvas>
                 </div>
             </div>
 
-            <!-- Category Details Section with Pie Chart -->
+            <!-- Allocations Pie Chart -->
+            <div class="card allocations-chart-card">
+                <h2>Income Allocations</h2>
+                <p class="chart-instruction">Click on a bucket to see allocation categories</p>
+                
+                <div class="chart-container">
+                    <canvas id="allocations-pie-chart"></canvas>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Drill-Down & Recommendations -->
+        <div class="right-column">
+            
+            <!-- Category Drill-Down Section -->
             <div class="card category-details-card">
-                <h2>Category Details</h2>
-                <p class="instruction-text">Click on a category above to view its breakdown</p>
+                <h2>Detailed Breakdown</h2>
+                <p class="drill-down-instruction">Click on a pie chart slice to view breakdown</p>
                 
                 <div id="category-detail-content" style="display: none;">
                     <h3 id="selected-category-name"></h3>
                     
-                    <!-- Pie Chart -->
+                    <!-- Drill-Down Pie Chart -->
                     <div class="chart-container">
                         <canvas id="category-pie-chart"></canvas>
                     </div>
@@ -126,18 +146,7 @@
                     <div id="subcategory-list" class="subcategory-list"></div>
                 </div>
             </div>
-
-        </div>
-
-        <!-- Right Column: Allocations & Recommendations -->
-        <div class="right-column">
             
-            <!-- Income Input Display -->
-            <div class="card income-display-card">
-                <h3>Total Monthly Income</h3>
-                <div class="income-amount" id="income-display">$0</div>
-            </div>
-
             <!-- Recommended Allocations -->
             <div class="card allocations-card">
                 <h2>Recommended Allocations</h2>
@@ -166,8 +175,8 @@
             <!-- Total Essentials Summary -->
             <div class="card total-card">
                 <div class="total-row">
-                    <span class="total-label">Total Essentials</span>
-                    <span class="total-value" id="total-essentials">$0</span>
+                    <span class="total-label">Total Spending</span>
+                    <span class="total-value" id="total-spending">$0</span>
                 </div>
             </div>
 
@@ -190,7 +199,7 @@
             currentYear: "{{ current_year }}",
             currentMonth: "{{ current_month }}",
             selectedYear: "{{ selected_year }}",
-            selectedMonths: "{{ selected_months | tojson }}",
+            selectedMonths: "{{ selected_months | safe }}",
             apiBaseUrl: "{{ url_for('budgeting.get_summary', group_id=group.id) }}".replace('/api/summary', '')
         };
     </script>

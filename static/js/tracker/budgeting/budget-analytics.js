@@ -7,45 +7,125 @@ class BudgetAnalytics {
     constructor() {
         this.groupId = window.budgetData.groupId;
         this.userId = window.budgetData.userId;
-        this.currentYear = window.budgetData.currentYear;
-        this.selectedMonths = window.budgetData.selectedMonths || [];
+        this.currentYear = parseInt(window.budgetData.currentYear);
+        
+        // Parse selected months - handle both JSON string and array
+        try {
+            const parsedMonths = JSON.parse(window.budgetData.selectedMonths || '[]');
+            this.selectedMonths = Array.isArray(parsedMonths) ? parsedMonths : [];
+        } catch (e) {
+            this.selectedMonths = [];
+        }
+        
+        this.selectedYears = [parseInt(window.budgetData.selectedYear || window.budgetData.currentYear)];
         this.apiBaseUrl = window.budgetData.apiBaseUrl;
         
         this.currentData = null;
         this.selectedCategory = null;
-        this.categoryPieChart = null;
+        this.expensePieChart = null;
+        this.allocationPieChart = null;
+        this.drillDownChart = null;
+        this.availableMonths = [];
+        this.availableYears = [];
         
         this.init();
     }
     
+    
     init() {
         console.log('[BUDGET_ANALYTICS] Initializing...');
+        this.loadAvailableData();
         this.bindEvents();
-        this.loadData();
     }
     
-    bindEvents() {
-        // Apply filters button
-        const applyBtn = document.getElementById('apply-filters');
-        if (applyBtn) {
-            applyBtn.addEventListener('click', () => this.applyFilters());
+    async loadAvailableData() {
+        // Load available months and years for filters
+        try {
+            const url = `${this.apiBaseUrl}/api/available-periods`;
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.availableMonths = result.data.months || [];
+                this.availableYears = result.data.years || [];
+                this.populateFilters();
+                this.loadData();
+            }
+        } catch (error) {
+            console.error('[BUDGET_ANALYTICS] Error loading available data:', error);
+            // Continue with defaults
+            this.loadData();
         }
-        
-        // Year select change
-        const yearSelect = document.getElementById('year-select');
-        if (yearSelect) {
-            yearSelect.addEventListener('change', () => {
-                this.currentYear = parseInt(yearSelect.value);
+    
+
+    document.addEventListener('change', (e) => {
+                if (e.target.matches('[data-filter="years"]')) {
+                    this.handleYearFilterChange(e.target);
+                } else if (e.target.matches('[data-filter="months"]')) {
+                    this.handleMonthFilterChange(e.target);
+                }
             });
         }
+
+    // After filters are populated, attach checkbox event listeners
+   
+    
+    populateFilters() {
+        // Populate year multi-select dropdown
+        const yearsDropdown = document.getElementById('years-dropdown');
+        if (yearsDropdown && this.availableYears.length > 0) {
+            yearsDropdown.innerHTML = '';
+            this.availableYears.forEach(year => {
+                const label = document.createElement('label');
+                label.className = 'checkbox-item';
+                label.innerHTML = `
+                    <input type="checkbox" value="${year}" data-filter="years" ${this.selectedYears.includes(year) ? 'checked' : ''}>
+                    <span>${year}</span>
+                `;
+                yearsDropdown.appendChild(label);
+            });
+            
+            // Update display text
+            this.updateMultiSelectDisplay('years');
+        }
         
-        // Month select all/clear buttons
-        document.querySelectorAll('.month-toggle').forEach(btn => {
+        // Populate months if years are selected
+        if (this.selectedYears.length > 0) {
+            this.updateAvailableMonths();
+        }
+    }
+
+    bindEvents() {
+        // Multi-select dropdown toggle
+        document.querySelectorAll('.multi-select-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
-                const action = e.target.dataset.action;
-                this.toggleMonths(action);
+                e.stopPropagation();
+                if (!btn.disabled) {
+                    this.toggleMultiSelectDropdown(btn);
+                }
             });
         });
+    
+        
+        // Clear filters button
+        const clearBtn = document.getElementById('clear-filters-btn');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                this.clearAllFilters();
+            });
+        }
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.multi-select-container')) {
+                this.closeAllDropdowns();
+            }
+        });
+        
+        // Close dropdowns on scroll
+        window.addEventListener('scroll', () => {
+            this.closeAllDropdowns();
+        }, true);
         
         // Error close button
         const errorClose = document.querySelector('.error-close');
@@ -55,36 +135,178 @@ class BudgetAnalytics {
             });
         }
     }
-    
-    toggleMonths(action) {
-        const checkboxes = document.querySelectorAll('.month-checkboxes input[type="checkbox"]');
+
+    toggleMultiSelectDropdown(btn) {
+        const dropdown = btn.nextElementSibling;
+        const isOpen = dropdown.style.display === 'block';
         
-        if (action === 'select-all') {
-            checkboxes.forEach(cb => cb.checked = true);
-        } else if (action === 'clear') {
-            checkboxes.forEach(cb => cb.checked = false);
+        this.closeAllDropdowns();
+        
+        if (!isOpen) {
+            dropdown.style.display = 'block';
+            
+            // Position the dropdown
+            const btnRect = btn.getBoundingClientRect();
+            const viewportHeight = window.innerHeight;
+            const dropdownMaxHeight = 300;
+            
+            dropdown.style.left = `${btnRect.left}px`;
+            dropdown.style.width = `${Math.max(btnRect.width, 200)}px`;
+            
+            const spaceBelow = viewportHeight - btnRect.bottom;
+            const spaceAbove = btnRect.top;
+            
+            if (spaceBelow < dropdownMaxHeight && spaceAbove > spaceBelow) {
+                dropdown.style.bottom = `${viewportHeight - btnRect.top}px`;
+                dropdown.style.top = 'auto';
+                dropdown.style.maxHeight = `${Math.min(spaceAbove - 10, dropdownMaxHeight)}px`;
+            } else {
+                dropdown.style.top = `${btnRect.bottom + 2}px`;
+                dropdown.style.bottom = 'auto';
+                dropdown.style.maxHeight = `${Math.min(spaceBelow - 10, dropdownMaxHeight)}px`;
+            }
         }
     }
-    
-    applyFilters() {
-        // Get selected year
-        const yearSelect = document.getElementById('year-select');
-        this.currentYear = parseInt(yearSelect.value);
+
+    closeAllDropdowns() {
+        document.querySelectorAll('.multi-select-dropdown').forEach(dropdown => {
+            dropdown.style.display = 'none';
+        });
+    }
+
+    handleYearFilterChange(checkbox) {
+        const year = parseInt(checkbox.value);
         
-        // Get selected months
-        const monthCheckboxes = document.querySelectorAll('.month-checkboxes input[type="checkbox"]:checked');
-        this.selectedMonths = Array.from(monthCheckboxes).map(cb => parseInt(cb.value));
-        
-        if (this.selectedMonths.length === 0) {
-            this.showError('Please select at least one month');
-            return;
+        if (checkbox.checked) {
+            if (!this.selectedYears.includes(year)) {
+                this.selectedYears.push(year);
+            }
+        } else {
+            this.selectedYears = this.selectedYears.filter(y => y !== year);
         }
         
-        console.log('[BUDGET_ANALYTICS] Applying filters:', {
-            year: this.currentYear,
-            months: this.selectedMonths
+        this.updateMultiSelectDisplay('years');
+        this.updateAvailableMonths();
+        this.loadData(); // Auto-apply
+    }
+
+    handleMonthFilterChange(checkbox) {
+        const month = parseInt(checkbox.value);
+        
+        if (checkbox.checked) {
+            if (!this.selectedMonths.includes(month)) {
+                this.selectedMonths.push(month);
+            }
+        } else {
+            this.selectedMonths = this.selectedMonths.filter(m => m !== month);
+        }
+        
+        this.updateMultiSelectDisplay('months');
+        this.loadData(); // Auto-apply
+    }
+
+    updateAvailableMonths() {
+        const monthsBtn = document.querySelector('[data-filter="months"]');
+        const monthsDropdown = document.getElementById('months-dropdown');
+        if (!monthsBtn || !monthsDropdown) return;
+
+        if (this.selectedYears.length === 0) {
+            monthsBtn.disabled = true;
+            monthsBtn.querySelector('.selected-text').textContent = 'Select Year First';
+            monthsDropdown.innerHTML = '';
+            this.selectedMonths = [];
+            monthsBtn.classList.remove('has-selection');
+            return;
+        }
+
+        monthsBtn.disabled = false;
+
+        // ✅ Use backend-provided months instead of 1–12
+        const availableMonths = new Set(this.availableMonths);
+
+        const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                            'July', 'August', 'September', 'October', 'November', 'December'];
+
+        monthsDropdown.innerHTML = '';
+        Array.from(availableMonths).sort((a, b) => a - b).forEach(monthNum => {
+            const label = document.createElement('label');
+            label.className = 'checkbox-item';
+            label.innerHTML = `
+                <input type="checkbox" value="${monthNum}" data-filter="months" ${this.selectedMonths.includes(monthNum) ? 'checked' : ''}>
+                <span>${monthNames[monthNum - 1]}</span>
+            `;
+            monthsDropdown.appendChild(label);
+
+            const checkbox = label.querySelector('input[type="checkbox"]');
+            checkbox.addEventListener('change', (e) => {
+                this.handleMonthFilterChange(e.target);
+            });
+        });
+
+        this.updateMultiSelectDisplay('months');
+    }
+
+
+    updateMultiSelectDisplay(filterType) {
+        let btn, selected, defaultText;
+        
+        if (filterType === 'years') {
+            btn = document.querySelector('[data-filter="years"]');
+            selected = this.selectedYears;
+            defaultText = 'All Years';
+        } else if (filterType === 'months') {
+            btn = document.querySelector('[data-filter="months"]');
+            selected = this.selectedMonths;
+            defaultText = this.selectedYears.length === 0 ? 'Select Year First' : 'All Months';
+        }
+        
+        if (!btn) return;
+        
+        const selectedText = btn.querySelector('.selected-text');
+        
+        if (selected.length === 0) {
+            selectedText.textContent = defaultText;
+            btn.classList.remove('has-selection');
+        } else if (selected.length === 1) {
+            if (filterType === 'months') {
+                const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 
+                                'July', 'August', 'September', 'October', 'November', 'December'];
+                selectedText.textContent = monthNames[selected[0] - 1];
+            } else {
+                selectedText.textContent = selected[0];
+            }
+            btn.classList.add('has-selection');
+        } else {
+            selectedText.textContent = `${selected.length} selected`;
+            btn.classList.add('has-selection');
+        }
+    }
+
+    clearAllFilters() {
+        this.selectedYears = [];
+        this.selectedMonths = [];
+        
+        // Uncheck all checkboxes
+        document.querySelectorAll('.multi-select-dropdown input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
         });
         
+        // Update displays
+        this.updateMultiSelectDisplay('years');
+        this.updateMultiSelectDisplay('months');
+        
+        // Disable months
+        const monthsBtn = document.querySelector('[data-filter="months"]');
+        if (monthsBtn) {
+            monthsBtn.disabled = true;
+            document.getElementById('months-dropdown').innerHTML = '';
+        }
+        
+        this.closeAllDropdowns();
+        
+        // Load data with defaults (current year/month)
+        this.selectedYears = [parseInt(this.currentYear)];
+        this.selectedMonths = [parseInt(window.budgetData.currentMonth)];
         this.loadData();
     }
     
@@ -93,8 +315,9 @@ class BudgetAnalytics {
         
         try {
             // Build query parameters
+            const yearsParam = this.selectedYears.join(',');
             const monthsParam = this.selectedMonths.join(',');
-            const url = `${this.apiBaseUrl}/api/summary?year=${this.currentYear}&months=${monthsParam}`;
+            const url = `${this.apiBaseUrl}/api/summary?years=${yearsParam}&months=${monthsParam}`;
             
             console.log('[BUDGET_ANALYTICS] Fetching data from:', url);
             
@@ -128,7 +351,8 @@ class BudgetAnalytics {
         }
         
         this.updateKPIs();
-        this.updateEssentials();
+        this.updateExpensesPieChart();
+        this.updateAllocationsPieChart();
         this.updateAllocations();
         this.loadRecommendations();
     }
@@ -136,179 +360,101 @@ class BudgetAnalytics {
     updateKPIs() {
         const { income, expenses, net_summary } = this.currentData;
         
-        // Monthly Income
+        // Total Income
         const incomeEl = document.getElementById('kpi-income');
         if (incomeEl) {
             incomeEl.textContent = this.formatCurrency(income.total);
         }
         
-        // Essentials Total
-        const essentialsEl = document.getElementById('kpi-essentials');
-        if (essentialsEl) {
-            essentialsEl.textContent = this.formatCurrency(expenses.essentials);
+        // Total Spending
+        const spendingEl = document.getElementById('kpi-spending');
+        if (spendingEl) {
+            spendingEl.textContent = this.formatCurrency(expenses.total);
         }
         
-        // Discretionary Left
-        const discretionaryEl = document.getElementById('kpi-discretionary');
-        if (discretionaryEl) {
-            discretionaryEl.textContent = this.formatCurrency(net_summary.discretionary_left);
+        // Net Savings (Income - Expenses)
+        const savingsEl = document.getElementById('kpi-savings');
+        if (savingsEl) {
+            const netSavings = income.total - expenses.total;
+            savingsEl.textContent = this.formatCurrency(netSavings);
         }
         
-        // Income display in right column
-        const incomeDisplayEl = document.getElementById('income-display');
-        if (incomeDisplayEl) {
-            incomeDisplayEl.textContent = this.formatCurrency(income.total);
+        // Update savings change indicator
+        const savingsChangeEl = document.getElementById('kpi-savings-change');
+        if (savingsChangeEl && net_summary) {
+            const netSavings = income.total - expenses.total;
+            if (netSavings > 0) {
+                savingsChangeEl.textContent = `↑ ${this.formatCurrency(netSavings)} saved`;
+                savingsChangeEl.className = 'kpi-change positive';
+            } else if (netSavings < 0) {
+                savingsChangeEl.textContent = `↓ ${this.formatCurrency(Math.abs(netSavings))} overspent`;
+                savingsChangeEl.className = 'kpi-change negative';
+            } else {
+                savingsChangeEl.textContent = 'Break even';
+                savingsChangeEl.className = 'kpi-change';
+            }
         }
         
-        // Total essentials in bottom card
-        const totalEssentialsEl = document.getElementById('total-essentials');
-        if (totalEssentialsEl) {
-            totalEssentialsEl.textContent = this.formatCurrency(expenses.essentials);
+        // Total spending in bottom card
+        const totalSpendingEl = document.getElementById('total-spending');
+        if (totalSpendingEl) {
+            totalSpendingEl.textContent = this.formatCurrency(expenses.total);
         }
         
         console.log('[BUDGET_ANALYTICS] KPIs updated');
     }
     
-    updateEssentials() {
-        const container = document.getElementById('essentials-list');
-        if (!container) return;
+    updateExpensesPieChart() {
+        const canvas = document.getElementById('expenses-pie-chart');
+        if (!canvas) return;
         
         const { expenses } = this.currentData;
         const categoryDetails = expenses.category_details || {};
         
-        // Filter to only essential categories
-        const essentialCategories = Object.entries(categoryDetails)
-            .filter(([name, data]) => {
-                // Check if any item in this category is marked as essential
-                return data.items && data.items.some(item => item.budget_type === 'essential');
-            });
+        // Destroy existing chart
+        if (this.expensePieChart) {
+            this.expensePieChart.destroy();
+            this.expensePieChart = null;
+        }
         
-        if (essentialCategories.length === 0) {
-            container.innerHTML = '<div class="loading">No essential expenses found for this period</div>';
+        // Get the container
+        const container = canvas.parentElement;
+        
+        // Check if there's data
+        const labels = Object.keys(categoryDetails);
+        const data = Object.values(categoryDetails).map(d => d.total);
+        
+        if (labels.length === 0 || data.every(d => d === 0)) {
+            // No data - show message and clear canvas
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Add a message overlay
+            let messageDiv = container.querySelector('.no-data-message');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.className = 'no-data-message';
+                messageDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #a0aec0; font-style: italic;';
+                container.style.position = 'relative';
+                container.appendChild(messageDiv);
+            }
+            messageDiv.textContent = 'No expense data for selected period';
+            canvas.style.opacity = '0.3';
             return;
         }
         
-        container.innerHTML = '';
-        
-        essentialCategories.forEach(([categoryName, data]) => {
-            const item = this.createCategoryItem(categoryName, data, true);
-            container.appendChild(item);
-        });
-        
-        console.log('[BUDGET_ANALYTICS] Essentials updated:', essentialCategories.length, 'categories');
-    }
-    
-    createCategoryItem(categoryName, data, isEssential = false) {
-        const div = document.createElement('div');
-        div.className = `category-item ${isEssential ? 'essential' : ''}`;
-        div.dataset.category = categoryName;
-        
-        // Determine source (recurring or manual)
-        const hasRecurring = data.items.some(item => 
-            item.description && item.description.toLowerCase().includes('recurring')
-        );
-        const source = hasRecurring ? 'Recurring transaction' : 'Manual entry';
-        
-        div.innerHTML = `
-            <div class="category-info">
-                <div class="category-name">${this.escapeHtml(categoryName)}</div>
-                <div class="category-source">${source}</div>
-            </div>
-            <div class="category-amount">
-                ${this.formatCurrency(data.total)}
-                <div class="category-budget">Budgeted</div>
-            </div>
-        `;
-        
-        // Click handler to show breakdown
-        div.addEventListener('click', () => {
-            this.showCategoryBreakdown(categoryName, data);
-            
-            // Update active state
-            document.querySelectorAll('.category-item').forEach(el => el.classList.remove('active'));
-            div.classList.add('active');
-        });
-        
-        return div;
-    }
-    
-    showCategoryBreakdown(categoryName, data) {
-        this.selectedCategory = categoryName;
-        
-        const contentDiv = document.getElementById('category-detail-content');
-        const instructionText = document.querySelector('.instruction-text');
-        const categoryNameEl = document.getElementById('selected-category-name');
-        const subcategoryList = document.getElementById('subcategory-list');
-        
-        if (instructionText) instructionText.style.display = 'none';
-        if (contentDiv) contentDiv.style.display = 'block';
-        if (categoryNameEl) categoryNameEl.textContent = categoryName;
-        
-        // Group items by description (subcategory)
-        const subcategories = {};
-        data.items.forEach(item => {
-            const subcatName = item.description || 'Other';
-            if (!subcategories[subcatName]) {
-                subcategories[subcatName] = {
-                    total: 0,
-                    count: 0,
-                    items: []
-                };
-            }
-            subcategories[subcatName].total += item.amount;
-            subcategories[subcatName].count += 1;
-            subcategories[subcatName].items.push(item);
-        });
-        
-        // Update pie chart
-        this.updatePieChart(subcategories);
-        
-        // Update subcategory list
-        if (subcategoryList) {
-            subcategoryList.innerHTML = '';
-            
-            Object.entries(subcategories)
-                .sort((a, b) => b[1].total - a[1].total)
-                .forEach(([subcatName, subcatData]) => {
-                    const percentage = (subcatData.total / data.total * 100).toFixed(1);
-                    
-                    const item = document.createElement('div');
-                    item.className = 'subcategory-item';
-                    item.innerHTML = `
-                        <div class="subcategory-name">${this.escapeHtml(subcatName)}</div>
-                        <div class="subcategory-details">
-                            <span class="subcategory-amount">${this.formatCurrency(subcatData.total)}</span>
-                            <span class="subcategory-percentage">${percentage}%</span>
-                            <span class="subcategory-count">${subcatData.count} transaction${subcatData.count > 1 ? 's' : ''}</span>
-                        </div>
-                    `;
-                    
-                    subcategoryList.appendChild(item);
-                });
+        // Remove any "no data" message
+        const messageDiv = container.querySelector('.no-data-message');
+        if (messageDiv) {
+            messageDiv.remove();
         }
+        canvas.style.opacity = '1';
         
-        console.log('[BUDGET_ANALYTICS] Category breakdown shown:', categoryName);
-    }
-    
-    updatePieChart(subcategories) {
-        const canvas = document.getElementById('category-pie-chart');
-        if (!canvas) return;
-        
-        // Destroy existing chart
-        if (this.categoryPieChart) {
-            this.categoryPieChart.destroy();
-        }
-        
-        // Prepare data
-        const labels = Object.keys(subcategories);
-        const data = Object.values(subcategories).map(s => s.total);
-        
-        // Generate colors
         const colors = this.generateColors(labels.length);
         
         // Create chart
         const ctx = canvas.getContext('2d');
-        this.categoryPieChart = new Chart(ctx, {
+        this.expensePieChart = new Chart(ctx, {
             type: 'pie',
             data: {
                 labels: labels,
@@ -332,6 +478,385 @@ class BudgetAnalytics {
                             }
                         }
                     },
+                    title: {
+                        display: true,
+                        text: 'Expenses by Category',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.label || '';
+                                const value = this.formatCurrency(context.parsed);
+                                const total = data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const categoryName = labels[index];
+                        this.drillDownExpenseCategory(categoryName, categoryDetails[categoryName]);
+                    }
+                }
+            }
+        });
+        
+        console.log('[BUDGET_ANALYTICS] Expenses pie chart updated');
+    }
+    
+    updateAllocationsPieChart() {
+        const canvas = document.getElementById('allocations-pie-chart');
+        if (!canvas) return;
+        
+        const { income, allocations } = this.currentData;
+        
+        // Destroy existing chart
+        if (this.allocationPieChart) {
+            this.allocationPieChart.destroy();
+            this.allocationPieChart = null;
+        }
+        
+        // Get bucket data
+        const bucketData = allocations.by_bucket || {};
+        const bucketDetails = allocations.bucket_details || {};
+        
+        // Calculate allocated vs unallocated
+        const totalAllocated = allocations.total_allocated || 0;
+        const totalIncome = income.total || 0;
+        
+        let investmentsAmount = bucketData.investments || 0;
+        let savingsAmount = bucketData.savings || 0;
+        let spendingAmount = bucketData.spending || 0;
+        let notAllocatedAmount = 0;
+        
+        // Calculate unallocated amount
+        if (totalIncome > totalAllocated) {
+            notAllocatedAmount = totalIncome - totalAllocated;
+        }
+        
+        const labels = ['Investments', 'Savings', 'Spending', 'Not Allocated'];
+        const data = [investmentsAmount, savingsAmount, spendingAmount, notAllocatedAmount];
+        const colors = ['#48bb78', '#4299e1', '#9f7aea', '#c3c8cfff'];
+        
+        // Get the container
+        const container = canvas.parentElement;
+        
+        // Check if there's data
+        if (totalIncome === 0 || data.every(d => d === 0)) {
+            // No data - show message
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let messageDiv = container.querySelector('.no-data-message');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.className = 'no-data-message';
+                messageDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #a0aec0; font-style: italic;';
+                container.style.position = 'relative';
+                container.appendChild(messageDiv);
+            }
+            messageDiv.textContent = 'No income data for selected period';
+            canvas.style.opacity = '0.3';
+            return;
+        }
+        
+        // Remove any "no data" message
+        const messageDiv = container.querySelector('.no-data-message');
+        if (messageDiv) {
+            messageDiv.remove();
+        }
+        canvas.style.opacity = '1';
+        
+        // Create chart
+        const ctx = canvas.getContext('2d');
+        this.allocationPieChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Income Allocations',
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => {
+                                const label = context.label || '';
+                                const value = this.formatCurrency(context.parsed);
+                                const total = data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                return `${label}: ${value} (${percentage}%)`;
+                            }
+                        }
+                    }
+                },
+                onClick: (event, elements) => {
+                    if (elements.length > 0) {
+                        const index = elements[0].index;
+                        const bucketName = labels[index];
+                        
+                        // Don't drill down on "Not Allocated"
+                        if (bucketName === 'Not Allocated') {
+                            this.showNotAllocatedMessage();
+                            return;
+                        }
+                        
+                        const bucketKey = bucketName.toLowerCase();
+                        const bucketCategoryData = bucketDetails[bucketKey] || {};
+                        this.drillDownAllocationBucket(bucketName, bucketCategoryData, data[index]);
+                    }
+                }
+            }
+        });
+        
+        console.log('[BUDGET_ANALYTICS] Allocations pie chart updated');
+    }
+    
+    drillDownExpenseCategory(categoryName, categoryData) {
+        console.log('[BUDGET_ANALYTICS] Drilling down expense category:', categoryName);
+        
+        const contentDiv = document.getElementById('category-detail-content');
+        const instructionText = document.querySelector('.drill-down-instruction');
+        const categoryNameEl = document.getElementById('selected-category-name');
+        const subcategoryList = document.getElementById('subcategory-list');
+        
+        if (instructionText) instructionText.style.display = 'none';
+        if (contentDiv) contentDiv.style.display = 'block';
+        if (categoryNameEl) categoryNameEl.textContent = categoryName + ' (Expense)';
+        
+        // Group by description
+        const subcategories = this.groupByDescription(categoryData.items || []);
+        
+        // Update drill-down chart
+        this.updateDrillDownChart(subcategories, categoryName);
+        
+        // Update subcategory list
+        if (subcategoryList) {
+            subcategoryList.innerHTML = '';
+            
+            Object.entries(subcategories)
+                .sort((a, b) => b[1].total - a[1].total)
+                .forEach(([subcatName, subcatData]) => {
+                    const percentage = (subcatData.total / categoryData.total * 100).toFixed(1);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'subcategory-item';
+                    item.innerHTML = `
+                        <div class="subcategory-name">${this.escapeHtml(subcatName)}</div>
+                        <div class="subcategory-details">
+                            <span class="subcategory-amount">${this.formatCurrency(subcatData.total)}</span>
+                            <span class="subcategory-percentage">${percentage}%</span>
+                            <span class="subcategory-count">${subcatData.count} transaction${subcatData.count > 1 ? 's' : ''}</span>
+                        </div>
+                    `;
+                    
+                    subcategoryList.appendChild(item);
+                });
+        }
+    }
+    
+    drillDownAllocationBucket(bucketName, bucketCategoryData, totalAmount) {
+        console.log('[BUDGET_ANALYTICS] Drilling down allocation bucket:', bucketName);
+        
+        const contentDiv = document.getElementById('category-detail-content');
+        const instructionText = document.querySelector('.drill-down-instruction');
+        const categoryNameEl = document.getElementById('selected-category-name');
+        const subcategoryList = document.getElementById('subcategory-list');
+        
+        if (instructionText) instructionText.style.display = 'none';
+        if (contentDiv) contentDiv.style.display = 'block';
+        if (categoryNameEl) categoryNameEl.textContent = bucketName;
+        
+        // If spending with no allocations, show message
+        if (Object.keys(bucketCategoryData).length === 0 && bucketName === 'Spending') {
+            if (subcategoryList) {
+                subcategoryList.innerHTML = '<p class="instruction-text">No specific allocations. All unallocated income goes to spending.</p>';
+            }
+            
+            // Clear drill-down chart
+            if (this.drillDownChart) {
+                this.drillDownChart.destroy();
+                this.drillDownChart = null;
+            }
+            return;
+        }
+        
+        // Prepare data for drill-down (allocation categories within this bucket)
+        const categoryData = {};
+        Object.entries(bucketCategoryData).forEach(([categoryName, data]) => {
+            categoryData[categoryName] = {
+                total: data.total,
+                count: data.items ? data.items.length : 0,
+                items: data.items || []
+            };
+        });
+        
+        // Update drill-down chart
+        this.updateDrillDownChart(categoryData, bucketName);
+        
+        // Update subcategory list
+        if (subcategoryList) {
+            subcategoryList.innerHTML = '';
+            
+            Object.entries(categoryData)
+                .sort((a, b) => b[1].total - a[1].total)
+                .forEach(([categoryName, data]) => {
+                    const percentage = (data.total / totalAmount * 100).toFixed(1);
+                    
+                    const item = document.createElement('div');
+                    item.className = 'subcategory-item';
+                    item.innerHTML = `
+                        <div class="subcategory-name">${this.escapeHtml(categoryName)}</div>
+                        <div class="subcategory-details">
+                            <span class="subcategory-amount">${this.formatCurrency(data.total)}</span>
+                            <span class="subcategory-percentage">${percentage}%</span>
+                            <span class="subcategory-count">${data.count} allocation${data.count > 1 ? 's' : ''}</span>
+                        </div>
+                    `;
+                    
+                    subcategoryList.appendChild(item);
+                });
+        }
+    }
+
+    showNotAllocatedMessage() {
+    console.log('[BUDGET_ANALYTICS] Showing not allocated message');
+    
+    const contentDiv = document.getElementById('category-detail-content');
+    const instructionText = document.querySelector('.drill-down-instruction');
+    const categoryNameEl = document.getElementById('selected-category-name');
+    const subcategoryList = document.getElementById('subcategory-list');
+    
+    if (instructionText) instructionText.style.display = 'none';
+    if (contentDiv) contentDiv.style.display = 'block';
+    if (categoryNameEl) categoryNameEl.textContent = 'Not Allocated';
+    
+    // Clear drill-down chart
+    if (this.drillDownChart) {
+        this.drillDownChart.destroy();
+        this.drillDownChart = null;
+    }
+    
+    // Show message
+    if (subcategoryList) {
+        subcategoryList.innerHTML = `
+            <div class="not-allocated-message">
+                <p>💡 This income has not been allocated to any specific category.</p>
+                <p>Consider allocating your income to track where your money goes:</p>
+                <ul>
+                    <li>Investments (401k, IRA, etc.)</li>
+                    <li>Savings (Emergency fund, etc.)</li>
+                    <li>Spending (Checking account, etc.)</li>
+                </ul>
+            </div>
+        `;
+    }
+    
+    // Clear chart canvas
+    const canvas = document.getElementById('category-pie-chart');
+    if (canvas) {
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+}
+    
+    groupByDescription(items) {
+        // Group expense items by description (or "Other" if no description)
+        const grouped = {};
+        items.forEach(item => {
+            const key = item.description || 'Other';
+            if (!grouped[key]) {
+                grouped[key] = { total: 0, count: 0, items: [] };
+            }
+            grouped[key].total += item.amount;
+            grouped[key].count += 1;
+            grouped[key].items.push(item);
+        });
+        return grouped;
+    }
+    
+    updateDrillDownChart(subcategories, categoryName) {
+        const canvas = document.getElementById('category-pie-chart');
+        if (!canvas) return;
+        
+        // Destroy existing drill-down chart
+        if (this.drillDownChart) {
+            this.drillDownChart.destroy();
+        }
+        
+        // Prepare data
+        const labels = Object.keys(subcategories);
+        const data = Object.values(subcategories).map(s => s.total);
+        const colors = this.generateColors(labels.length);
+        
+        if (labels.length === 0) {
+            return;
+        }
+        
+        // Create drill-down chart
+        const ctx = canvas.getContext('2d');
+        this.drillDownChart = new Chart(ctx, {
+            type: 'pie',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            }
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: `${categoryName} Breakdown`,
+                        font: {
+                            size: 16,
+                            weight: 'bold'
+                        }
+                    },
                     tooltip: {
                         callbacks: {
                             label: (context) => {
@@ -346,7 +871,7 @@ class BudgetAnalytics {
             }
         });
         
-        console.log('[BUDGET_ANALYTICS] Pie chart updated');
+        console.log('[BUDGET_ANALYTICS] Drill-down chart updated for:', categoryName);
     }
     
     updateAllocations() {
@@ -414,8 +939,9 @@ class BudgetAnalytics {
         if (!recommendationEl) return;
         
         try {
-            const monthsParam = this.selectedMonths[0] || this.currentData.period?.month || this.currentData.currentMonth;
-            const url = `${this.apiBaseUrl}/api/recommendations?year=${this.currentYear}&month=${monthsParam}`;
+            const year = this.selectedYears[0] || this.currentYear;
+            const month = this.selectedMonths[0] || 1;
+            const url = `${this.apiBaseUrl}/api/recommendations?year=${year}&month=${month}`;
             
             const response = await fetch(url);
             const result = await response.json();

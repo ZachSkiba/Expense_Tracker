@@ -204,7 +204,9 @@ class BudgetAnalyticsService:
     
     @staticmethod
     def _calculate_allocation_metrics(group_id, user_id, start_date, end_date):
-        """Calculate income allocation metrics for a period"""
+        """Calculate income allocation metrics for a period - with bucket classification"""
+        from models.budget_helpers import classify_allocation_into_bucket
+        
         # Get all income entries for the period
         income_entries = IncomeEntry.query.filter(
             and_(
@@ -223,7 +225,13 @@ class BudgetAnalyticsService:
                 'total_allocated': 0,
                 'by_category': {},
                 'by_budget_type': {},
-                'allocation_details': {}
+                'by_bucket': {'investments': 0, 'savings': 0, 'spending': 0},
+                'allocation_details': {},
+                'bucket_details': {
+                    'investments': {},
+                    'savings': {},
+                    'spending': {}
+                }
             }
         
         allocations = IncomeAllocation.query.filter(
@@ -232,33 +240,51 @@ class BudgetAnalyticsService:
         
         total_allocated = sum(alloc.amount for alloc in allocations)
         
-        # Calculate allocations by category and budget type
+        # Calculate allocations by category, budget type, and bucket
         allocations_by_category = defaultdict(float)
         allocations_by_budget_type = defaultdict(float)
+        allocations_by_bucket = defaultdict(float)
         allocation_details = defaultdict(lambda: {'total': 0, 'items': []})
+        bucket_details = defaultdict(lambda: defaultdict(lambda: {'total': 0, 'items': []}))
         
         for allocation in allocations:
             budget_type = get_budget_type_for_allocation(allocation)
             category_name = allocation.allocation_category_obj.name if allocation.allocation_category_obj else 'Unknown'
             
+            # NEW: Classify into bucket
+            bucket = classify_allocation_into_bucket(category_name)
+            
             allocations_by_category[category_name] += allocation.amount
             allocations_by_budget_type[budget_type] += allocation.amount
+            allocations_by_bucket[bucket] += allocation.amount
             
             # Store details
-            allocation_details[category_name]['total'] += allocation.amount
-            allocation_details[category_name]['items'].append({
+            allocation_item = {
                 'id': allocation.id,
                 'amount': allocation.amount,
-                'notes': allocation.notes,
+                'notes': allocation.notes or category_name,  # Default to category name if no notes
                 'budget_type': budget_type,
+                'bucket': bucket,
                 'income_entry_date': allocation.income_entry.date.isoformat() if allocation.income_entry else None
-            })
+            }
+            
+            allocation_details[category_name]['total'] += allocation.amount
+            allocation_details[category_name]['items'].append(allocation_item)
+            
+            # Store in bucket details
+            bucket_details[bucket][category_name]['total'] += allocation.amount
+            bucket_details[bucket][category_name]['items'].append(allocation_item)
         
         return {
             'total_allocated': total_allocated,
             'by_category': dict(allocations_by_category),
             'by_budget_type': dict(allocations_by_budget_type),
-            'allocation_details': dict(allocation_details)
+            'by_bucket': dict(allocations_by_bucket),
+            'allocation_details': dict(allocation_details),
+            'bucket_details': {
+                bucket: dict(categories) 
+                for bucket, categories in bucket_details.items()
+            }
         }
     
     @staticmethod

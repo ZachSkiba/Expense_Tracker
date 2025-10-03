@@ -119,6 +119,92 @@ def auto_classify_category_name(category_name):
     else:
         return 'personal'
 
+def classify_allocation_into_bucket(allocation_category_name):
+    """
+    Classify an income allocation category into one of three buckets:
+    'investments', 'savings', or 'spending'
+    
+    Args:
+        allocation_category_name: str - Name of the allocation category
+        
+    Returns:
+        str: 'investments', 'savings', or 'spending'
+    """
+    name_lower = allocation_category_name.lower()
+    
+    # Investment keywords
+    investment_keywords = [
+        '401', 'ira', 'roth', 'invest', 'stock', 'mutual', 
+        'retirement', 'pension', 'portfolio', 'brokerage',
+        'index fund', 'etf', 'bond', 'crypto', 'bitcoin'
+    ]
+    
+    # Savings keywords
+    savings_keywords = [
+        'savings', 'save', 'emergency', 'rainy day', 'buffer',
+        'reserve', 'nest egg'
+    ]
+    
+    # Spending keywords (checking, cash, etc.)
+    spending_keywords = [
+        'checking', 'cash', 'wallet', 'debit', 'spending',
+        'bills', 'expenses'
+    ]
+    
+    # Check each type (order matters - most specific first)
+    if any(keyword in name_lower for keyword in investment_keywords):
+        return 'investments'
+    elif any(keyword in name_lower for keyword in savings_keywords):
+        return 'savings'
+    elif any(keyword in name_lower for keyword in spending_keywords):
+        return 'spending'
+    else:
+        # Default to spending (including "Other")
+        return 'spending'
+
+
+def group_similar_strings(strings, similarity_threshold=0.7):
+    """
+    Group similar strings together using simple keyword matching.
+    
+    Args:
+        strings: list - List of strings to group
+        similarity_threshold: float - Not used, kept for future enhancement
+        
+    Returns:
+        dict: Mapping of representative string to list of similar strings
+    """
+    if not strings:
+        return {}
+    
+    # Simple grouping by common keywords
+    groups = {}
+    
+    for s in strings:
+        s_lower = s.lower().strip()
+        
+        # Find if this belongs to an existing group
+        found_group = False
+        for group_key in groups.keys():
+            group_key_lower = group_key.lower()
+            
+            # Check if they share common words (simple approach)
+            s_words = set(s_lower.split())
+            key_words = set(group_key_lower.split())
+            
+            # If they share at least one significant word (length > 3)
+            common_words = [w for w in s_words & key_words if len(w) > 3]
+            
+            if common_words:
+                groups[group_key].append(s)
+                found_group = True
+                break
+        
+        # If no group found, create new group
+        if not found_group:
+            groups[s] = [s]
+    
+    return groups
 
 # ============================================================================
 # Default Rules and Mappings
@@ -452,8 +538,8 @@ def generate_spending_recommendations(snapshot, previous_snapshot=None):
             f"Consider ways to reduce fixed costs."
         )
     
-    # Compare to previous month
-    if previous_snapshot:
+    # Compare to previous month (with zero-division protection)
+    if previous_snapshot and previous_snapshot.total_expenses > 0:
         expense_change = ((snapshot.total_expenses - previous_snapshot.total_expenses) 
                          / previous_snapshot.total_expenses * 100)
         
@@ -466,6 +552,10 @@ def generate_spending_recommendations(snapshot, previous_snapshot=None):
             recommendations.append(
                 f"Great! You reduced spending by {abs(expense_change):.1f}% this month."
             )
+    elif previous_snapshot and previous_snapshot.total_expenses == 0 and snapshot.total_expenses > 0:
+        recommendations.append(
+            f"You started tracking expenses this month. Keep it up!"
+        )
     
     # Check for overspending
     discretionary = snapshot.get_discretionary_spending()
