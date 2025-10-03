@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 def get_summary(group_id):
     """
     Get budget summary for specified period.
-    Query params: year, months (comma-separated)
+    Query params: years, months (comma-separated)
     """
     group = Group.query.get_or_404(group_id)
     
@@ -23,28 +23,34 @@ def get_summary(group_id):
     if current_user not in group.members:
         return jsonify({'error': 'Unauthorized'}), 403
     
-    # Get parameters
-    year = request.args.get('year', date.today().year, type=int)
+    # Get parameters - UPDATED to support multiple years
+    years_param = request.args.get('years', str(date.today().year))
     months_param = request.args.get('months', str(date.today().month))
     
-    # Parse months
+    # Parse years and months
     try:
+        if years_param:
+            years = [int(y) for y in years_param.split(',')]
+        else:
+            years = [date.today().year]
+            
         if months_param:
             months = [int(m) for m in months_param.split(',')]
         else:
             months = [date.today().month]
     except ValueError:
-        return jsonify({'error': 'Invalid months parameter'}), 400
+        return jsonify({'error': 'Invalid years or months parameter'}), 400
     
     try:
-        # Get summary for each month and combine
+        # Get summary for each year/month combination and combine
         summaries = []
-        for month in months:
-            summary = BudgetAnalyticsService.get_monthly_summary(
-                group_id, current_user.id, year, month
-            )
-            if summary:
-                summaries.append(summary)
+        for year in years:
+            for month in months:
+                summary = BudgetAnalyticsService.get_monthly_summary(
+                    group_id, current_user.id, year, month
+                )
+                if summary:
+                    summaries.append(summary)
         
         # Combine summaries
         combined = _combine_summaries(summaries)
@@ -53,7 +59,7 @@ def get_summary(group_id):
             'success': True,
             'data': combined,
             'period': {
-                'year': year,
+                'years': years,
                 'months': months
             }
         })
@@ -144,9 +150,16 @@ def _combine_summaries(summaries):
     """Combine multiple monthly summaries into one"""
     if not summaries:
         return {
-            'income': {'total': 0},
-            'expenses': {'total': 0, 'essentials': 0, 'discretionary': 0, 'by_category': {}},
-            'allocations': {'total_allocated': 0, 'by_budget_type': {}},
+            'income': {'total': 0, 'by_category': {}},
+            'expenses': {'total': 0, 'essentials': 0, 'discretionary': 0, 'by_category': {}, 'category_details': {}},
+            'allocations': {
+                'total_allocated': 0, 
+                'by_budget_type': {}, 
+                'by_category': {},
+                'by_bucket': {'investments': 0, 'savings': 0, 'spending': 0},
+                'allocation_details': {},
+                'bucket_details': {'investments': {}, 'savings': {}, 'spending': {}}
+            },
             'net_summary': {
                 'total_income': 0,
                 'total_expenses': 0,
@@ -163,35 +176,68 @@ def _combine_summaries(summaries):
     combined = {
         'income': {'total': 0, 'by_category': {}},
         'expenses': {'total': 0, 'essentials': 0, 'discretionary': 0, 'by_category': {}, 'category_details': {}},
-        'allocations': {'total_allocated': 0, 'by_budget_type': {}, 'by_category': {}},
+        'allocations': {
+            'total_allocated': 0,
+            'by_budget_type': {},
+            'by_category': {},
+            'by_bucket': {'investments': 0, 'savings': 0, 'spending': 0},
+            'allocation_details': {},
+            'bucket_details': {'investments': {}, 'savings': {}, 'spending': {}}
+        },
         'net_summary': {}
     }
     
     for summary in summaries:
         # Income
-        combined['income']['total'] += summary['income']['total']
+        combined['income']['total'] += summary['income'].get('total', 0)
         for cat, amount in summary['income'].get('by_category', {}).items():
             combined['income']['by_category'][cat] = combined['income']['by_category'].get(cat, 0) + amount
         
         # Expenses
-        combined['expenses']['total'] += summary['expenses']['total']
-        combined['expenses']['essentials'] += summary['expenses']['essentials']
-        combined['expenses']['discretionary'] += summary['expenses']['discretionary']
+        combined['expenses']['total'] += summary['expenses'].get('total', 0)
+        combined['expenses']['essentials'] += summary['expenses'].get('essentials', 0)
+        combined['expenses']['discretionary'] += summary['expenses'].get('discretionary', 0)
         
         for cat, amount in summary['expenses'].get('by_category', {}).items():
             combined['expenses']['by_category'][cat] = combined['expenses']['by_category'].get(cat, 0) + amount
         
+        # Combine expense category details
         for cat, details in summary['expenses'].get('category_details', {}).items():
             if cat not in combined['expenses']['category_details']:
                 combined['expenses']['category_details'][cat] = {'total': 0, 'items': []}
-            combined['expenses']['category_details'][cat]['total'] += details['total']
+            combined['expenses']['category_details'][cat]['total'] += details.get('total', 0)
             combined['expenses']['category_details'][cat]['items'].extend(details.get('items', []))
         
         # Allocations
-        combined['allocations']['total_allocated'] += summary['allocations']['total_allocated']
+        combined['allocations']['total_allocated'] += summary['allocations'].get('total_allocated', 0)
         
         for budget_type, amount in summary['allocations'].get('by_budget_type', {}).items():
             combined['allocations']['by_budget_type'][budget_type] = combined['allocations']['by_budget_type'].get(budget_type, 0) + amount
+        
+        for cat, amount in summary['allocations'].get('by_category', {}).items():
+            combined['allocations']['by_category'][cat] = combined['allocations']['by_category'].get(cat, 0) + amount
+        
+        # Combine bucket data
+        for bucket, amount in summary['allocations'].get('by_bucket', {}).items():
+            combined['allocations']['by_bucket'][bucket] = combined['allocations']['by_bucket'].get(bucket, 0) + amount
+        
+        # Combine allocation details
+        for cat, details in summary['allocations'].get('allocation_details', {}).items():
+            if cat not in combined['allocations']['allocation_details']:
+                combined['allocations']['allocation_details'][cat] = {'total': 0, 'items': []}
+            combined['allocations']['allocation_details'][cat]['total'] += details.get('total', 0)
+            combined['allocations']['allocation_details'][cat]['items'].extend(details.get('items', []))
+        
+        # Combine bucket details
+        for bucket, categories in summary['allocations'].get('bucket_details', {}).items():
+            if bucket not in combined['allocations']['bucket_details']:
+                combined['allocations']['bucket_details'][bucket] = {}
+            
+            for cat, cat_details in categories.items():
+                if cat not in combined['allocations']['bucket_details'][bucket]:
+                    combined['allocations']['bucket_details'][bucket][cat] = {'total': 0, 'items': []}
+                combined['allocations']['bucket_details'][bucket][cat]['total'] += cat_details.get('total', 0)
+                combined['allocations']['bucket_details'][bucket][cat]['items'].extend(cat_details.get('items', []))
     
     # Calculate net summary
     total_income = combined['income']['total']

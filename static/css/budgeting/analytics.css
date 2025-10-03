@@ -58,146 +58,233 @@
 }
 
 /* ============================================================================
-   Filters Section
+   Filters Section - Matching Expense Filter Style
    ============================================================================ */
 
 .filters-container {
     background: white;
     padding: 20px;
     margin: 20px;
-    border-radius: 8px;
+    border-radius: 12px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    border: 1px solid #e9ecef;
+}
+
+.filter-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 20px;
-    flex-wrap: wrap;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #f1f3f4;
+}
+
+.filter-header h4 {
+    margin: 0;
+    color: #2c3e50;
+    font-size: 1.2rem;
+    font-weight: 600;
+}
+
+.clear-filters-btn {
+    background: linear-gradient(135deg, #6c757d, #5a6268);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(108, 117, 125, 0.2);
+}
+
+.clear-filters-btn:hover {
+    background: linear-gradient(135deg, #5a6268, #495057);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    align-items: end;
 }
 
 .filter-group {
     display: flex;
-    align-items: center;
-    gap: 10px;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .filter-group label {
+    font-size: 0.85rem;
     font-weight: 600;
-    color: #4a5568;
-    font-size: 0.875rem;
+    color: #495057;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
-.filter-select {
-    padding: 8px 12px;
-    border: 1px solid #cbd5e0;
+/* Multi-select dropdown styling */
+.multi-select-container {
+    position: relative;
+}
+
+.multi-select-btn {
+    width: 100%;
+    padding: 10px 12px;
+    border: 2px solid #e9ecef;
     border-radius: 6px;
-    font-size: 0.875rem;
     background: white;
+    color: #495057;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: border-color 0.2s;
+    transition: all 0.2s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-align: left;
 }
 
-.filter-select:hover {
-    border-color: #667eea;
+.multi-select-btn:hover {
+    border-color: #dee2e6;
 }
 
-.filter-select:focus {
+.multi-select-btn:focus {
     outline: none;
     border-color: #667eea;
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
-/* Month Selector */
-.month-selector {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
+.multi-select-btn .selected-text {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.month-toggle {
-    padding: 4px 12px;
-    font-size: 0.75rem;
-    border: 1px solid #cbd5e0;
-    background: #edf2f7;   /* light gray (Tailwind gray-100) */
-    color: #2d3748;        /* dark gray text */
-    border-radius: 4px;
-    cursor: pointer;
-    transition: all 0.2s;
+.multi-select-btn .arrow {
+    margin-left: 8px;
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
 }
 
-.month-toggle:hover {
-    background: #e2e8f0;   /* slightly darker gray (gray-200) */
-    border-color: #667eea; /* keep your purple accent */
-    color: #1a202c;        /* slightly darker text */
+.multi-select-btn.has-selection {
+    border-color: #667eea;
+    background-color: #ebf4ff;
 }
 
-.month-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(6, 1fr);
-    gap: 8px;
-    margin-top: 8px;
+.multi-select-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f8f9fa;
+    color: #6c757d;
 }
 
-.month-checkbox {
+.multi-select-btn:disabled:hover {
+    border-color: #e9ecef;
+}
+
+.multi-select-dropdown {
+    position: fixed !important;
+    background: white;
+    border: 2px solid #667eea;
+    border-radius: 6px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    z-index: 10000 !important;
+    max-height: 300px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: none;
+    margin-top: 2px;
+    scrollbar-width: thin;
+    min-width: 200px;
+    animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scaleY(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+}
+
+.checkbox-item {
     display: flex;
     align-items: center;
-    padding: 6px 10px;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
+    padding: 8px 12px;
     cursor: pointer;
-    transition: all 0.2s;
-    background: white;
+    transition: all 0.2s ease;
+    border-bottom: 1px solid #f8f9fa;
+    margin: 0 4px;
+    border-radius: 4px;
 }
 
-.month-checkbox:hover {
-    background: #f7fafc;
-    border-color: #667eea;
+.checkbox-item:last-child {
+    border-bottom: none;
 }
 
-.month-checkbox input[type="checkbox"] {
-    margin-right: 6px;
+.checkbox-item:hover {
+    background: linear-gradient(135deg, #f8f9ff, #e8f0ff) !important;
+    transform: translateX(2px);
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin-right: 8px;
     cursor: pointer;
+    accent-color: #667eea;
+    width: 16px;
+    height: 16px;
 }
 
-.month-checkbox input[type="checkbox"]:checked + span {
+.checkbox-item span {
+    font-size: 0.9rem;
+    color: #495057;
+    flex: 1;
+}
+
+.checkbox-item input[type="checkbox"]:checked + span {
     color: #667eea;
-    font-weight: 600;
+    font-weight: 500;
 }
 
-.month-checkbox span {
-    font-size: 0.875rem;
-    user-select: none;
+/* Scrollbar styling */
+.multi-select-dropdown::-webkit-scrollbar {
+    width: 8px;
 }
 
-/* Apply Button */
-.btn-primary {
-    padding: 10px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.875rem;
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 2px 4px rgba(102, 126, 234, 0.3);
+.multi-select-dropdown::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 3px;
+    margin: 4px;
 }
 
-.btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+.multi-select-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+    border: 1px solid #e2e8f0;
 }
 
-.btn-primary:active {
-    transform: translateY(0);
+.multi-select-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
 }
 
 /* Loading Indicator */
 .loading-indicator {
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     color: #667eea;
     font-size: 0.875rem;
     font-weight: 500;
+    margin-top: 12px;
+    padding: 8px;
 }
 
 .spinner {
@@ -287,12 +374,12 @@
     border-left: 4px solid #48bb78;
 }
 
-.kpi-essentials {
-    border-left: 4px solid #4299e1;
+.kpi-spending {
+    border-left: 4px solid #f56565;
 }
 
-.kpi-discretionary {
-    border-left: 4px solid #9f7aea;
+.kpi-savings {
+    border-left: 4px solid #4299e1;
 }
 
 /* ============================================================================
@@ -320,71 +407,6 @@
     color: #4a5568;
     margin: 0 0 16px 0;
     font-weight: 600;
-}
-
-/* ============================================================================
-   Essentials List
-   ============================================================================ */
-
-.category-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.category-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 16px;
-    background: #f7fafc;
-    border-radius: 8px;
-    border-left: 4px solid #cbd5e0;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.category-item:hover {
-    background: #edf2f7;
-    border-left-color: #667eea;
-    transform: translateX(4px);
-}
-
-.category-item.active {
-    background: #ebf4ff;
-    border-left-color: #667eea;
-}
-
-.category-item.essential {
-    border-left-color: #4299e1;
-}
-
-.category-info {
-    flex: 1;
-}
-
-.category-name {
-    font-weight: 600;
-    color: #2d3748;
-    margin-bottom: 4px;
-}
-
-.category-source {
-    font-size: 0.75rem;
-    color: #718096;
-    font-style: italic;
-}
-
-.category-amount {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #2d3748;
-}
-
-.category-budget {
-    font-size: 0.75rem;
-    color: #718096;
-    margin-top: 4px;
 }
 
 /* ============================================================================
@@ -447,27 +469,6 @@
     color: #a0aec0;
 }
 
-/* ============================================================================
-   Income Display
-   ============================================================================ */
-
-.income-display-card {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    text-align: center;
-}
-
-.income-display-card h3 {
-    color: white;
-    opacity: 0.9;
-    margin-bottom: 12px;
-}
-
-.income-amount {
-    font-size: 2.5rem;
-    font-weight: 700;
-    margin: 0;
-}
 
 /* ============================================================================
    Allocations
@@ -721,6 +722,107 @@
 .error-close:hover {
     background: rgba(0,0,0,0.1);
     border-radius: 4px;
+}
+
+/* ============================================================================
+   Combined Chart Card
+   ============================================================================ */
+
+.combined-chart-card {
+    min-height: 500px;
+}
+
+.combined-chart-card .chart-container {
+    max-width: 500px;
+    margin: 20px auto;
+    padding: 20px;
+}
+
+.combined-chart-card .instruction-text {
+    color: #a0aec0;
+    font-style: italic;
+    text-align: center;
+    margin: 10px 0 20px 0;
+    font-size: 0.875rem;
+}
+
+/* ============================================================================
+   Two Pie Chart Layout
+   ============================================================================ */
+
+.expenses-chart-card,
+.allocations-chart-card {
+    min-height: 450px;
+}
+
+.expenses-chart-card .chart-container,
+.allocations-chart-card .chart-container {
+    max-width: 450px;
+    margin: 20px auto;
+    padding: 20px;
+}
+
+.chart-instruction,
+.drill-down-instruction {
+    color: #a0aec0;
+    font-style: italic;
+    text-align: center;
+    margin: 10px 0 20px 0;
+    font-size: 0.875rem;
+}
+
+.category-details-card {
+    min-height: 400px;
+}
+
+.category-details-card .chart-container {
+    max-width: 400px;
+    margin: 20px auto;
+    padding: 15px;
+}
+
+/* ============================================================================
+   Not Allocated Message Styling
+   ============================================================================ */
+
+.not-allocated-message {
+    padding: 30px;
+    background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+    border-radius: 8px;
+    border-left: 4px solid #cbd5e0;
+    text-align: center;
+}
+
+.not-allocated-message p {
+    color: #4a5568;
+    margin-bottom: 15px;
+    line-height: 1.6;
+}
+
+.not-allocated-message p:first-child {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #2d3748;
+}
+
+.not-allocated-message ul {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0 0 0;
+    text-align: left;
+    max-width: 300px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.not-allocated-message li {
+    padding: 8px 0;
+    color: #718096;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.not-allocated-message li:last-child {
+    border-bottom: none;
 }
 
 /* ============================================================================
