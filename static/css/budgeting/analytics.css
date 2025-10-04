@@ -471,142 +471,156 @@
 
 
 /* ============================================================================
-   Allocations
+   50/30/20 Spending Breakdown
    ============================================================================ */
 
-.allocation-model-selector {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 20px;
-    padding: 12px;
-    background: #f7fafc;
-    border-radius: 8px;
+.breakdown-503020-card {
+    min-height: 400px;
 }
 
-.allocation-model-selector label {
-    font-weight: 600;
-    color: #4a5568;
+.breakdown-description {
+    color: #718096;
     font-size: 0.875rem;
+    margin: -10px 0 20px 0;
+    font-style: italic;
 }
 
-.model-select {
-    flex: 1;
-    padding: 8px 12px;
-    border: 1px solid #cbd5e0;
-    border-radius: 6px;
-    font-size: 0.875rem;
-    background: white;
-}
-
-.allocations-list {
+.breakdown-503020-list {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 24px;
+    margin-bottom: 24px;
 }
 
-.allocation-item {
-    padding: 16px;
+.breakdown-item {
+    padding: 20px;
     background: #f7fafc;
     border-radius: 8px;
     border-left: 4px solid #cbd5e0;
+    transition: all 0.2s ease;
 }
 
-.allocation-header {
+.breakdown-item:hover {
+    background: #edf2f7;
+    transform: translateX(2px);
+}
+
+.breakdown-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 12px;
 }
 
-.allocation-name {
+.breakdown-name {
     font-weight: 600;
     color: #2d3748;
     font-size: 1rem;
 }
 
-.allocation-values {
+.breakdown-values {
     display: flex;
-    gap: 16px;
-    font-size: 0.875rem;
+    align-items: center;
+    gap: 12px;
 }
 
-.allocation-actual,
-.allocation-recommended {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-}
-
-.allocation-label {
-    color: #718096;
-    font-size: 0.75rem;
-    margin-bottom: 4px;
-}
-
-.allocation-amount {
+.breakdown-percent {
+    font-size: 1.25rem;
     font-weight: 700;
     color: #2d3748;
-    font-size: 1.1rem;
 }
 
-.allocation-slider {
-    margin-top: 8px;
+.breakdown-amount {
+    font-size: 0.875rem;
+    color: #718096;
+    font-weight: 500;
 }
 
-.allocation-slider input[type="range"] {
-  width: 100%;
-  height: 6px;
-  border-radius: 3px;
-  background: #e2e8f0;
-  outline: none;
-  -webkit-appearance: none; /* Chrome, Safari */
-  -moz-appearance: none;    /* Firefox */
-  appearance: none;         /* Standard */
+.breakdown-bar-container {
+    width: 100%;
+    height: 12px;
+    background: #e2e8f0;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-bottom: 12px;
 }
 
-
-.allocation-slider input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #667eea;
-    cursor: pointer;
+.breakdown-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 6px;
+    transition: width 0.3s ease;
 }
 
-.allocation-slider input[type="range"]::-moz-range-thumb {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #667eea;
-    cursor: pointer;
-    border: none;
+.breakdown-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
 }
 
-.allocation-percentage {
-    text-align: center;
-    margin-top: 4px;
+.breakdown-recommended {
     font-size: 0.875rem;
     color: #718096;
 }
 
-/* Allocation Type Colors */
-.allocation-item.investment {
-    border-left-color: #48bb78;
+.breakdown-status {
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 4px 12px;
+    border-radius: 12px;
 }
 
-.allocation-item.emergency {
-    border-left-color: #ed8936;
+.breakdown-status.status-success {
+    background: #c6f6d5;
+    color: #22543d;
 }
 
-.allocation-item.personal {
+.breakdown-status.status-warning {
+    background: #feebc8;
+    color: #7c2d12;
+}
+
+.breakdown-status.status-danger {
+    background: #fed7d7;
+    color: #742a2a;
+}
+
+/* Category-specific colors */
+.breakdown-item.needs {
+    border-left-color: #f56565;
+}
+
+.breakdown-item.needs .breakdown-bar {
+    background: linear-gradient(90deg, #fc8181 0%, #f56565 100%);
+}
+
+.breakdown-item.wants {
     border-left-color: #9f7aea;
 }
 
-.allocation-item.debt {
-    border-left-color: #f56565;
+.breakdown-item.wants .breakdown-bar {
+    background: linear-gradient(90deg, #b794f4 0%, #9f7aea 100%);
+}
+
+.breakdown-item.savings {
+    border-left-color: #48bb78;
+}
+
+.breakdown-item.savings .breakdown-bar {
+    background: linear-gradient(90deg, #68d391 0%, #48bb78 100%);
+}
+
+/* No income message */
+.no-income-message {
+    text-align: center;
+    padding: 40px 20px;
+    color: #a0aec0;
+    font-style: italic;
+    background: #f7fafc;
+    border-radius: 8px;
+    border: 2px dashed #cbd5e0;
 }
 
 /* ============================================================================

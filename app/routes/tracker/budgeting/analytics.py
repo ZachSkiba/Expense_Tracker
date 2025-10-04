@@ -63,6 +63,9 @@ def get_available_periods(group_id):
     """
     Get available years and months that have data for this user.
     Returns only periods where expenses or income exist.
+    
+    Query params:
+        years (optional): Comma-separated list of years to filter months
     """
     group = Group.query.get_or_404(group_id)
     
@@ -70,24 +73,40 @@ def get_available_periods(group_id):
     if current_user not in group.members:
         return jsonify({'error': 'Unauthorized'}), 403
     
+    # Get optional years filter
+    years_param = request.args.get('years', None)
+    selected_years = None
+    if years_param:
+        try:
+            selected_years = [int(y) for y in years_param.split(',')]
+        except ValueError:
+            pass
+    
     try:
-        # Get years and months from expenses
-        expense_dates = db.session.query(
+        # Build base queries
+        expense_query = db.session.query(
             extract('year', Expense.date).label('year'),
             extract('month', Expense.date).label('month')
         ).join(ExpenseParticipant).filter(
             Expense.group_id == group_id,
             ExpenseParticipant.user_id == current_user.id
-        ).distinct().all()
+        )
         
-        # Get years and months from income
-        income_dates = db.session.query(
+        income_query = db.session.query(
             extract('year', IncomeEntry.date).label('year'),
             extract('month', IncomeEntry.date).label('month')
         ).filter(
             IncomeEntry.group_id == group_id,
             IncomeEntry.user_id == current_user.id
-        ).distinct().all()
+        )
+        
+        # Apply year filter if provided (for months)
+        if selected_years:
+            expense_query = expense_query.filter(extract('year', Expense.date).in_(selected_years))
+            income_query = income_query.filter(extract('year', IncomeEntry.date).in_(selected_years))
+        
+        expense_dates = expense_query.distinct().all()
+        income_dates = income_query.distinct().all()
         
         # Combine and deduplicate
         all_dates = set(expense_dates + income_dates)
