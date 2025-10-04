@@ -147,20 +147,15 @@
                 </div>
             </div>
             
-            <!-- Recommended Allocations -->
-            <div class="card allocations-card">
-                <h2>Recommended Allocations</h2>
-                
-                <div class="allocation-model-selector">
-                    <label>Suggested Model:</label>
-                    <select id="allocation-model" class="model-select">
-                        <option value="50/30/20">50/30/20 Rule</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                </div>
+            <!-- 50/30/20 Spending Breakdown -->
+            <div class="card breakdown-503020-card">
+                <h2>Spending Health (50/30/20 Rule)</h2>
+                <p class="breakdown-description">
+                    The 50/30/20 rule suggests spending 50% on needs, 30% on wants, and saving 20% of your income.
+                </p>
 
-                <div id="allocations-list" class="allocations-list">
-                    <div class="loading">Loading allocations...</div>
+                <div id="breakdown-503020-list" class="breakdown-503020-list">
+                    <div class="loading">Loading breakdown...</div>
                 </div>
 
                 <!-- Recommendation Text -->
@@ -203,6 +198,12 @@
             apiBaseUrl: "{{ url_for('budgeting.get_summary', group_id=group.id) }}".replace('/api/summary', '')
         };
     </script>
+    <!-- Budget Analytics JavaScript - Load in order -->
+    <script src="{{ url_for('static', filename='js/tracker/budgeting/ui-helpers.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/budgeting/data-service.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/budgeting/chart-manager.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tracker/budgeting/filter-manager.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tracker/budgeting/budget-analytics.js') }}"></script>
+</body>
 </body>
 </html>
