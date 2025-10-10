@@ -180,59 +180,10 @@ This classification enables budget analysis using the **50/30/20 rule** (50% nee
 
 ## 🚀 Setup & Running
 
-### **Quick Start**
-
-**Prerequisites:**
-- Python 3.11+
-- PostgreSQL 14+
-
-
 **Production:** Deployed on Render.com with automated CI/CD via GitHub Actions for recurring payment processing.
 
 ---
 
-## 🧪 Data Science Skills Demonstrated
-
-This project showcases foundational data science competencies with a clear path toward advanced analytics:
-
-### **Current Implementation**
-
-**Data Engineering & Management:**
-- ✅ Relational database design and normalization
-- ✅ ETL pipeline implementation (user input → API → database)
-- ✅ Data validation and integrity constraints
-- ✅ Efficient SQL querying with SQLAlchemy ORM
-- ✅ Database migrations and version control
-
-**Data Processing & Aggregation:**
-- ✅ Time-based data aggregation (monthly/yearly summaries)
-- ✅ Multi-dimensional grouping (by category, user, budget type)
-- ✅ Real-time calculation of financial metrics
-- ✅ Automated data classification using keyword matching
-- ✅ Historical snapshot generation for trend analysis
-
-**Data Visualization:**
-- ✅ Interactive dashboards with Chart.js
-- ✅ Drill-down analysis from aggregates to transaction details
-- ✅ Dynamic filtering and data slicing
-- ✅ KPI cards with color-coded health indicators
-- ✅ Responsive, mobile-friendly data displays
-
-**Software Engineering:**
-- ✅ RESTful API design and implementation
-- ✅ Object-oriented programming (Python)
-- ✅ Version control with Git/GitHub
-- ✅ Production deployment with CI/CD (GitHub Actions)
-- ✅ Environment management and configuration
-
-**Problem Solving:**
-- ✅ Breaking down complex financial tracking into modular components
-- ✅ Building scalable, normalized data models
-- ✅ Handling edge cases (zero values, missing data, date ranges)
-- ✅ Performance optimization for database queries
-
-
----
 
 ## 📈 Future Improvements: Data Science Roadmap
 
@@ -246,11 +197,6 @@ This project is designed with extensibility in mind, providing a solid foundatio
   - Image preprocessing (grayscale conversion, edge detection, perspective correction)
   - Confidence scoring for extracted data with manual review option
   
-- **Data Augmentation Benefits**:
-  - Significantly increases data volume for training ML models
-  - Captures granular item-level purchase data (e.g., "eggs" vs. just "Grocery Store")
-  - Enables more accurate category prediction with richer training examples
-  - Real-world application of computer vision in a practical use case
 
 ### **Machine Learning for Expense Classification**
 - **Automated Category Prediction**:
@@ -260,10 +206,6 @@ This project is designed with extensibility in mind, providing a solid foundatio
   - Model evaluation: precision, recall, F1-score, confusion matrix analysis
   - Production deployment with confidence thresholds (auto-categorize if >90% confident)
   
-- **Named Entity Recognition (NER)**:
-  - Extract merchant names and locations from unstructured text
-  - Fine-tune pre-trained models (spaCy, BERT) on financial transaction data
-  - Build custom entity recognition for financial terms
 
 ### **Time-Series Forecasting & Predictive Analytics**
 - **Expense Prediction Models**:
@@ -289,83 +231,6 @@ This project is designed with extensibility in mind, providing a solid foundatio
   - Z-score based detection (flag expenses >2-3 standard deviations from mean)
   - Interquartile Range (IQR) method for robust outlier detection
   - Time-series based anomalies (spending spike compared to historical trends)
-
-### **Personalized Recommendation System**
-- **Smart Budget Recommendations**:
-  - Collaborative filtering: "Users with similar spending patterns saved $X by reducing Y"
-  - Content-based filtering: Recommend budget adjustments based on user's specific categories
-  - Hybrid recommendation combining both approaches
-  
-- **Savings Opportunity Detection**:
-  - Identify subscriptions that haven't been used (e.g., gym membership with no check-ins)
-  - Detect categories with high variance → suggest switching to fixed budgets
-  - Compare prices across merchants for frequently purchased items
-
-### **Feature Engineering & Advanced Analytics**
-- **Derived Metrics for ML Models**:
-  - Spending velocity: rate of expense increase/decrease over time
-  - Category entropy: measure of spending diversity
-  - Cyclic features: sine/cosine transformations for day-of-week, month-of-year
-  - Recency-frequency-monetary (RFM) analysis per category
-  - Rolling window statistics: 7-day, 30-day, 90-day averages
-  
-- **Clustering & Segmentation**:
-  - K-means clustering to identify distinct spending personas
-  - DBSCAN for density-based pattern discovery
-  - Hierarchical clustering for category relationship analysis
-  - Cohort analysis: track behavior changes over time
-
-### **Model Deployment & MLOps**
-- **Production ML Pipeline**:
-  - Feature store for consistent feature computation (training & inference)
-  - Model versioning and A/B testing framework
-  - Real-time model serving via REST API endpoints
-  - Automated retraining pipelines when model performance degrades
-  
-- **Monitoring & Evaluation**:
-  - Data drift detection: monitor input distribution changes
-  - Model performance dashboards: track accuracy, latency, throughput
-  - A/B testing infrastructure: compare model versions in production
-  - Logging and explainability: SHAP values for model interpretability
-
-### **Advanced Statistical Analysis**
-- **Hypothesis Testing**:
-  - T-tests to compare spending before/after budget implementation
-  - Chi-square tests for category independence
-  - ANOVA for comparing spending across multiple user groups
-  
-- **Regression Analysis**:
-  - Linear regression: predict total monthly spending from category breakdowns
-  - Polynomial regression for non-linear relationships
-  - Ridge/Lasso regularization for feature selection
-  
-- **Time-Series Decomposition**:
-  - Seasonal-Trend decomposition using LOESS (STL)
-  - Identify weekly/monthly/yearly patterns
-  - Residual analysis for understanding unexplained variance
-
-### **Data Visualization & Reporting**
-- **Interactive Dashboards** (Plotly/Dash):
-  - Real-time spending heatmaps by hour/day/month
-  - Sankey diagrams for income → allocation → spending flow
-  - Time-series plots with confidence bands
-  - Comparison charts: actual vs. predicted vs. budget
-  
-- **Automated Report Generation**:
-  - Monthly financial health reports with insights
-  - PDF export with charts and recommendations
-  - Email digests with spending summaries and alerts
-
-### **External Data Integration**
-- **Banking APIs** (Plaid/Yodlee):
-  - Automatic transaction import from bank accounts
-  - Real-time balance synchronization
-  - Reconciliation with manual entries
-  
-- **Data Export & Interoperability**:
-  - CSV/Excel/Parquet export for external analysis
-  - Integration with Google Sheets/Excel for custom reporting
-  - API access for third-party applications
 
 ---
 
