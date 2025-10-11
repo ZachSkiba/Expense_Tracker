@@ -3,7 +3,7 @@
 A full-stack web application for personal finance management and group expense tracking with built-in data analytics capabilities. This project demonstrates proficiency in data collection, storage, processing, and visualization—core skills for data science applications.
 
 > **🚀 Live Demo**: [https://expense-tracker-ni27.onrender.com](https://expense-tracker-ni27.onrender.com)  
-> **⚠️ Status**: Active development - new features and ML capabilities being added regularly
+> **⚠️ Status**: Active development - new features being added regularly
 
 [![Python](https://img.shields.io/badge/Python-32.4%25-blue?logo=python)](https://www.python.org/)
 [![JavaScript](https://img.shields.io/badge/JavaScript-31.6%25-yellow?logo=javascript)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
