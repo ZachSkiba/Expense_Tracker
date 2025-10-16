@@ -5,13 +5,14 @@ from .models import *
 from .income_models import *
 from .budget_models import *
 from .budget_helpers import *  # ADD THIS LINE
+from .budget_preferences import *  # ADD THIS LINE
 
 # Make sure all models are available when importing from models
 __all__ = [
     'db', 'User', 'Group', 'Category', 'Expense', 'ExpenseParticipant',
     'Balance', 'Settlement', 'RecurringPayment', 'user_groups',
     'IncomeCategory', 'IncomeEntry', 'IncomeAllocationCategory', 'IncomeAllocation',
-    'BudgetCategory', 'BudgetSnapshot',
+    'BudgetCategory', 'BudgetSnapshot', 'BudgetPreference',
     # Helper functions
     'get_budget_type_for_expense', 
     'get_budget_type_for_allocation',

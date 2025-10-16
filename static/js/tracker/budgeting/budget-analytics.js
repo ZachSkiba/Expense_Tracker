@@ -20,6 +20,7 @@ class BudgetAnalytics {
         );
         
         this.currentData = null;
+        this.budgetPreferences = { needs_percent: 50, wants_percent: 30, savings_percent: 20 };
         
         this.init();
     }
@@ -31,6 +32,8 @@ class BudgetAnalytics {
         const filtersReady = await this.filterManager.initialize(this.currentYear, this.currentMonth);
         
         if (filtersReady) {
+            // Load budget preferences
+            await this.loadBudgetPreferences();
             // Load initial data
             await this.loadData();
         } else {
@@ -89,6 +92,60 @@ class BudgetAnalytics {
             BudgetUIHelpers.showError('Failed to load budget data: ' + error.message);
         } finally {
             BudgetUIHelpers.showLoading(false);
+        }
+    }
+
+    async loadBudgetPreferences() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/budget-preferences`);
+            const result = await response.json();
+            
+            if (result.success && result.preferences) {
+                this.budgetPreferences = result.preferences;
+                this.updateBudgetRuleDisplay();
+                console.log('[BUDGET_ANALYTICS] Loaded preferences:', this.budgetPreferences);
+            }
+        } catch (error) {
+            console.error('[BUDGET_ANALYTICS] Error loading preferences:', error);
+            // Use defaults if loading fails
+        }
+    }
+    
+    updateBudgetRuleDisplay() {
+        const displayEl = document.getElementById('budget-rule-display');
+        if (displayEl) {
+            const { needs_percent, wants_percent, savings_percent } = this.budgetPreferences;
+            displayEl.textContent = `${Math.round(needs_percent)}/${Math.round(wants_percent)}/${Math.round(savings_percent)}`;
+        }
+    }
+    
+    async saveBudgetPreferences(needs, wants, savings) {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/budget-preferences`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    needs_percent: needs,
+                    wants_percent: wants,
+                    savings_percent: savings
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                this.budgetPreferences = result.preferences;
+                this.updateBudgetRuleDisplay();
+                this.update503020Breakdown(); // Refresh the breakdown
+                return { success: true, message: result.message };
+            } else {
+                return { success: false, error: result.error };
+            }
+        } catch (error) {
+            console.error('[BUDGET_ANALYTICS] Error saving preferences:', error);
+            return { success: false, error: error.message };
         }
     }
     
@@ -181,10 +238,14 @@ class BudgetAnalytics {
         const wantsPercent = (wantsAmount / totalIncome * 100);
         const savingsPercent = (savingsAmount / totalIncome * 100);
         
-        // Recommended values
-        const recommendedNeeds = totalIncome * 0.50;
-        const recommendedWants = totalIncome * 0.30;
-        const recommendedSavings = totalIncome * 0.20;
+        // Recommended values (using custom preferences)
+        const recommendedNeedsPercent = this.budgetPreferences.needs_percent;
+        const recommendedWantsPercent = this.budgetPreferences.wants_percent;
+        const recommendedSavingsPercent = this.budgetPreferences.savings_percent;
+        
+        const recommendedNeeds = totalIncome * (recommendedNeedsPercent / 100);
+        const recommendedWants = totalIncome * (recommendedWantsPercent / 100);
+        const recommendedSavings = totalIncome * (recommendedSavingsPercent / 100);
         
         // Build the breakdown
         const categories = [
@@ -192,7 +253,7 @@ class BudgetAnalytics {
                 name: 'Needs (Essential)',
                 actual: needsAmount,
                 percent: needsPercent,
-                recommended: 50,
+                recommended: recommendedNeedsPercent,
                 recommendedAmount: recommendedNeeds,
                 className: 'needs',
                 tolerance: 5 // ±5% is acceptable
@@ -201,7 +262,7 @@ class BudgetAnalytics {
                 name: 'Wants (Personal)',
                 actual: wantsAmount,
                 percent: wantsPercent,
-                recommended: 30,
+                recommended: recommendedWantsPercent,
                 recommendedAmount: recommendedWants,
                 className: 'wants',
                 tolerance: 5
@@ -210,12 +271,21 @@ class BudgetAnalytics {
                 name: 'Savings (What You Kept)',
                 actual: savingsAmount,
                 percent: savingsPercent,
-                recommended: 20,
+                recommended: recommendedSavingsPercent,
                 recommendedAmount: recommendedSavings,
                 className: 'savings',
                 tolerance: 5
             }
         ];
+        
+        // Update the description text with custom percentages
+        const descriptionEl = document.querySelector('.breakdown-description');
+        if (descriptionEl) {
+            const needsPct = Math.round(recommendedNeedsPercent);
+            const wantsPct = Math.round(recommendedWantsPercent);
+            const savingsPct = Math.round(recommendedSavingsPercent);
+            descriptionEl.textContent = `The ${needsPct}/${wantsPct}/${savingsPct} rule suggests spending ${needsPct}% on needs, ${wantsPct}% on wants, and saving ${savingsPct}% of your income.`;
+        }
         
         container.innerHTML = '';
         
@@ -238,17 +308,19 @@ class BudgetAnalytics {
             } else if (Math.abs(diff) <= cat.tolerance * 2) {
                 if (cat.name.includes('Savings')) {
                     status = diff < 0 ? '⚠️ Below target - try to save more' : '✅ Above target - great job!';
+                    statusClass = diff < 0 ? 'status-warning' : 'status-success';
                 } else {
                     status = diff > 0 ? '⚠️ Slightly above target' : '✅ Below target - you have room!';
+                    statusClass = 'status-warning';
                 }
-                statusClass = 'status-warning';
             } else {
                 if (cat.name.includes('Savings')) {
                     status = diff < 0 ? '❌ Well below target' : '✅ Excellent savings rate!';
+                    statusClass = diff < 0 ? 'status-danger' : 'status-success';
                 } else {
                     status = diff > 0 ? '❌ Well above target - try to reduce' : '✅ Well below target';
+                    statusClass = diff > 0 ? 'status-danger' : 'status-success';
                 }
-                statusClass = diff > 0 && !cat.name.includes('Savings') ? 'status-danger' : 'status-success';
             }
             
             // Calculate bar width (cap at 100%)
@@ -486,4 +558,118 @@ get503020DetailItems(categoryType) {
 document.addEventListener('DOMContentLoaded', () => {
     console.log('[BUDGET_ANALYTICS] DOM ready, initializing...');
     window.budgetAnalytics = new BudgetAnalytics();
+
+    // Budget preferences modal handlers
+    const editBudgetBtn = document.getElementById('edit-budget-btn');
+    const modal = document.getElementById('budget-pref-modal');
+    const closeModalBtn = document.getElementById('close-pref-modal');
+    const cancelModalBtn = document.getElementById('cancel-pref-modal');
+    const saveBtn = document.getElementById('save-preferences');
+    const resetBtn = document.getElementById('reset-to-default');
+    
+    const needsInput = document.getElementById('needs-input');
+    const wantsInput = document.getElementById('wants-input');
+    const savingsInput = document.getElementById('savings-input');
+    const totalDisplay = document.getElementById('pref-total');
+    const statusDisplay = document.getElementById('pref-status');
+    const errorDiv = document.getElementById('pref-error');
+    
+    function updateTotal() {
+        const needs = parseFloat(needsInput.value) || 0;
+        const wants = parseFloat(wantsInput.value) || 0;
+        const savings = parseFloat(savingsInput.value) || 0;
+        const total = needs + wants + savings;
+        
+        totalDisplay.textContent = `${total.toFixed(1)}%`;
+        
+        if (Math.abs(total - 100) < 0.01) {
+            totalDisplay.style.color = '#48bb78';
+            statusDisplay.textContent = '✓';
+            statusDisplay.style.color = '#48bb78';
+            errorDiv.style.display = 'none';
+        } else {
+            totalDisplay.style.color = '#f56565';
+            statusDisplay.textContent = '✗';
+            statusDisplay.style.color = '#f56565';
+            errorDiv.textContent = `Total must equal 100% (currently ${total.toFixed(1)}%)`;
+            errorDiv.style.display = 'block';
+        }
+    }
+    
+    function openModal() {
+        const analytics = window.budgetAnalytics;
+        needsInput.value = analytics.budgetPreferences.needs_percent;
+        wantsInput.value = analytics.budgetPreferences.wants_percent;
+        savingsInput.value = analytics.budgetPreferences.savings_percent;
+        updateTotal();
+        modal.style.display = 'flex';
+    }
+    
+    function closeModal() {
+        modal.style.display = 'none';
+        errorDiv.style.display = 'none';
+    }
+    
+    if (editBudgetBtn) {
+        editBudgetBtn.addEventListener('click', openModal);
+    }
+    
+    if (closeModalBtn) {
+        closeModalBtn.addEventListener('click', closeModal);
+    }
+    
+    if (cancelModalBtn) {
+        cancelModalBtn.addEventListener('click', closeModal);
+    }
+    
+    if (needsInput) needsInput.addEventListener('input', updateTotal);
+    if (wantsInput) wantsInput.addEventListener('input', updateTotal);
+    if (savingsInput) savingsInput.addEventListener('input', updateTotal);
+    
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            needsInput.value = 50;
+            wantsInput.value = 30;
+            savingsInput.value = 20;
+            updateTotal();
+        });
+    }
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', async () => {
+            const needs = parseFloat(needsInput.value);
+            const wants = parseFloat(wantsInput.value);
+            const savings = parseFloat(savingsInput.value);
+            const total = needs + wants + savings;
+            
+            if (Math.abs(total - 100) > 0.01) {
+                errorDiv.textContent = 'Percentages must add up to 100%';
+                errorDiv.style.display = 'block';
+                return;
+            }
+            
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+            
+            const result = await window.budgetAnalytics.saveBudgetPreferences(needs, wants, savings);
+            
+            if (result.success) {
+                closeModal();
+                BudgetUIHelpers.showError('Budget preferences saved successfully!'); // Using error container for success message
+            } else {
+                errorDiv.textContent = result.error || 'Failed to save preferences';
+                errorDiv.style.display = 'block';
+            }
+            
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Changes';
+        });
+    }
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
 });

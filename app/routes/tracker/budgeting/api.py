@@ -4,7 +4,7 @@ from flask import jsonify, request
 from flask_login import login_required, current_user
 from models import Group
 from app.services.tracker.budgeting import BudgetAnalyticsService
-from datetime import date
+from datetime import date, datetime
 from . import budgeting_bp
 import logging
 
@@ -143,6 +143,100 @@ def get_recommendations(group_id):
         
     except Exception as e:
         logger.error(f"Error getting recommendations: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@budgeting_bp.route('/api/budget-preferences')
+@login_required
+def get_budget_preferences(group_id):
+    """
+    Get user's budget preferences (custom 50/30/20 percentages).
+    """
+    from models.budget_preferences import BudgetPreference
+    
+    group = Group.query.get_or_404(group_id)
+    
+    # Check access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        pref = BudgetPreference.get_or_create_default(current_user.id, group_id)
+        
+        return jsonify({
+            'success': True,
+            'preferences': pref.to_dict()
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting budget preferences: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@budgeting_bp.route('/api/budget-preferences', methods=['POST'])
+@login_required
+def update_budget_preferences(group_id):
+    """
+    Update user's budget preferences.
+    Expects JSON: { "needs_percent": 50, "wants_percent": 30, "savings_percent": 20 }
+    """
+    from models.budget_preferences import BudgetPreference
+    from models import db
+    
+    group = Group.query.get_or_404(group_id)
+    
+    # Check access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        data = request.get_json()
+        
+        needs = float(data.get('needs_percent', 50))
+        wants = float(data.get('wants_percent', 30))
+        savings = float(data.get('savings_percent', 20))
+        
+        # Validate percentages add up to 100
+        total = needs + wants + savings
+        if abs(total - 100.0) > 0.01:
+            return jsonify({
+                'success': False,
+                'error': f'Percentages must add up to 100%. Current total: {total}%'
+            }), 400
+        
+        # Validate all are positive
+        if needs < 0 or wants < 0 or savings < 0:
+            return jsonify({
+                'success': False,
+                'error': 'Percentages must be positive'
+            }), 400
+        
+        # Get or create preference
+        pref = BudgetPreference.get_or_create_default(current_user.id, group_id)
+        
+        # Update values
+        pref.needs_percent = needs
+        pref.wants_percent = wants
+        pref.savings_percent = savings
+        pref.updated_at = datetime.utcnow()
+        
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'preferences': pref.to_dict(),
+            'message': 'Budget preferences updated successfully'
+        })
+        
+    except ValueError as e:
+        return jsonify({
+            'success': False,
+            'error': 'Invalid percentage values'
+        }), 400
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error updating budget preferences: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

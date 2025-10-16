@@ -126,15 +126,18 @@
 
         </div>
 
+
         <!-- Right Column: Drill-Down & Recommendations -->
         <div class="right-column">
             
             <!-- Category Drill-Down Section -->
-            <div class="card category-details-card">
-                <h2>Detailed Breakdown</h2>
-                <p class="drill-down-instruction">Click on a pie chart slice to view breakdown</p>
+            <div class="card category-details-card" style="display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2 style="margin: 0;">Detailed Breakdown</h2>
+                    <button class="close-detail-btn" id="close-detail-btn" title="Close detailed view">✕</button>
+                </div>
                 
-                <div id="category-detail-content" style="display: none;">
+                <div id="category-detail-content">
                     <h3 id="selected-category-name"></h3>
                     
                     <!-- Drill-Down Pie Chart -->
@@ -149,7 +152,13 @@
             
             <!-- 50/30/20 Spending Breakdown -->
             <div class="card breakdown-503020-card">
-                <h2>Spending Health (50/30/20 Rule)</h2>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <h2 style="margin: 0;">Spending Health (<span id="budget-rule-display">50/30/20</span> Rule)</h2>
+                    <button class="edit-budget-btn" id="edit-budget-btn" title="Customize budget percentages">
+                        <span class="edit-icon">✏️</span>
+                        <span class="edit-text">Edit</span>
+                    </button>
+                </div>
                 <p class="breakdown-description">
                     The 50/30/20 rule suggests spending 50% on needs, 30% on wants, and saving 20% of your income.
                 </p>
@@ -161,6 +170,76 @@
 
         </div>
 
+    </div>
+
+    <!-- Budget Preferences Edit Modal -->
+    <div class="modal-overlay" id="budget-pref-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Customize Budget Percentages</h3>
+                <button class="modal-close" id="close-pref-modal">✕</button>
+            </div>
+            
+            <div class="modal-body">
+                <p class="modal-description">
+                    Adjust your budget allocation percentages. The three categories must add up to 100%.
+                </p>
+                
+                <form id="budget-pref-form">
+                    <div class="form-group">
+                        <label for="needs-input">
+                            <span class="label-icon">🏠</span>
+                            <span class="label-text">Needs (Essential)</span>
+                        </label>
+                        <div class="input-with-unit">
+                            <input type="number" id="needs-input" min="0" max="100" step="0.1" required>
+                            <span class="unit">%</span>
+                        </div>
+                        <small class="help-text">Essential living expenses (rent, utilities, groceries, etc.)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="wants-input">
+                            <span class="label-icon">💳</span>
+                            <span class="label-text">Wants (Personal)</span>
+                        </label>
+                        <div class="input-with-unit">
+                            <input type="number" id="wants-input" min="0" max="100" step="0.1" required>
+                            <span class="unit">%</span>
+                        </div>
+                        <small class="help-text">Discretionary spending (entertainment, dining out, hobbies, etc.)</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="savings-input">
+                            <span class="label-icon">💰</span>
+                            <span class="label-text">Savings (What You Keep)</span>
+                        </label>
+                        <div class="input-with-unit">
+                            <input type="number" id="savings-input" min="0" max="100" step="0.1" required>
+                            <span class="unit">%</span>
+                        </div>
+                        <small class="help-text">Net savings after needs and wants</small>
+                    </div>
+                    
+                    <div class="total-display">
+                        <span class="total-label">Total:</span>
+                        <span class="total-value" id="pref-total">100%</span>
+                        <span class="total-status" id="pref-status">✓</span>
+                    </div>
+                    
+                    <div class="error-message" id="pref-error" style="display: none;"></div>
+                </form>
+            </div>
+            
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="reset-to-default">Reset to 50/30/20</button>
+                <div class="footer-actions">
+                    <button type="button" class="btn-cancel" id="cancel-pref-modal">Cancel</button>
+                    <button type="submit" class="btn-primary" id="save-preferences">Save Changes</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Error Message Container -->
@@ -182,6 +261,28 @@
             apiBaseUrl: "{{ url_for('budgeting.get_summary', group_id=group.id) }}".replace('/api/summary', '')
         };
     </script>
+    <!-- Budget Analytics JavaScript - Load in order -->
+
+    <script>
+        // Close detail button handler
+        document.addEventListener('DOMContentLoaded', () => {
+            const closeBtn = document.getElementById('close-detail-btn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => {
+                    const detailCard = document.querySelector('.category-details-card');
+                    if (detailCard) {
+                        detailCard.style.display = 'none';
+                    }
+                    
+                    // Clear the drill-down chart
+                    if (window.budgetAnalytics && window.budgetAnalytics.chartManager) {
+                        window.budgetAnalytics.chartManager.clearDetailedBreakdown();
+                    }
+                });
+            }
+        });
+    </script>
+    
     <!-- Budget Analytics JavaScript - Load in order -->
     <script src="{{ url_for('static', filename='js/tracker/budgeting/ui-helpers.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tracker/budgeting/data-service.js') }}"></script>
