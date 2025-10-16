@@ -25,15 +25,10 @@ class BudgetChartManager {
     }
     
     clearDetailedBreakdown() {
-        const contentDiv = document.getElementById('category-detail-content');
-        const instructionText = document.querySelector('.drill-down-instruction');
+        const detailCard = document.querySelector('.category-details-card');
         
-        if (contentDiv) {
-            contentDiv.style.display = 'none';
-        }
-        
-        if (instructionText) {
-            instructionText.style.display = 'block';
+        if (detailCard) {
+            detailCard.style.display = 'none';
         }
         
         // Destroy drill-down chart if it exists
@@ -291,12 +286,12 @@ class BudgetChartManager {
     drillDownExpenseCategory(categoryName, categoryData) {
         console.log('[CHART_MANAGER] Drilling down expense category:', categoryName);
         
+        const detailCard = document.querySelector('.category-details-card');
         const contentDiv = document.getElementById('category-detail-content');
-        const instructionText = document.querySelector('.drill-down-instruction');
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
         
-        if (instructionText) instructionText.style.display = 'none';
+        if (detailCard) detailCard.style.display = 'block';
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = categoryName + ' (Expense)';
         
@@ -334,12 +329,12 @@ class BudgetChartManager {
     drillDownAllocationBucket(bucketName, bucketCategoryData, totalAmount) {
         console.log('[CHART_MANAGER] Drilling down allocation bucket:', bucketName);
         
+        const detailCard = document.querySelector('.category-details-card');
         const contentDiv = document.getElementById('category-detail-content');
-        const instructionText = document.querySelector('.drill-down-instruction');
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
         
-        if (instructionText) instructionText.style.display = 'none';
+        if (detailCard) detailCard.style.display = 'block';
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = bucketName;
         
@@ -398,12 +393,12 @@ class BudgetChartManager {
     showNotAllocatedMessage() {
         console.log('[CHART_MANAGER] Showing not allocated message');
         
+        const detailCard = document.querySelector('.category-details-card');
         const contentDiv = document.getElementById('category-detail-content');
-        const instructionText = document.querySelector('.drill-down-instruction');
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
         
-        if (instructionText) instructionText.style.display = 'none';
+        if (detailCard) detailCard.style.display = 'block';
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = 'Not Allocated';
         
