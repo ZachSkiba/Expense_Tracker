@@ -175,7 +175,7 @@ def _combine_summaries(summaries):
     # Combine multiple months
     combined = {
         'income': {'total': 0, 'by_category': {}},
-        'expenses': {'total': 0, 'essentials': 0, 'discretionary': 0, 'by_category': {}, 'category_details': {}},
+        'expenses': {'total': 0, 'essentials': 0, 'discretionary': 0, 'by_category': {}, 'by_budget_type': {}, 'category_details': {}},
         'allocations': {
             'total_allocated': 0,
             'by_budget_type': {},
@@ -200,6 +200,10 @@ def _combine_summaries(summaries):
         
         for cat, amount in summary['expenses'].get('by_category', {}).items():
             combined['expenses']['by_category'][cat] = combined['expenses']['by_category'].get(cat, 0) + amount
+        
+        # Combine by_budget_type
+        for budget_type, amount in summary['expenses'].get('by_budget_type', {}).items():
+            combined['expenses']['by_budget_type'][budget_type] = combined['expenses']['by_budget_type'].get(budget_type, 0) + amount
         
         # Combine expense category details
         for cat, details in summary['expenses'].get('category_details', {}).items():
