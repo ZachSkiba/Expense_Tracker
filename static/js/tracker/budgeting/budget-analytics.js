@@ -67,13 +67,18 @@ class BudgetAnalytics {
                 return;
             }
             
-            console.log('[BUDGET_ANALYTICS] Loading data for years:', years, 'months:', months);
+            console.log('[BUDGET_ANALYTICS] ===== LOADING DATA =====');
+            console.log('[BUDGET_ANALYTICS] Years:', years, 'Months:', months);
             
             const result = await this.dataService.fetchSummary(years, months);
             
             if (result.success) {
                 this.currentData = result.data;
-                console.log('[BUDGET_ANALYTICS] Data loaded:', this.currentData);
+                console.log('[BUDGET_ANALYTICS] ===== DATA LOADED =====');
+                console.log('[BUDGET_ANALYTICS] Income total:', this.currentData.income.total);
+                console.log('[BUDGET_ANALYTICS] Expenses total:', this.currentData.expenses.total);
+                console.log('[BUDGET_ANALYTICS] Expenses by_budget_type:', JSON.stringify(this.currentData.expenses.by_budget_type, null, 2));
+                console.log('[BUDGET_ANALYTICS] =========================');
                 this.updateUI();
             } else {
                 throw new Error(result.error || 'Failed to load data');
@@ -97,7 +102,6 @@ class BudgetAnalytics {
         this.chartManager.setCurrentData(this.currentData);
         this.chartManager.updateAllCharts();
         this.update503020Breakdown();
-        this.loadRecommendations();
     }
     
     updateKPIs() {
@@ -137,14 +141,6 @@ class BudgetAnalytics {
                 savingsChangeEl.className = 'kpi-change';
             }
         }
-        
-        // Total spending in bottom card
-        const totalSpendingEl = document.getElementById('total-spending');
-        if (totalSpendingEl) {
-            totalSpendingEl.textContent = BudgetUIHelpers.formatCurrency(expenses.total);
-        }
-        
-        console.log('[BUDGET_ANALYTICS] KPIs updated');
     }
     
     update503020Breakdown() {
@@ -152,11 +148,17 @@ class BudgetAnalytics {
         if (!container) return;
         
         const { income, expenses } = this.currentData;
-        const totalIncome = income.total;
+        const totalIncome = income.total || 0;
+        
+        console.log('[BUDGET_ANALYTICS] ===== 50/30/20 BREAKDOWN =====');
+        console.log('[BUDGET_ANALYTICS] Total Income:', totalIncome);
+        console.log('[BUDGET_ANALYTICS] Total Expenses:', expenses.total);
+        console.log('[BUDGET_ANALYTICS] by_budget_type:', JSON.stringify(expenses.by_budget_type, null, 2));
         
         // Handle no income case
         if (totalIncome === 0) {
             container.innerHTML = '<div class="no-income-message">Add income entries to see your 50/30/20 breakdown</div>';
+            console.log('[BUDGET_ANALYTICS] No income - skipping breakdown');
             return;
         }
         
@@ -252,9 +254,15 @@ class BudgetAnalytics {
             // Calculate bar width (cap at 100%)
             const barWidth = Math.min(cat.percent, 100);
             
+            // Get detail items for this category
+            const detailItems = this.get503020DetailItems(cat.className);
+            
             item.innerHTML = `
                 <div class="breakdown-header">
-                    <div class="breakdown-name">${cat.name}</div>
+                    <div class="breakdown-name">
+                        <span class="breakdown-toggle">▼</span>
+                        ${cat.name}
+                    </div>
                     <div class="breakdown-values">
                         <span class="breakdown-percent">${cat.percent.toFixed(1)}%</span>
                         <span class="breakdown-amount">${BudgetUIHelpers.formatCurrency(cat.actual)}</span>
@@ -269,138 +277,208 @@ class BudgetAnalytics {
                     </div>
                     <div class="breakdown-status ${statusClass}">${status}</div>
                 </div>
+                <div class="breakdown-details">
+                    ${detailItems}
+                </div>
             `;
+            
+            // Add click handler for toggle
+            const header = item.querySelector('.breakdown-header');
+            const details = item.querySelector('.breakdown-details');
+            const toggle = item.querySelector('.breakdown-toggle');
+            
+            header.addEventListener('click', () => {
+                details.classList.toggle('show');
+                toggle.classList.toggle('expanded');
+            });
             
             container.appendChild(item);
         });
         
         console.log('[BUDGET_ANALYTICS] 50/30/20 breakdown updated');
     }
-    
-    async loadRecommendations() {
-        const recommendationEl = document.getElementById('recommendation-text');
-        if (!recommendationEl) return;
-        
-        try {
-            // Generate 50/30/20-specific recommendations
-            const customRecommendations = this.generate503020Recommendations();
-            
-            // Fetch backend recommendations
-            const years = this.filterManager.getSelectedYears();
-            const months = this.filterManager.getSelectedMonths();
-            
-            const year = years[0] || this.currentYear;
-            const month = months[0] || this.currentMonth;
-            
-            const result = await this.dataService.fetchRecommendations(year, month);
-            
-            let allRecommendations = [...customRecommendations];
-            
-            if (result.success && result.recommendations) {
-                allRecommendations = allRecommendations.concat(result.recommendations);
-            }
-            
-            if (allRecommendations.length > 0) {
-                recommendationEl.innerHTML = allRecommendations
-                    .map(rec => `<p>${BudgetUIHelpers.escapeHtml(rec)}</p>`)
-                    .join('');
-            } else {
-                recommendationEl.innerHTML = '<p>✅ You\'re on track! Keep up the good work.</p>';
-            }
-            
-        } catch (error) {
-            console.error('[BUDGET_ANALYTICS] Error loading recommendations:', error);
-            recommendationEl.textContent = 'Unable to load recommendations at this time.';
-        }
-    }
 
-    generate503020Recommendations() {
-        if (!this.currentData) return [];
+get503020DetailItems(categoryType) {
+        if (!this.currentData) return '<div class="breakdown-no-data">No data available</div>';
         
-        const { income, expenses } = this.currentData;
-        const totalIncome = income.total;
-        
-        if (totalIncome === 0) {
-            return ['💡 Add income entries to get personalized spending recommendations.'];
-        }
-        
-        const recommendations = [];
-        
-        // Calculate expenses by type
+        const { expenses, income, allocations } = this.currentData;
         const expensesByType = expenses.by_budget_type || {};
+        const categoryDetails = expenses.category_details || {};
+        const allocationDetails = allocations.allocation_details || {};
         
-        const needsAmount = (expensesByType.essential || 0) + 
-                            (expensesByType.debt || 0) + 
-                            (expensesByType.emergency || 0);
+        let html = '';
         
-        const wantsAmount = expensesByType.personal || 0;
-        const savingsAmount = totalIncome - needsAmount - wantsAmount;
-        
-        const needsPercent = (needsAmount / totalIncome * 100);
-        const wantsPercent = (wantsAmount / totalIncome * 100);
-        const savingsPercent = (savingsAmount / totalIncome * 100);
-        
-        // Needs recommendations
-        if (needsPercent > 55) {
-            const excess = needsAmount - (totalIncome * 0.50);
-            recommendations.push(
-                `💰 Your essential expenses (${needsPercent.toFixed(1)}%) are above the recommended 50%. ` +
-                `Try to reduce by ${BudgetUIHelpers.formatCurrency(excess)} by reviewing subscriptions, ` +
-                `utilities, or finding more affordable alternatives.`
-            );
-        } else if (needsPercent < 45) {
-            recommendations.push(
-                `✅ Great job! Your essential expenses are only ${needsPercent.toFixed(1)}% of your income, ` +
-                `which is below the 50% target. You have room for additional savings or discretionary spending.`
-            );
+        if (categoryType === 'needs') {
+            // Show essential, debt, and emergency expenses
+            html += '<h4>Essential Expenses:</h4>';
+            html += '<div class="breakdown-detail-list">';
+            
+            let hasItems = false;
+            
+            // Collect all items from essential categories
+            for (const [catName, catData] of Object.entries(categoryDetails)) {
+                const items = catData.items || [];
+                const essentialItems = items.filter(item => 
+                    item.budget_type === 'essential' || 
+                    item.budget_type === 'debt' || 
+                    item.budget_type === 'emergency'
+                );
+                
+                essentialItems.forEach(item => {
+                    hasItems = true;
+                    // Format: Category (Description) or just Category if no description
+                    const label = item.description ? 
+                        `${catName} (${BudgetUIHelpers.escapeHtml(item.description)})` : 
+                        catName;
+                    
+                    html += `
+                        <div class="breakdown-detail-item">
+                            <span class="breakdown-detail-desc">${label}</span>
+                            <span class="breakdown-detail-date">${item.date}</span>
+                            <span class="breakdown-detail-amount">${BudgetUIHelpers.formatCurrency(item.amount)}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (!hasItems) {
+                html += '<div class="breakdown-no-data">No essential expenses in this period</div>';
+            }
+            
+            html += '</div>';
+            
+        } else if (categoryType === 'wants') {
+            // Show personal/discretionary expenses
+            html += '<h4>Discretionary Expenses:</h4>';
+            html += '<div class="breakdown-detail-list">';
+            
+            let hasItems = false;
+            
+            for (const [catName, catData] of Object.entries(categoryDetails)) {
+                const items = catData.items || [];
+                const personalItems = items.filter(item => item.budget_type === 'personal');
+                
+                personalItems.forEach(item => {
+                    hasItems = true;
+                    // Format: Category (Description) or just Category if no description
+                    const label = item.description ? 
+                        `${catName} (${BudgetUIHelpers.escapeHtml(item.description)})` : 
+                        catName;
+                    
+                    html += `
+                        <div class="breakdown-detail-item">
+                            <span class="breakdown-detail-desc">${label}</span>
+                            <span class="breakdown-detail-date">${item.date}</span>
+                            <span class="breakdown-detail-amount">${BudgetUIHelpers.formatCurrency(item.amount)}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            if (!hasItems) {
+                html += '<div class="breakdown-no-data">No discretionary expenses in this period</div>';
+            }
+            
+            html += '</div>';
+            
+        } else if (categoryType === 'savings') {
+            // Show calculation breakdown
+            const totalIncome = income.total || 0;
+            const totalExpenses = expenses.total || 0;
+            const needsAmount = (expensesByType.essential || 0) + 
+                                (expensesByType.debt || 0) + 
+                                (expensesByType.emergency || 0);
+            const wantsAmount = expensesByType.personal || 0;
+            const savingsAmount = totalIncome - needsAmount - wantsAmount;
+            
+            html += '<h4>Savings Calculation:</h4>';
+            html += '<div class="breakdown-detail-list">';
+            
+            html += `
+                <div class="breakdown-detail-item" style="background: #e6fffa; border-left: 3px solid #48bb78;">
+                    <span class="breakdown-detail-desc">💰 Total Income</span>
+                    <span class="breakdown-detail-amount" style="color: #48bb78;">${BudgetUIHelpers.formatCurrency(totalIncome)}</span>
+                </div>
+                <div class="breakdown-detail-item" style="background: #fff5f5; border-left: 3px solid #f56565;">
+                    <span class="breakdown-detail-desc">➖ Needs (Essential Expenses)</span>
+                    <span class="breakdown-detail-amount" style="color: #f56565;">${BudgetUIHelpers.formatCurrency(needsAmount)}</span>
+                </div>
+                <div class="breakdown-detail-item" style="background: #faf5ff; border-left: 3px solid #9f7aea;">
+                    <span class="breakdown-detail-desc">➖ Wants (Discretionary)</span>
+                    <span class="breakdown-detail-amount" style="color: #9f7aea;">${BudgetUIHelpers.formatCurrency(wantsAmount)}</span>
+                </div>
+                <div class="breakdown-detail-item" style="background: #ebf8ff; border-left: 3px solid #4299e1; font-weight: 600;">
+                    <span class="breakdown-detail-desc">💵 = Net Savings (What You Kept)</span>
+                    <span class="breakdown-detail-amount" style="color: #4299e1; font-size: 1.1rem;">${BudgetUIHelpers.formatCurrency(savingsAmount)}</span>
+                </div>
+            `;
+            
+            html += '</div>';
+            
+            // Show income details - use by_category since entries may not be available when combining months
+            html += '<h4 style="margin-top: 16px;">Income Sources:</h4>';
+            html += '<div class="breakdown-detail-list">';
+            
+            const incomeByCategory = income.by_category || {};
+            const incomeEntries = income.entries || [];
+            
+            if (incomeEntries.length > 0) {
+                // If we have detailed entries, show them
+                incomeEntries.forEach(entry => {
+                    html += `
+                        <div class="breakdown-detail-item">
+                            <span class="breakdown-detail-desc">${BudgetUIHelpers.escapeHtml(entry.category)}${entry.description ? ' (' + BudgetUIHelpers.escapeHtml(entry.description) + ')' : ''}</span>
+                            <span class="breakdown-detail-date">${entry.date}</span>
+                            <span class="breakdown-detail-amount">${BudgetUIHelpers.formatCurrency(entry.amount)}</span>
+                        </div>
+                    `;
+                });
+            } else if (Object.keys(incomeByCategory).length > 0) {
+                // If combining months, show category totals
+                Object.entries(incomeByCategory).forEach(([category, amount]) => {
+                    html += `
+                        <div class="breakdown-detail-item">
+                            <span class="breakdown-detail-desc">${BudgetUIHelpers.escapeHtml(category)}</span>
+                            <span class="breakdown-detail-amount">${BudgetUIHelpers.formatCurrency(amount)}</span>
+                        </div>
+                    `;
+                });
+            } else {
+                html += '<div class="breakdown-no-data">No income in this period</div>';
+            }
+            
+            html += '</div>';
+            
+            // Show where savings were allocated (if any)
+            const savingsAllocations = Object.entries(allocationDetails).filter(([catName, catData]) => {
+                const items = catData.items || [];
+                return items.some(item => item.bucket === 'investments' || item.bucket === 'savings');
+            });
+            
+            if (savingsAllocations.length > 0) {
+                html += '<h4 style="margin-top: 16px;">Savings & Investments Allocated:</h4>';
+                html += '<div class="breakdown-detail-list">';
+                
+                savingsAllocations.forEach(([catName, catData]) => {
+                    const items = catData.items || [];
+                    items.forEach(item => {
+                        if (item.bucket === 'investments' || item.bucket === 'savings') {
+                            html += `
+                                <div class="breakdown-detail-item">
+                                    <span class="breakdown-detail-desc">${BudgetUIHelpers.escapeHtml(item.notes || catName)}</span>
+                                    <span class="breakdown-detail-date">${item.income_entry_date || ''}</span>
+                                    <span class="breakdown-detail-amount">${BudgetUIHelpers.formatCurrency(item.amount)}</span>
+                                </div>
+                            `;
+                        }
+                    });
+                });
+                
+                html += '</div>';
+            }
         }
         
-        // Wants recommendations
-        if (wantsPercent > 35) {
-            const excess = wantsAmount - (totalIncome * 0.30);
-            recommendations.push(
-                `🎭 Your discretionary spending (${wantsPercent.toFixed(1)}%) exceeds the recommended 30%. ` +
-                `Consider reducing by ${BudgetUIHelpers.formatCurrency(excess)} in areas like dining out, ` +
-                `entertainment, or shopping.`
-            );
-        } else if (wantsPercent < 20) {
-            recommendations.push(
-                `🎉 You're spending only ${wantsPercent.toFixed(1)}% on wants. ` +
-                `You have room to enjoy yourself more while staying within budget!`
-            );
-        }
-        
-        // Savings recommendations
-        if (savingsAmount < 0) {
-            recommendations.push(
-                `⚠️ You're spending more than you earn! You need to reduce expenses by ` +
-                `${BudgetUIHelpers.formatCurrency(Math.abs(savingsAmount))} to break even, ` +
-                `or increase your income.`
-            );
-        } else if (savingsPercent < 15) {
-            const shortfall = (totalIncome * 0.20) - savingsAmount;
-            recommendations.push(
-                `📈 Your savings rate (${savingsPercent.toFixed(1)}%) is below the recommended 20%. ` +
-                `Try to save an additional ${BudgetUIHelpers.formatCurrency(shortfall)} per month ` +
-                `to reach your target.`
-            );
-        } else if (savingsPercent >= 20) {
-            recommendations.push(
-                `🌟 Excellent! You're saving ${savingsPercent.toFixed(1)}% of your income, ` +
-                `which meets or exceeds the 20% target. Keep it up!`
-            );
-        }
-        
-        // Overall health check
-        const totalPercent = needsPercent + wantsPercent;
-        if (totalPercent > 95 && savingsPercent > 0) {
-            recommendations.push(
-                `⚖️ You're using ${totalPercent.toFixed(1)}% of your income for expenses. ` +
-                `While you're still saving, consider creating more cushion in your budget.`
-            );
-        }
-        
-        return recommendations;
+        return html;
     }
 }
 
