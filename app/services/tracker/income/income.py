@@ -97,6 +97,13 @@ def create_income_entry_api(group_id):
                 'message': 'User must be a group member'
             }), 400
         
+        # For personal trackers, only the creator can receive income
+        if group.is_personal_tracker and user_id != group.creator_id:
+            return jsonify({
+                'success': False,
+                'message': 'Only the group creator can receive income in a personal tracker'
+            }), 400
+        
         # Validate that income category exists and belongs to this group
         income_category = IncomeCategory.query.filter_by(id=income_category_id, group_id=group_id).first()
         if not income_category:
@@ -259,6 +266,13 @@ def update_income_entry_api(group_id, entry_id):
                     return jsonify({
                         'success': False,
                         'message': 'User must be a group member'
+                    }), 400
+                
+                # For personal trackers, only the creator can receive income
+                if group.is_personal_tracker and user_id != group.creator_id:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Only the group creator can receive income in a personal tracker'
                     }), 400
                 existing_entry.user_id = user_id
             except (ValueError, TypeError):
