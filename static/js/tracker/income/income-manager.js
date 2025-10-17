@@ -15,6 +15,8 @@ class IncomeManager {
         this.incomeCategoriesData = this.getDataFromScript('income-categories-data') || [];
         this.usersData = this.getDataFromScript('users-data') || window.usersData || [];
         this.allocationEnabled = false;
+        this.isPersonalTracker = window.isPersonalTracker || false;  
+        this.groupCreatorId = window.groupCreatorId || null;         
 
         
         console.log('[INCOME_MANAGER] Initializing with data:', {
@@ -371,7 +373,7 @@ class IncomeManager {
                     <td class="editable description" data-value="${entry.description || ''}" title="Click to edit description">
                         ${entry.description ? this.escapeHtml(entry.description) : '<em>No description</em>'}
                     </td>
-                    <td class="editable user_id" data-value="${entry.user_id}" title="Click to edit user">
+                    <td class="${this.isPersonalTracker ? '' : 'editable'} user_id" data-value="${entry.user_id}" title="${this.isPersonalTracker ? 'Cannot edit in personal tracker' : 'Click to edit user'}">
                         ${this.escapeHtml(entry.user_name)}
                     </td>
                     <td class="editable date" data-value="${entry.date}" title="Click to edit date">
@@ -431,6 +433,12 @@ class IncomeManager {
         const originalHTML = cell.innerHTML;
         
         console.log('[INCOME_MANAGER] Editing income cell type:', type, 'current value:', currentValue);
+        
+        // Prevent editing user_id in personal trackers
+        if (type === 'user_id' && this.isPersonalTracker) {
+            this.showMessage('Cannot change income recipient in personal trackers', 'red');
+            return;
+        }
         
         const input = this.createInputForType(type, currentValue, cell);
         

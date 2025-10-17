@@ -25,12 +25,29 @@
             
             <div class="form-group">
                 <label class="required">Received By</label>
-                <select name="user_id" required>
-                    <option value="" disabled selected>Select user</option>
-                    {% for user in users %}
-                        <option value="{{ user.id }}">{{ user.name }}</option>
-                    {% endfor %}
-                </select>
+                {% if is_personal_tracker %}
+                    <!-- Personal tracker: auto-fill with creator, make read-only -->
+                    <select name="user_id" required disabled style="background-color: #f0f0f0; cursor: not-allowed;">
+                        {% for user in users %}
+                            {% if user.id == group_creator_id %}
+                                <option value="{{ user.id }}" selected>{{ user.name }} (You)</option>
+                            {% endif %}
+                        {% endfor %}
+                    </select>
+                    <!-- Hidden input to ensure the value is submitted since disabled fields aren't -->
+                    <input type="hidden" name="user_id" value="{{ group_creator_id }}">
+                    <small style="display: block; margin-top: 5px; color: #6c757d; font-size: 0.875rem;">
+                        In personal trackers, only you can receive income
+                    </small>
+                {% else %}
+                    <!-- Group tracker: allow selection -->
+                    <select name="user_id" required>
+                        <option value="" disabled selected>Select user</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
             </div>
         </div>
 

@@ -139,6 +139,8 @@ def group_tracker(group_id):
         users_json=users_data,           # JSON-safe data for JavaScript
         expenses_json=expenses_data,     # JSON-safe data for JavaScript
         show_participants=show_participants,  # Add this flag
+        is_personal_tracker=group.is_personal_tracker,  
+        group_creator_id=group.creator_id,             
         # Add form data for persistence on errors
         amount=request.form.get('amount', '') if request.method == 'POST' else '',
         selected_category_id=request.form.get('category_id', '') if request.method == 'POST' else '',
