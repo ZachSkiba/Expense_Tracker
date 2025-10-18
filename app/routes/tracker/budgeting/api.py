@@ -10,7 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-@budgeting_bp.route('/api/summary')
+@budgeting_bp.route('/<int:group_id>/budgeting/api/summary')
 @login_required
 def get_summary(group_id):
     """
@@ -71,7 +71,7 @@ def get_summary(group_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@budgeting_bp.route('/api/category-breakdown')
+@budgeting_bp.route('/<int:group_id>/budgeting/api/category-breakdown')
 @login_required
 def get_category_breakdown(group_id):
     """
@@ -114,7 +114,7 @@ def get_category_breakdown(group_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@budgeting_bp.route('/api/recommendations')
+@budgeting_bp.route('/<int:group_id>/budgeting/api/recommendations')
 @login_required  
 def get_recommendations(group_id):
     """
@@ -145,7 +145,7 @@ def get_recommendations(group_id):
         logger.error(f"Error getting recommendations: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@budgeting_bp.route('/api/budget-preferences')
+@budgeting_bp.route('/<int:group_id>/budgeting/api/budget-preferences')
 @login_required
 def get_budget_preferences(group_id):
     """
@@ -172,7 +172,7 @@ def get_budget_preferences(group_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@budgeting_bp.route('/api/budget-preferences', methods=['POST'])
+@budgeting_bp.route('/<int:group_id>/budgeting/api/budget-preferences', methods=['POST'])
 @login_required
 def update_budget_preferences(group_id):
     """
