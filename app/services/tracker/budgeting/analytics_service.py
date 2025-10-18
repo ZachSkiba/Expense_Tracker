@@ -161,15 +161,31 @@ class BudgetAnalyticsService:
     @staticmethod
     def _calculate_expense_metrics(group_id, user_id, start_date, end_date):
         """Calculate expense metrics for a period"""
-        # Get all expenses where user participated
-        expenses = db.session.query(Expense).join(ExpenseParticipant).filter(
-            and_(
-                Expense.group_id == group_id,
-                ExpenseParticipant.user_id == user_id,
-                Expense.date >= start_date,
-                Expense.date <= end_date
-            )
-        ).all()
+        from models import Group
+        
+        # Check if this is a personal tracker or group tracker
+        group = Group.query.get(group_id)
+        is_personal_tracker = group.is_personal_tracker if group else False
+        
+        if is_personal_tracker:
+            # Personal tracker: Only expenses where user participated
+            expenses = db.session.query(Expense).join(ExpenseParticipant).filter(
+                and_(
+                    Expense.group_id == group_id,
+                    ExpenseParticipant.user_id == user_id,
+                    Expense.date >= start_date,
+                    Expense.date <= end_date
+                )
+            ).all()
+        else:
+            # Group tracker: ALL expenses in the group
+            expenses = Expense.query.filter(
+                and_(
+                    Expense.group_id == group_id,
+                    Expense.date >= start_date,
+                    Expense.date <= end_date
+                )
+            ).all()
         
         # Calculate totals and breakdowns
         total_expenses = 0
@@ -181,16 +197,20 @@ class BudgetAnalyticsService:
         category_details = defaultdict(lambda: {'total': 0, 'items': []})
         
         for expense in expenses:
-            # Get user's share of this expense
-            participant = ExpenseParticipant.query.filter_by(
-                expense_id=expense.id,
-                user_id=user_id
-            ).first()
-            
-            if not participant:
-                continue
-            
-            user_share = participant.amount_owed
+            if is_personal_tracker:
+                # Personal tracker: Get user's share of this expense
+                participant = ExpenseParticipant.query.filter_by(
+                    expense_id=expense.id,
+                    user_id=user_id
+                ).first()
+                
+                if not participant:
+                    continue
+                
+                user_share = participant.amount_owed
+            else:
+                # Group tracker: Use the full expense amount
+                user_share = expense.amount
             total_expenses += user_share
             
             # Classify expense
