@@ -26,7 +26,7 @@
     <div class="header-center">
         <nav class="header-nav">
             <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View All Expenses</a>
-            <a href="/group/{{ group.id }}/budgeting/analytics">💰 Budget Analytics</a>
+            <a href="{{ url_for('budgeting.analytics', group_id=group.id) }}">💰 Budget Analytics</a>
             <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage Users & Categories</a>
             <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
             <a href="{{ url_for('manage.settings', group_id=group.id) }}">⚙️ Settings</a>
