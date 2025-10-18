@@ -21,7 +21,12 @@ class BudgetChartManager {
         }
         
         this.updateExpensesPieChart();
-        this.updateAllocationsPieChart();
+        
+        // Only update allocations chart if it exists (personal trackers only)
+        const allocCanvas = document.getElementById('allocations-pie-chart');
+        if (allocCanvas) {
+            this.updateAllocationsPieChart();
+        }
     }
     
     clearDetailedBreakdown() {
@@ -158,6 +163,12 @@ class BudgetChartManager {
         
         const { income, allocations } = this.currentData;
         
+        // Safety check: if no income data (group trackers), skip
+        if (!income || !allocations) {
+            console.log('[CHART_MANAGER] No income/allocation data - skipping allocations chart');
+            return;
+        }
+        
         // Destroy existing chart
         if (this.allocationPieChart) {
             this.allocationPieChart.destroy();
@@ -290,8 +301,17 @@ class BudgetChartManager {
         const contentDiv = document.getElementById('category-detail-content');
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
-        
-        if (detailCard) detailCard.style.display = 'block';
+        const rightColumn = document.querySelector('.right-column');
+
+        if (detailCard) {
+            detailCard.style.display = 'block';
+            
+            // For personal trackers, move detail card into right column
+            if (rightColumn && !detailCard.parentElement.classList.contains('right-column')) {
+                rightColumn.insertBefore(detailCard, rightColumn.firstChild);
+            }
+        }
+
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = categoryName + ' (Expense)';
         
@@ -334,7 +354,17 @@ class BudgetChartManager {
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
         
-        if (detailCard) detailCard.style.display = 'block';
+        const rightColumn = document.querySelector('.right-column');
+
+        if (detailCard) {
+            detailCard.style.display = 'block';
+            
+            // For personal trackers, move detail card into right column
+            if (rightColumn && !detailCard.parentElement.classList.contains('right-column')) {
+                rightColumn.insertBefore(detailCard, rightColumn.firstChild);
+            }
+        }
+
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = bucketName;
         
@@ -398,7 +428,17 @@ class BudgetChartManager {
         const categoryNameEl = document.getElementById('selected-category-name');
         const subcategoryList = document.getElementById('subcategory-list');
         
-        if (detailCard) detailCard.style.display = 'block';
+        const rightColumn = document.querySelector('.right-column');
+
+        if (detailCard) {
+            detailCard.style.display = 'block';
+            
+            // For personal trackers, move detail card into right column
+            if (rightColumn && !detailCard.parentElement.classList.contains('right-column')) {
+                rightColumn.insertBefore(detailCard, rightColumn.firstChild);
+            }
+        }
+
         if (contentDiv) contentDiv.style.display = 'block';
         if (categoryNameEl) categoryNameEl.textContent = 'Not Allocated';
         

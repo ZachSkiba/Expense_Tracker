@@ -4,6 +4,9 @@
     <title>Budget Analytics - {{ group.name }}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/tracker/styles.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/budgeting/analytics.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/budgeting/analytics_two.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/budgeting/analytics_three.css') }}">
+
     <!-- Chart.js for pie charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -20,6 +23,7 @@
                 <a href="{{ url_for('expenses.group_expenses', group_id=group.id) }}">📊 View All Expenses</a>
                 <a href="{{ url_for('management.manage_data', group_id=group.id) }}">🛠️ Manage</a>
                 <a href="{{ url_for('dashboard.home') }}">⚓ Dashboard</a>
+                <a href="{{ url_for('manage.settings', group_id=group.id) }}">⚙️ Settings</a>
             </nav>
         </div>
 
@@ -72,7 +76,8 @@
     <div class="budget-dashboard">
         
         <!-- KPI Cards -->
-        <div class="kpi-section">
+        <div class="kpi-section" {% if not is_personal_tracker %}style="grid-template-columns: 1fr;"{% endif %}>
+            {% if is_personal_tracker %}
             <div class="kpi-card kpi-income">
                 <div class="kpi-icon">💰</div>
                 <div class="kpi-content">
@@ -81,6 +86,7 @@
                     <div class="kpi-change" id="kpi-income-change"></div>
                 </div>
             </div>
+            {% endif %}
 
             <div class="kpi-card kpi-spending">
                 <div class="kpi-icon">🏠</div>
@@ -91,6 +97,7 @@
                 </div>
             </div>
 
+            {% if is_personal_tracker %}
             <div class="kpi-card kpi-savings">
                 <div class="kpi-icon">💳</div>
                 <div class="kpi-content">
@@ -99,6 +106,7 @@
                     <div class="kpi-change" id="kpi-savings-change"></div>
                 </div>
             </div>
+            {% endif %}
         </div>
 
         <!-- Left Column: Expenses Pie Chart -->
@@ -114,6 +122,7 @@
                 </div>
             </div>
 
+            {% if is_personal_tracker %}
             <!-- Allocations Pie Chart -->
             <div class="card allocations-chart-card">
                 <h2>Income Allocations</h2>
@@ -123,14 +132,12 @@
                     <canvas id="allocations-pie-chart"></canvas>
                 </div>
             </div>
+            {% endif %}
 
         </div>
 
 
-        <!-- Right Column: Drill-Down & Recommendations -->
-        <div class="right-column">
-            
-            <!-- Category Drill-Down Section -->
+        <!-- Category Drill-Down Section -->
             <div class="card category-details-card" style="display: none;">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
                     <h2 style="margin: 0;">Detailed Breakdown</h2>
@@ -149,6 +156,10 @@
                     <div id="subcategory-list" class="subcategory-list"></div>
                 </div>
             </div>
+
+        <!-- Right Column: Drill-Down & Recommendations -->
+         {% if is_personal_tracker %}
+        <div class="right-column">
             
             <!-- 50/30/20 Spending Breakdown -->
             <div class="card breakdown-503020-card">
@@ -169,6 +180,7 @@
             </div>
 
         </div>
+        {% endif %}
 
     </div>
 
@@ -258,7 +270,8 @@
             currentMonth: "{{ current_month }}",
             selectedYear: "{{ selected_year }}",
             selectedMonths: "{{ selected_months | safe }}",
-            apiBaseUrl: "{{ url_for('budgeting.get_summary', group_id=group.id) }}".replace('/api/summary', '')
+            apiBaseUrl: "{{ url_for('budgeting.get_summary', group_id=group.id) }}".replace('/api/summary', ''),
+            isPersonalTracker: "{{ 'true' if is_personal_tracker else 'false' }}"
         };
     </script>
     <!-- Budget Analytics JavaScript - Load in order -->

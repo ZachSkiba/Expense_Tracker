@@ -10,6 +10,7 @@ class BudgetAnalytics {
         this.currentYear = parseInt(window.budgetData.currentYear);
         this.currentMonth = parseInt(window.budgetData.currentMonth);
         this.apiBaseUrl = window.budgetData.apiBaseUrl;
+        this.isPersonalTracker = window.budgetData.isPersonalTracker;
         
         // Initialize services
         this.dataService = new BudgetDataService(this.apiBaseUrl, this.groupId, this.userId);
@@ -32,8 +33,10 @@ class BudgetAnalytics {
         const filtersReady = await this.filterManager.initialize(this.currentYear, this.currentMonth);
         
         if (filtersReady) {
-            // Load budget preferences
-            await this.loadBudgetPreferences();
+            // Load budget preferences (only for personal trackers)
+            if (this.isPersonalTracker) {
+                await this.loadBudgetPreferences();
+            }
             // Load initial data
             await this.loadData();
         } else {
@@ -158,16 +161,22 @@ class BudgetAnalytics {
         this.updateKPIs();
         this.chartManager.setCurrentData(this.currentData);
         this.chartManager.updateAllCharts();
-        this.update503020Breakdown();
+        
+        // Only update 50/30/20 breakdown for personal trackers
+        if (this.isPersonalTracker) {
+            this.update503020Breakdown();
+        }
     }
     
     updateKPIs() {
         const { income, expenses, net_summary } = this.currentData;
         
-        // Total Income
-        const incomeEl = document.getElementById('kpi-income');
-        if (incomeEl) {
-            incomeEl.textContent = BudgetUIHelpers.formatCurrency(income.total);
+        // Total Income (only for personal trackers)
+        if (this.isPersonalTracker) {
+            const incomeEl = document.getElementById('kpi-income');
+            if (incomeEl) {
+                incomeEl.textContent = BudgetUIHelpers.formatCurrency(income.total || 0);
+            }
         }
         
         // Total Spending
@@ -176,26 +185,28 @@ class BudgetAnalytics {
             spendingEl.textContent = BudgetUIHelpers.formatCurrency(expenses.total);
         }
         
-        // Net Savings (Income - Expenses)
-        const savingsEl = document.getElementById('kpi-savings');
-        if (savingsEl) {
-            const netSavings = income.total - expenses.total;
-            savingsEl.textContent = BudgetUIHelpers.formatCurrency(netSavings);
-        }
-        
-        // Update savings change indicator
-        const savingsChangeEl = document.getElementById('kpi-savings-change');
-        if (savingsChangeEl && net_summary) {
-            const netSavings = income.total - expenses.total;
-            if (netSavings > 0) {
-                savingsChangeEl.textContent = `↑ ${BudgetUIHelpers.formatCurrency(netSavings)} saved`;
-                savingsChangeEl.className = 'kpi-change positive';
-            } else if (netSavings < 0) {
-                savingsChangeEl.textContent = `↓ ${BudgetUIHelpers.formatCurrency(Math.abs(netSavings))} overspent`;
-                savingsChangeEl.className = 'kpi-change negative';
-            } else {
-                savingsChangeEl.textContent = 'Break even';
-                savingsChangeEl.className = 'kpi-change';
+        // Net Savings (Income - Expenses) - only for personal trackers
+        if (this.isPersonalTracker) {
+            const savingsEl = document.getElementById('kpi-savings');
+            if (savingsEl) {
+                const netSavings = (income.total || 0) - expenses.total;
+                savingsEl.textContent = BudgetUIHelpers.formatCurrency(netSavings);
+            }
+            
+            // Update savings change indicator
+            const savingsChangeEl = document.getElementById('kpi-savings-change');
+            if (savingsChangeEl && net_summary) {
+                const netSavings = (income.total || 0) - expenses.total;
+                if (netSavings > 0) {
+                    savingsChangeEl.textContent = `↑ ${BudgetUIHelpers.formatCurrency(netSavings)} saved`;
+                    savingsChangeEl.className = 'kpi-change positive';
+                } else if (netSavings < 0) {
+                    savingsChangeEl.textContent = `↓ ${BudgetUIHelpers.formatCurrency(Math.abs(netSavings))} overspent`;
+                    savingsChangeEl.className = 'kpi-change negative';
+                } else {
+                    savingsChangeEl.textContent = 'Break even';
+                    savingsChangeEl.className = 'kpi-change';
+                }
             }
         }
     }
@@ -559,7 +570,11 @@ document.addEventListener('DOMContentLoaded', () => {
     console.log('[BUDGET_ANALYTICS] DOM ready, initializing...');
     window.budgetAnalytics = new BudgetAnalytics();
 
-    // Budget preferences modal handlers
+    // Budget preferences modal handlers (only for personal trackers)
+    if (!window.budgetData.isPersonalTracker) {
+        return; // Skip modal setup for group trackers
+    }
+    
     const editBudgetBtn = document.getElementById('edit-budget-btn');
     const modal = document.getElementById('budget-pref-modal');
     const closeModalBtn = document.getElementById('close-pref-modal');
