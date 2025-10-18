@@ -11,7 +11,7 @@ This service handles:
 - Snapshot generation for historical tracking
 """
 
-from models import db, Expense, ExpenseParticipant
+from models import db, Expense, ExpenseParticipant, Group
 from models.income_models import IncomeEntry, IncomeAllocation
 from models.budget_models import BudgetCategory, BudgetSnapshot
 from models.budget_helpers import (
@@ -61,17 +61,41 @@ class BudgetAnalyticsService:
             start_date, end_date = get_month_range(year, month)
             
             # Calculate all metrics
-            income_data = BudgetAnalyticsService._calculate_income_metrics(
-                group_id, user_id, start_date, end_date
-            )
-            
+            # Check if this is a personal tracker
+            group = Group.query.get(group_id)
+            is_personal_tracker = group.is_personal_tracker if group else False
+
+            # Calculate expense metrics (always available)
             expense_data = BudgetAnalyticsService._calculate_expense_metrics(
                 group_id, user_id, start_date, end_date
             )
-            
-            allocation_data = BudgetAnalyticsService._calculate_allocation_metrics(
-                group_id, user_id, start_date, end_date
-            )
+
+            # Calculate income metrics (only for personal trackers)
+            if is_personal_tracker:
+                income_data = BudgetAnalyticsService._calculate_income_metrics(
+                    group_id, user_id, start_date, end_date
+                )
+                
+                allocation_data = BudgetAnalyticsService._calculate_allocation_metrics(
+                    group_id, user_id, start_date, end_date
+                )
+            else:
+                # Return empty income/allocation data for group trackers
+                income_data = {
+                    'total': 0,
+                    'count': 0,
+                    'by_category': {},
+                    'entries': []
+                }
+                
+                allocation_data = {
+                    'total_allocated': 0,
+                    'by_category': {},
+                    'by_budget_type': {},
+                    'by_bucket': {'investments': 0, 'savings': 0, 'spending': 0},
+                    'allocation_details': {},
+                    'bucket_details': {'investments': {}, 'savings': {}, 'spending': {}}
+                }
             
             # Combine everything
             summary = {
@@ -290,8 +314,8 @@ class BudgetAnalyticsService:
     @staticmethod
     def _calculate_net_summary(income_data, expense_data):
         """Calculate net financial summary"""
-        total_income = income_data['total']
-        total_expenses = expense_data['total']
+        total_income = income_data.get('total', 0)
+        total_expenses = expense_data.get('total', 0)
         net_cashflow = total_income - total_expenses
         
         savings_rate = 0
@@ -300,7 +324,7 @@ class BudgetAnalyticsService:
         
         essential_ratio = 0
         if total_expenses > 0:
-            essential_ratio = (expense_data['essentials'] / total_expenses) * 100
+            essential_ratio = (expense_data.get('essentials', 0) / total_expenses) * 100
         
         return {
             'total_income': total_income,
@@ -308,7 +332,7 @@ class BudgetAnalyticsService:
             'net_cashflow': net_cashflow,
             'savings_rate': savings_rate,
             'essential_ratio': essential_ratio,
-            'discretionary_left': total_income - expense_data['essentials'] if total_income > 0 else 0
+            'discretionary_left': total_income - expense_data.get('essentials', 0) if total_income > 0 else 0
         }
     
     @staticmethod

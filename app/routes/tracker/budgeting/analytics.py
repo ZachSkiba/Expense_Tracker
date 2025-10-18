@@ -23,10 +23,9 @@ def analytics(group_id):
         flash('You are not a member of this group', 'error')
         return redirect(url_for('dashboard.home'))
     
-    # Only show budget analytics for personal trackers
-    if not group.is_personal_tracker:
-        flash('Budget analytics is only available for personal trackers', 'info')
-        return redirect(url_for('expenses.group_tracker', group_id=group_id))
+    # Budget analytics available for all groups
+    # Personal trackers: Full analytics with income
+    # Group trackers: Expense analytics only (no income features)
     
     # Get current date for default filters
     today = date.today()
@@ -54,7 +53,8 @@ def analytics(group_id):
         current_month=current_month,
         selected_year=selected_year,
         selected_months=selected_months_json,
-        user=current_user
+        user=current_user,
+        is_personal_tracker=group.is_personal_tracker
     )
 
 @budgeting_bp.route('/api/available-periods')
