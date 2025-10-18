@@ -9,7 +9,7 @@ from sqlalchemy import extract, func  # Add this
 from . import budgeting_bp
 from models import db
 
-@budgeting_bp.route('/analytics')
+@budgeting_bp.route('/<int:group_id>/budgeting/analytics')
 @login_required
 def analytics(group_id):
     """
@@ -57,7 +57,7 @@ def analytics(group_id):
         is_personal_tracker=group.is_personal_tracker
     )
 
-@budgeting_bp.route('/api/available-periods')
+@budgeting_bp.route('/<int:group_id>/budgeting/api/available-periods')
 @login_required
 def get_available_periods(group_id):
     """
