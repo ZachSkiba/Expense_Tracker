@@ -7,6 +7,7 @@ class BudgetChartManager {
         this.expensePieChart = null;
         this.allocationPieChart = null;
         this.drillDownChart = null;
+        this.timeSeriesChart = null;
         this.currentData = null;
     }
     
@@ -27,6 +28,190 @@ class BudgetChartManager {
         if (allocCanvas) {
             this.updateAllocationsPieChart();
         }
+    }
+
+    updateTimeSeriesChart(timeSeriesData) {
+        const canvas = document.getElementById('time-series-chart');
+        if (!canvas) return;
+        
+        // Destroy existing chart
+        if (this.timeSeriesChart) {
+            this.timeSeriesChart.destroy();
+            this.timeSeriesChart = null;
+        }
+        
+        const container = canvas.parentElement;
+        const { is_personal_tracker, data_points } = timeSeriesData;
+        
+        // Check if there's data
+        if (!data_points || data_points.length === 0) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let messageDiv = container.querySelector('.no-data-message');
+            if (!messageDiv) {
+                messageDiv = document.createElement('div');
+                messageDiv.className = 'no-data-message';
+                messageDiv.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: #a0aec0; font-style: italic;';
+                container.style.position = 'relative';
+                container.appendChild(messageDiv);
+            }
+            messageDiv.textContent = 'No data for selected period';
+            canvas.style.opacity = '0.3';
+            return;
+        }
+        
+        // Remove any "no data" message
+        const messageDiv = container.querySelector('.no-data-message');
+        if (messageDiv) {
+            messageDiv.remove();
+        }
+        canvas.style.opacity = '1';
+        
+        // Parse dates and create labels
+        const dates = data_points.map(dp => new Date(dp.date));
+        const labels = data_points.map(dp => dp.date); // Use ISO date strings for x-axis
+        
+        const datasets = [];
+        
+        // Always add total expenses
+        datasets.push({
+            label: 'Total Spending',
+            data: data_points.map(dp => dp.total_expenses),
+            borderColor: '#f56565',
+            backgroundColor: 'rgba(245, 101, 101, 0.1)',
+            tension: 0.4,
+            fill: true,
+            pointRadius: 0, // Hide individual points for smooth line
+            pointHoverRadius: 4,
+            borderWidth: 2
+        });
+        
+        // For personal trackers, add income and needs
+        if (is_personal_tracker) {
+            datasets.push({
+                label: 'Total Income',
+                data: data_points.map(dp => dp.total_income || 0),
+                borderColor: '#48bb78',
+                backgroundColor: 'rgba(72, 187, 120, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                borderWidth: 2
+            });
+            
+            datasets.push({
+                label: 'Needs (Essential)',
+                data: data_points.map(dp => dp.essential_expenses || 0),
+                borderColor: '#ed8936',
+                backgroundColor: 'rgba(237, 137, 54, 0.1)',
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0,
+                pointHoverRadius: 4,
+                borderWidth: 2
+            });
+        }
+        
+        // Create month boundaries for x-axis labels
+        const monthBoundaries = this.getMonthBoundaries(dates);
+        
+        // Create chart
+        const ctx = canvas.getContext('2d');
+        this.timeSeriesChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: datasets
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12
+                            },
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            title: (context) => {
+                                const date = new Date(context[0].label);
+                                return date.toLocaleDateString('en-US', { 
+                                    year: 'numeric', 
+                                    month: 'short', 
+                                    day: 'numeric' 
+                                });
+                            },
+                            label: (context) => {
+                                const label = context.dataset.label || '';
+                                const value = BudgetUIHelpers.formatCurrency(context.parsed.y);
+                                return `${label}: ${value}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '$' + value.toLocaleString();
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        type: 'time',
+                        time: {
+                            unit: 'month',
+                            displayFormats: {
+                                month: 'MMM yyyy'
+                            }
+                        },
+                        grid: {
+                            display: false
+                        },
+                        ticks: {
+                            autoSkip: true,
+                            maxTicksLimit: 12,
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
+                    }
+                }
+            }
+        });
+        
+        console.log('[CHART_MANAGER] Time series chart updated with', data_points.length, 'data points');
+    }
+
+    getMonthBoundaries(dates) {
+        // Helper function to get month start dates for labeling
+        const boundaries = [];
+        let lastMonth = null;
+        
+        dates.forEach(date => {
+            const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
+            if (monthKey !== lastMonth) {
+                boundaries.push(date);
+                lastMonth = monthKey;
+            }
+        });
+        
+        return boundaries;
     }
     
     clearDetailedBreakdown() {

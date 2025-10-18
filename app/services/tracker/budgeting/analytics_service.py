@@ -356,6 +356,167 @@ class BudgetAnalyticsService:
         }
     
     @staticmethod
+    def get_time_series_data(group_id, user_id, years, months):
+        """
+        Get time series data for visualization with daily data points.
+        
+        Args:
+            group_id: int - Group ID
+            user_id: int - User ID
+            years: list - List of years
+            months: list - List of months
+            
+        Returns:
+            dict: Time series data with daily granularity for smooth charts
+        """
+        try:
+            # Check if this is a personal tracker
+            group = Group.query.get(group_id)
+            is_personal_tracker = group.is_personal_tracker if group else False
+            
+            # Build list of all year-month combinations and get date range
+            from datetime import date as date_obj
+            from models.budget_helpers import get_month_range
+            
+            all_dates = []
+            for year in years:
+                for month in months:
+                    start_date, end_date = get_month_range(year, month)
+                    all_dates.append((start_date, end_date))
+            
+            if not all_dates:
+                return {
+                    'is_personal_tracker': is_personal_tracker,
+                    'data_points': []
+                }
+            
+            # Get overall date range
+            overall_start = min(d[0] for d in all_dates)
+            overall_end = max(d[1] for d in all_dates)
+            
+            # Get all expenses in the date range
+            if is_personal_tracker:
+                # Personal tracker: Only expenses where user participated
+                expenses = db.session.query(Expense).join(ExpenseParticipant).filter(
+                    and_(
+                        Expense.group_id == group_id,
+                        ExpenseParticipant.user_id == user_id,
+                        Expense.date >= overall_start,
+                        Expense.date <= overall_end
+                    )
+                ).order_by(Expense.date).all()
+            else:
+                # Group tracker: ALL expenses in the group
+                expenses = Expense.query.filter(
+                    and_(
+                        Expense.group_id == group_id,
+                        Expense.date >= overall_start,
+                        Expense.date <= overall_end
+                    )
+                ).order_by(Expense.date).all()
+            
+            # Get all income entries for personal trackers
+            income_entries = []
+            if is_personal_tracker:
+                from models.income_models import IncomeEntry
+                income_entries = IncomeEntry.query.filter(
+                    and_(
+                        IncomeEntry.group_id == group_id,
+                        IncomeEntry.user_id == user_id,
+                        IncomeEntry.date >= overall_start,
+                        IncomeEntry.date <= overall_end
+                    )
+                ).order_by(IncomeEntry.date).all()
+            
+            # Create running totals by date
+            data_by_date = {}
+            
+            # Process expenses
+            for expense in expenses:
+                date_key = expense.date.isoformat()
+                
+                if date_key not in data_by_date:
+                    data_by_date[date_key] = {
+                        'date': expense.date,
+                        'total_expenses': 0,
+                        'essential_expenses': 0,
+                        'total_income': 0
+                    }
+                
+                if is_personal_tracker:
+                    # Get user's share
+                    participant = ExpenseParticipant.query.filter_by(
+                        expense_id=expense.id,
+                        user_id=user_id
+                    ).first()
+                    
+                    if participant:
+                        user_share = participant.amount_owed
+                        data_by_date[date_key]['total_expenses'] += user_share
+                        
+                        # Check if essential
+                        budget_type = get_budget_type_for_expense(expense)
+                        if budget_type in ['essential', 'debt', 'emergency']:
+                            data_by_date[date_key]['essential_expenses'] += user_share
+                else:
+                    # Group tracker: Use full expense amount
+                    data_by_date[date_key]['total_expenses'] += expense.amount
+            
+            # Process income entries
+            for income in income_entries:
+                date_key = income.date.isoformat()
+                
+                if date_key not in data_by_date:
+                    data_by_date[date_key] = {
+                        'date': income.date,
+                        'total_expenses': 0,
+                        'essential_expenses': 0,
+                        'total_income': 0
+                    }
+                
+                data_by_date[date_key]['total_income'] += income.amount
+            
+            # Convert to sorted list of data points with cumulative totals
+            sorted_dates = sorted(data_by_date.keys())
+            
+            cumulative_expenses = 0
+            cumulative_income = 0
+            cumulative_essential = 0
+            
+            data_points = []
+            for date_key in sorted_dates:
+                data = data_by_date[date_key]
+                
+                cumulative_expenses += data['total_expenses']
+                cumulative_essential += data['essential_expenses']
+                cumulative_income += data['total_income']
+                
+                point = {
+                    'date': date_key,
+                    'total_expenses': cumulative_expenses,
+                    'essential_expenses': cumulative_essential,
+                }
+                
+                if is_personal_tracker:
+                    point['total_income'] = cumulative_income
+                
+                data_points.append(point)
+            
+            return {
+                'is_personal_tracker': is_personal_tracker,
+                'data_points': data_points
+            }
+            
+        except Exception as e:
+            logger.error(f"Error generating time series data: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'is_personal_tracker': False,
+                'data_points': []
+            }
+    
+    @staticmethod
     def get_spending_trends(group_id, user_id, months=6):
         """
         Get spending trends over the last N months.

@@ -9,6 +9,7 @@
 
     <!-- Chart.js for pie charts -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
     <!-- Header -->
@@ -107,6 +108,14 @@
                 </div>
             </div>
             {% endif %}
+        </div>
+
+        <!-- Time Series Chart - Full Width -->
+        <div class="time-series-card card">
+            <h2>Spending Trends Over Time</h2>
+            <div class="time-series-container">
+                <canvas id="time-series-chart"></canvas>
+            </div>
         </div>
 
         <!-- Left Column: Expenses Pie Chart -->

@@ -86,6 +86,9 @@ class BudgetAnalytics {
                 console.log('[BUDGET_ANALYTICS] Expenses by_budget_type:', JSON.stringify(this.currentData.expenses.by_budget_type, null, 2));
                 console.log('[BUDGET_ANALYTICS] =========================');
                 this.updateUI();
+                
+                // Load time series data
+                await this.loadTimeSeriesData(years, months);
             } else {
                 throw new Error(result.error || 'Failed to load data');
             }
@@ -95,6 +98,23 @@ class BudgetAnalytics {
             BudgetUIHelpers.showError('Failed to load budget data: ' + error.message);
         } finally {
             BudgetUIHelpers.showLoading(false);
+        }
+    }
+
+    async loadTimeSeriesData(years, months) {
+        try {
+            console.log('[BUDGET_ANALYTICS] Loading time series data...');
+            
+            const result = await this.dataService.fetchTimeSeries(years, months);
+            
+            if (result.success) {
+                console.log('[BUDGET_ANALYTICS] Time series data loaded:', result.data);
+                this.chartManager.updateTimeSeriesChart(result.data);
+            } else {
+                console.error('[BUDGET_ANALYTICS] Failed to load time series:', result.error);
+            }
+        } catch (error) {
+            console.error('[BUDGET_ANALYTICS] Error loading time series:', error);
         }
     }
 

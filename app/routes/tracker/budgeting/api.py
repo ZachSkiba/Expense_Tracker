@@ -69,6 +69,58 @@ def get_summary(group_id):
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+    
+@budgeting_bp.route('/<int:group_id>/budgeting/api/time-series')
+@login_required
+def get_time_series(group_id):
+    """
+    Get time series data for chart visualization.
+    Query params: years, months (comma-separated)
+    """
+    group = Group.query.get_or_404(group_id)
+    
+    # Check access
+    if current_user not in group.members:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get parameters
+    years_param = request.args.get('years', str(date.today().year))
+    months_param = request.args.get('months', str(date.today().month))
+    
+    # Parse years and months
+    try:
+        if years_param:
+            years = [int(y) for y in years_param.split(',')]
+        else:
+            years = [date.today().year]
+            
+        if months_param:
+            months = [int(m) for m in months_param.split(',')]
+        else:
+            months = [date.today().month]
+    except ValueError:
+        return jsonify({'error': 'Invalid years or months parameter'}), 400
+    
+    try:
+        # Get time series data
+        time_series = BudgetAnalyticsService.get_time_series_data(
+            group_id, current_user.id, years, months
+        )
+        
+        return jsonify({
+            'success': True,
+            'data': time_series,
+            'period': {
+                'years': years,
+                'months': months
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting time series data: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @budgeting_bp.route('/<int:group_id>/budgeting/api/category-breakdown')

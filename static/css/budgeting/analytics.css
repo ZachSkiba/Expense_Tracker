@@ -10,7 +10,7 @@
 .budget-dashboard {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto 1fr;
+    grid-template-rows: auto auto 1fr; /* Changed: added auto for time series row */
     gap: 16px;
     padding: 10px 20px 20px 20px;
     max-width: 1800px;
@@ -487,13 +487,20 @@
     grid-template-columns: 1fr 1fr; /* Two equal columns */
 }
 
-/* Left column stays on the left in group trackers */
+/* Time series spans full width and stays at top for group trackers */
+.budget-dashboard:not(:has(.right-column)) .time-series-card {
+    grid-column: 1 / -1;
+    grid-row: 2; /* After KPIs */
+}
+
+/* Left column (expenses chart) in group trackers */
 .budget-dashboard:not(:has(.right-column)) .left-column {
     grid-column: 1;
+    grid-row: 3; /* After time series */
 }
 
 /* Detail card goes to the right column in group trackers */
 .budget-dashboard:not(:has(.right-column)) .category-details-card {
     grid-column: 2;
-    grid-row: 2;
+    grid-row: 3; /* Same row as left column */
 }

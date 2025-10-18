@@ -59,6 +59,32 @@ class BudgetDataService {
             return { success: false, error: error.message };
         }
     }
+
+    async fetchTimeSeries(years, months) {
+        try {
+            const yearsParam = years.join(',');
+            const monthsParam = months.join(',');
+            const url = `${this.apiBaseUrl}/api/time-series?years=${yearsParam}&months=${monthsParam}`;
+            
+            console.log('[DATA_SERVICE] Fetching time series from:', url);
+            
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                return { success: true, data: result.data };
+            }
+            
+            throw new Error(result.error || 'Failed to load time series data');
+        } catch (error) {
+            console.error('[DATA_SERVICE] Error fetching time series:', error);
+            return { success: false, error: error.message };
+        }
+    }
     
     async fetchRecommendations(year, month) {
         try {
